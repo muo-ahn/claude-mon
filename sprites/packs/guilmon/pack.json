@@ -1,0 +1,11 @@
+{
+  "name": "길몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "기기몬",
+    "child": "길몬",
+    "adult": "그라우몬",
+    "perfect": "메가로그라우몬",
+    "ultimate": "듀크몬"
+  }
+}

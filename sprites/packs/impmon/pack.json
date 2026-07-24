@@ -1,0 +1,11 @@
+{
+  "name": "임프몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "야몬",
+    "child": "임프몬",
+    "adult": "데블몬",
+    "perfect": "스컬사탄몬",
+    "ultimate": "베르제브몬"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "아구몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "코로몬",
+    "child": "아구몬",
+    "adult": "그레이몬",
+    "perfect": "메탈그레이몬",
+    "ultimate": "워그레이몬"
+  }
+}

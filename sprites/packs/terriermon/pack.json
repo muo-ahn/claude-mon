@@ -1,0 +1,11 @@
+{
+  "name": "테리어몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "구미몬",
+    "child": "테리어몬",
+    "adult": "가르고몬",
+    "perfect": "라피드몬",
+    "ultimate": "세인트가르고몬"
+  }
+}

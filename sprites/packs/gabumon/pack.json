@@ -1,0 +1,11 @@
+{
+  "name": "파피몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "뿔몬",
+    "child": "파피몬",
+    "adult": "가루몬",
+    "perfect": "워가루몬",
+    "ultimate": "메탈가루몬"
+  }
+}

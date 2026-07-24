@@ -106,6 +106,22 @@ func labelForMon(_ mon: String) -> String {
     return monLabels[mon] ?? mon
 }
 
+// Evolution-line names from <pack>/pack.json ("stageNames": {stageId: name}).
+// The mascot's DISPLAYED name follows its current stage (아구몬 → 그레이몬 →
+// 워그레이몬), not just the pack's rookie name. Missing/invalid pack.json
+// degrades to the static per-mon label.
+func stageNames(forPack pack: String) -> [String: String] {
+    guard let data = FileManager.default.contents(atPath: pack + "/pack.json"),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let names = json["stageNames"] as? [String: String]
+    else { return [:] }
+    return names
+}
+
+func evolvedName(pack: String, mon: String, stageId: String) -> String {
+    return stageNames(forPack: pack)[stageId] ?? labelForMon(mon)
+}
+
 // MARK: - Usage limit display + behavior overrides
 //
 // Reads <cwd>/.omc/state/hud-stdin-cache.json, which the OMC HUD writes on
@@ -418,6 +434,7 @@ func dumpState() {
 
     print("mon: \(resolved.mon)")
     print("pack: \(resolved.path)")
+    print("name: \(evolvedName(pack: resolved.path, mon: resolved.mon, stageId: daily.stageId))")
     print("dailyStage: \(daily.stageId)")
     print("dailyOutputTokens: \(daily.outputTokens)")
     print("workingSessionCount: \(workingCount)")
@@ -459,6 +476,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentLimitLevel: String? = nil
     var rateLimitMenuLines: [String] = []
     var animationPaused = false
+    var evolutionTimer: Timer? = nil
 
     // Focused-session info: purely informational (one line in the menu),
     // resolved the same way as before via active-session.sh. Does not
@@ -573,6 +591,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func advanceFrame() {
         guard !currentFrames.isEmpty else { return }
+        // Evolution burst owns the button image while it runs.
+        if evolutionTimer != nil { return }
         if animationPaused {
             // Pin to frame 0 so "all sessions idle" reads as "stopped", not
             // just paused mid-animation.
@@ -638,9 +658,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func refreshState() {
         // Daily global stage — independent of whichever session is focused.
         let daily = readDailyState()
+        let previousStageId = currentStageId
+        let previousMon = currentMon
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
         switchMonIfNeeded(daily.mon)
+
+        // Evolution burst: same mon moved UP a stage -> flash old/new forms
+        // for a few seconds, classic digivolve style. Mon switches (daily
+        // rollover back to the egg) and downgrades don't get one.
+        if currentMon == previousMon,
+           let oldIdx = stageIds.firstIndex(of: previousStageId),
+           let newIdx = stageIds.firstIndex(of: daily.stageId),
+           newIdx > oldIdx,
+           let oldFrames = stageFrames[previousStageId],
+           let newFrames = stageFrames[daily.stageId] {
+            startEvolutionBurst(from: oldFrames, to: newFrames)
+        }
 
         // Global "is anything working" OR across all registered sessions.
         let sessions = scanSessions(dir: sessionsDir)
@@ -653,6 +687,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         applyFrameSet()
         rebuildMenu()
+    }
+
+    // Digivolve flash: rapidly alternates the old and new form for ~4s on a
+    // dedicated fast timer, overriding the normal 0.8s animation (and the
+    // pause state — evolution is worth waking up for). Cleans up after
+    // itself; a second evolution during the burst just restarts it.
+    func startEvolutionBurst(from oldFrames: [NSImage], to newFrames: [NSImage]) {
+        evolutionTimer?.invalidate()
+        var tick = 0
+        let totalTicks = 28 // 28 * 0.14s ≈ 4s
+        evolutionTimer = Timer.scheduledTimer(withTimeInterval: 0.14, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
+            tick += 1
+            if tick >= totalTicks {
+                timer.invalidate()
+                self.evolutionTimer = nil
+                self.currentFrameSetKey = "" // force applyFrameSet to resettle
+                self.applyFrameSet()
+                self.advanceFrame()
+                return
+            }
+            let source = (tick % 2 == 0) ? oldFrames : newFrames
+            self.statusItem.button?.image = source[(tick / 2) % source.count]
+        }
     }
 
     // Recomputes currentFrames from (currentStageId, currentLimitLevel).
@@ -717,8 +775,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         let dailyLabel = stageLabels[currentStageId] ?? currentStageId
-        let monLabel = labelForMon(currentMon.isEmpty ? defaultMon : currentMon)
-        menu.addItem(withTitle: "\(monLabel) · \(dailyLabel) · 오늘 \(formatTokenCount(dailyOutputTokens)) tok", action: nil, keyEquivalent: "")
+        let mon = currentMon.isEmpty ? defaultMon : currentMon
+        let name = currentPackPath.isEmpty
+            ? labelForMon(mon)
+            : evolvedName(pack: currentPackPath, mon: mon, stageId: currentStageId)
+        menu.addItem(withTitle: "\(name) · \(dailyLabel) · 오늘 \(formatTokenCount(dailyOutputTokens)) tok", action: nil, keyEquivalent: "")
 
         let statusLine = workingSessionCount > 0 ? "작업 중 세션 \(workingSessionCount)개" : "모든 세션 대기 중"
         menu.addItem(withTitle: statusLine, action: nil, keyEquivalent: "")
