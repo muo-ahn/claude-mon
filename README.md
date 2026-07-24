@@ -106,7 +106,16 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 node daily-tokens.js
 ```
 
-- 소스: `~/.claude/projects/*/*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 각 줄의 최상위 `timestamp`(ISO, UTC)와 `message.usage.output_tokens`(assistant 항목)를 본다. 파싱 실패 줄은 조용히 skip.
+- 소스: `~/.claude/projects/*/*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 각 줄은 JSON 오브젝트 하나이며, 다음 필드를 읽는다(그 외 필드는 무시, 파싱 실패 줄은 조용히 skip):
+  - 최상위 `timestamp` (ISO 8601, UTC)
+  - `message.role === "assistant"` 인 줄만 대상
+  - `message.usage.output_tokens` (숫자)
+  - dedupe 키로 `message.id`(없으면 최상위 `uuid`)
+
+  실제 Claude Code가 쓰는 줄과 같은 구조이며, 최소 형태는 다음과 같다:
+  ```json
+  {"timestamp":"2026-07-24T01:40:00.000Z","message":{"role":"assistant","id":"msg_abc","usage":{"output_tokens":5000}}}
+  ```
 - KST(UTC+9) 기준 **오늘 0시 이후** timestamp인 assistant 항목만 합산한다.
 - 같은 `message.id`가 여러 줄에 중복 등장할 수 있어(스트리밍/재기록) id별로 dedupe하고 그중 최댓값만 더한다.
 - **증분 스캔**: 매 실행마다 전체 파일을 재파싱하지 않는다. `$CLAUDEMON_DIR/token-scan-cache.json`에 파일별 `{ offset, contribution, mtimeMs }`를 저장해 다음 실행에서 새로 추가된 바이트만 읽는다. `mtime`이 오늘 KST 0시 이전인 파일은 아예 열지 않고 skip.
