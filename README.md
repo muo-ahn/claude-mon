@@ -2,7 +2,7 @@
 
 > **도트 이미지는 이 레포에 포함되지 않는다.** 스프라이트는 각자 준비해서 `sprites/packs/`에 넣는다 — 아래 [스프라이트 팩](#스프라이트-팩-spritespacks) 참고.
 
-디지몬풍 진화 시스템을 가진 Claude Code statusline 마스코트.
+그날 사용한 토큰량에 따라 성장·진화하는 Claude Code 마스코트. statusline과 macOS 메뉴바 앱 두 곳에서 렌더링된다. 스프라이트는 팩(pack) 단위로 교체·확장할 수 있다.
 
 ## 설치
 
@@ -37,9 +37,11 @@
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
-메뉴바 마스코트의 진화 단계는 **그날(KST, 자정 리셋) 소모한 output 토큰 총량**으로만 결정된다. 세션/전역 tool-success 카운터(`hook.js`, `lib/state.js`)는 여전히 `working` 플래그 등 행동 상태 용도로 유지되지만 더 이상 진화 단계에 영향을 주지 않는다.
+진화 단계는 **그날(KST, 자정 리셋) 소모한 output 토큰 총량**으로만 결정된다. 세션/전역 tool-success 카운터(`hook.js`, `lib/state.js`)는 여전히 `working` 플래그 등 행동 상태 용도로 유지되지만 더 이상 진화 단계에 영향을 주지 않는다.
 
-| 단계 | 조건 (`dailyOutputTokens`) |
+단계는 6개(`digitama` → `baby` → `child` → `adult` → `perfect` → `ultimate`)이며, 스프라이트 파일명도 이 stage id를 그대로 쓴다.
+
+| 단계 전이 | 조건 (`dailyOutputTokens`) |
 |---|---|
 | digitama → baby | 오늘 output 토큰 ≥ 1 |
 | baby → child | 오늘 output 토큰 ≥ 30,000 |
@@ -70,37 +72,69 @@ node daily-tokens.js
 
 ## 스프라이트 팩 (`sprites/packs/`)
 
-**레포에는 도트 이미지가 들어있지 않다.** 저작권 문제로 스프라이트 PNG는 커밋하지 않으며(`.gitignore`로 차단), 각자 원하는 도트를 준비해서 로컬에 넣는다 — 자작 픽셀아트, 라이선스가 확보된 에셋 등 무엇이든 파일명 계약만 지키면 된다.
+**레포에는 도트 이미지가 들어있지 않다.** 스프라이트 PNG는 커밋하지 않으며(`.gitignore`가 `*.png`/`*.gif`를 차단), 각자 원하는 도트를 준비해서 로컬에 넣는다 — 자작 픽셀아트든 라이선스를 확보한 에셋이든, 아래 규격만 맞추면 된다. 리포지토리에는 규격 정의(`pack.json`)와 추출 스크립트 예시(`scripts/`)만 포함된다.
 
-메뉴바 마스코트는 팩 단위로 스프라이트를 묶는다. 각 팩은 `sprites/packs/<팩이름>/` 아래에 아래 파일명 계약을 지켜야 한다(모두 32x32 RGBA PNG):
+마스코트는 팩(pack) 단위로 스프라이트를 묶는다. 팩 하나는 `sprites/packs/<팩이름>/` 디렉터리이고, `<팩이름>`이 곧 팩의 식별자(예: `daily.json`의 `mon` 값)가 된다. 폴더 이름은 소문자 영문·숫자·하이픈을 권장한다.
 
+### 이미지 규격
+
+| 항목 | 값 |
+|---|---|
+| 포맷 | PNG (RGBA, 투명 배경) |
+| 권장 크기 | 32×32 px (메뉴바에서 16pt = retina 1:1로 표시) |
+| 프레임 명명 | `<prefix>-0.png`, `<prefix>-1.png`, … 0부터 연속 번호 |
+| 프레임 수 | prefix당 최소 1장. 여러 장을 넣으면 애니메이션으로 순환 재생된다 |
+
+- 크기는 32×32가 아니어도 로드되지만, 표시 시 16pt 정사각형으로 스케일되므로 **정사각형 도트**가 아니면 찌그러진다. 픽셀이 선명하려면 32×32(또는 16의 배수)를 권장한다.
+- 각 prefix는 `-0`부터 시작해 번호가 끊기는 지점까지 읽는다. 예를 들어 `idle-0.png`, `idle-1.png`, `idle-2.png`가 있으면 3프레임 애니메이션, `idle-0.png` 하나만 있으면 정지 이미지다.
+
+### 프레임 세트(prefix) 목록
+
+| prefix | 용도 | 필수 여부 |
+|---|---|---|
+| `idle` | 대기(작업 안 하는 중) 기본 프레임 | **필수** — 팩 로드/전환의 최소 조건 |
+| `digitama` | 진화 1단계(알). 로테이션 후보 등록 조건 | **필수(로테이션용)** |
+| `baby` / `child` / `adult` / `perfect` / `ultimate` | 진화 2~6단계 | 권장 |
+| `limit80` | 사용량 80% 이상일 때 오버라이드(지친 모습) | 선택 |
+| `limit95` | 사용량 95% 이상일 때 오버라이드(뻗은 모습) | 선택 |
+
+- **두 개의 필수 조건이 다르다:**
+  - `digitama-0.png`가 있어야 [매일 랜덤 선택](#매일-랜덤-몬-선택-libdailyjs)의 **로테이션 후보**로 등록된다 (`lib/daily.js`).
+  - `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). 팩을 만들 땐 두 파일을 함께 넣는 게 안전하다.
+- 진화 단계 프레임(`baby`…`ultimate`)이 비어 있으면 해당 단계에서 자동으로 `idle` 프레임으로 폴백한다. `limit80`/`limit95`가 없으면 사용량이 높아도 현재 단계 프레임을 그대로 쓴다.
+
+### 팩 메타데이터 (`pack.json`, 선택)
+
+팩 디렉터리에 `pack.json`을 두면 메뉴바에 표시할 이름과 단계별 이름을 지정할 수 있다. 없으면 폴더 이름을 그대로 표시한다.
+
+```json
+{
+  "name": "표시이름",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "...",
+    "child": "...",
+    "adult": "...",
+    "perfect": "...",
+    "ultimate": "..."
+  }
+}
 ```
-digitama-0.png, digitama-1.png
-baby-0.png,     baby-1.png
-child-0.png,    child-1.png
-adult-0.png,    adult-1.png
-perfect-0.png,  perfect-1.png
-ultimate-0.png, ultimate-1.png
-limit80-0.png,  limit80-1.png
-limit95-0.png,  limit95-1.png
-idle-0.png,     idle-1.png
-```
-
-- `digitama-0.png`가 존재하는 디렉터리만 "유효 팩"으로 인식된다. 나머지 파일이 일부 빠져도 스캔 자체는 통과하지만, 해당 프레임을 쓰는 화면에서는 표시가 깨질 수 있으니 전체 세트를 채우는 걸 권장한다.
-- 팩 디렉터리에 `pack.json`을 두면 표시 이름과 단계별 진화 계보 이름을 지정할 수 있다(레포에 포함된 `sprites/packs/*/pack.json` 참고).
-- 갖고 있는 스프라이트 시트에서 프레임을 잘라낼 때는 `scripts/extract_pack_*.py`를 참고용 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환하는 스크립트).
 
 ### 매일 랜덤 몬 선택 (`lib/daily.js`)
 
-- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(디렉터리명 정렬)을 스캔하고, `dateKST` 문자열의 단순 해시(`hashString` — 문자코드 누적, `Math.random` 미사용) 를 유효 팩 개수로 나눈 나머지로 오늘의 팩을 고른다.
+- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`digitama-0.png` 보유 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 단순 해시(`hashString` — 문자코드 누적, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
 - 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. 날짜가 바뀌면 다시 해시로 재계산한다.
-- 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다.
+- 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
 
-### 커스텀 팩 추가
+### 새 팩 등록하기
 
-1. `sprites/packs/<새팩이름>/`을 만들고 위 파일명 계약대로 9종 × 2프레임 PNG를 채운다.
-2. `digitama-0.png`만 있으면 스캔 대상에 포함되므로, 최소한 그 파일부터 넣고 나머지를 채워나가도 된다.
-3. 별도 등록 절차는 없다 — 다음 `daily-tokens.js` 실행부터 자동으로 로테이션 후보에 들어간다.
+1. `sprites/packs/<새팩이름>/` 디렉터리를 만든다.
+2. 최소 `idle-0.png`와 `digitama-0.png`를 넣는다 — 이 둘만 있어도 로테이션 후보 + 전환이 동작한다. 이후 나머지 단계·프레임을 채워나가면 된다.
+3. (선택) 표시 이름을 바꾸고 싶으면 `pack.json`을 추가한다.
+4. 별도 등록 명령은 없다 — 다음 `daily-tokens.js` 실행(메뉴바 앱이 ~30초 주기로 호출)부터 자동으로 후보에 들어간다.
+
+> 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
 
 ## working 플래그
 
@@ -143,6 +177,6 @@ rm ~/.claude/claudemon/daily.json ~/.claude/claudemon/token-scan-cache.json
 
 ## 알려진 제한
 
-- pixel-sprite 아님, 텍스트/이모지 기반 (실사용 시 `claude-code-mascot-statusline`처럼 진짜 픽셀아트로 교체 권장)
-- consecutiveDaysActive 로직은 자정 기준 단순 비교라 타임존 이슈 있을 수 있음
-- 궁극체(prMergedCount) 마일스톤은 아직 git/PR 연동 안 됨 — 수동으로 `hook.js pr-merged` 호출 필요
+- 프로토타입 단계다. 메뉴바 앱(`menubar/`)은 macOS 전용이며 직접 빌드해야 한다.
+- 진화는 output 토큰 총량 기준이라, 실제 코드 산출량이 아니라 대화가 길어져도 단계가 오른다.
+- `limit80`/`limit95` 오버라이드는 statusline HUD의 사용량 캐시에 의존하므로, 해당 데이터가 없으면 동작하지 않는다.
