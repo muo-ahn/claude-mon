@@ -5,8 +5,10 @@ menubar/claudemon-menubar
 .omc/
 .omx/
 .playwright-mcp/
+
+# 도트 이미지는 커밋하지 않는다 — 각자 준비 (README '스프라이트 팩' 참고)
 *.png
-!sprites/**/*.png
+*.gif
 
 # macOS
 .DS_Store

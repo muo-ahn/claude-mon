@@ -1,8 +1,6 @@
 # ClaudeMon (프로토타입)
 
-> **레포 소유: 개인 계정 `muo-ahn`** (https://github.com/muo-ahn/claude-mon, private)
-> 회사 계정(`muo-saladlab`)으로 push/이관 금지. gh 활성 계정 확인: `gh auth status`
-> private 유지 필수 — `sprites/`의 길몬 도트는 반다이 IP 에셋(개인 사용 한정, 공개 배포 불가)
+> **도트 이미지는 이 레포에 포함되지 않는다.** 스프라이트는 각자 준비해서 `sprites/packs/`에 넣는다 — 아래 [스프라이트 팩](#스프라이트-팩-spritespacks) 참고.
 
 디지몬풍 진화 시스템을 가진 Claude Code statusline 마스코트.
 
@@ -72,6 +70,8 @@ node daily-tokens.js
 
 ## 스프라이트 팩 (`sprites/packs/`)
 
+**레포에는 도트 이미지가 들어있지 않다.** 저작권 문제로 스프라이트 PNG는 커밋하지 않으며(`.gitignore`로 차단), 각자 원하는 도트를 준비해서 로컬에 넣는다 — 자작 픽셀아트, 라이선스가 확보된 에셋 등 무엇이든 파일명 계약만 지키면 된다.
+
 메뉴바 마스코트는 팩 단위로 스프라이트를 묶는다. 각 팩은 `sprites/packs/<팩이름>/` 아래에 아래 파일명 계약을 지켜야 한다(모두 32x32 RGBA PNG):
 
 ```
@@ -87,7 +87,8 @@ idle-0.png,     idle-1.png
 ```
 
 - `digitama-0.png`가 존재하는 디렉터리만 "유효 팩"으로 인식된다. 나머지 파일이 일부 빠져도 스캔 자체는 통과하지만, 해당 프레임을 쓰는 화면에서는 표시가 깨질 수 있으니 전체 세트를 채우는 걸 권장한다.
-- 기본 제공 팩: `sprites/packs/guilmon/` (반다이 길몬 도트 — 개인 사용 한정, 배포 금지. 위 라이선스 경고 참고).
+- 팩 디렉터리에 `pack.json`을 두면 표시 이름과 단계별 진화 계보 이름을 지정할 수 있다(레포에 포함된 `sprites/packs/*/pack.json` 참고).
+- 갖고 있는 스프라이트 시트에서 프레임을 잘라낼 때는 `scripts/extract_pack_*.py`를 참고용 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환하는 스크립트).
 
 ### 매일 랜덤 몬 선택 (`lib/daily.js`)
 
