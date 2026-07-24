@@ -1,62 +1,66 @@
 #!/usr/bin/env python3
-"""Extract menubar-sized stage sprites from the Guilmon Battle Spirit 1.5 sheet.
+"""Extract menubar-sized stage sprites from the Impmon Battle Spirit sheet.
 
-Source sheet: sprites/guilmon15.png (1201x1918 RGB, uniform purple background).
-For each evolution stage this picks two (or more) frames from a specific
-motion row on the sheet, tight-crops them to their sprite content, makes the
-background transparent, and places them bottom-center on a 32x32 RGBA canvas.
-Frames larger than 32px in either dimension are downscaled with NEAREST to
-preserve the hard pixel-art edges.
+Source sheet: sprites/sheets/impmon.gif (964x1950 GIF-palette, uniform pure
+green background). The sheet contains three palette-swapped copies of
+Rookie-stage Impmon only (labeled rows: idle, walking, walking plus, jump,
+land, fall, jump2, HAHA!, defend, shot1, shot2, shot miss, in-air variants,
+hit, hit2, on fire, shocked, win, lose) -- no Beelzemon digivolve frames are
+present anywhere on the sheet. perfect/ultimate therefore fall back to
+Impmon's strongest special-move poses (Shot1 fireball charge / release and
+Shot2 cape slash) per the pack fallback convention. All windows below are
+taken from the first (vivid blue "real color") copy in the top-left corner.
 
-Usage: python3 scripts/extract-sprites.py
+Usage: python3 scripts/extract_pack_impmon.py
 """
 
 from PIL import Image
 
-SHEET_PATH = "sprites/guilmon15.png"
-OUT_DIR = "sprites/packs/guilmon"
+SHEET_PATH = "sprites/sheets/impmon.gif"
+OUT_DIR = "sprites/packs/impmon"
 CANVAS_SIZE = 32
-BG_COLOR = (111, 49, 152)
+BG_COLOR = (0, 128, 0)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
 STAGE_WINDOWS = {
     "digitama": [
-        (42, 66, 427, 456),   # Gaurd row, frame 2 (compact crouch)
-        (73, 98, 427, 456),   # Gaurd row, frame 3 (compact crouch, arms up)
+        (103, 136, 404, 437),  # Defend row, frame 1: calm guard stance
+        (336, 370, 412, 442),  # Defend row, frame 4: standing, arms out guard
     ],
     "baby": [
-        (8, 36, 10, 40),      # Idle row, frame 1
-        (45, 73, 10, 40),     # Idle row, frame 2
+        (17, 49, 10, 42),  # idle row, frame 1
+        (48, 80, 9, 42),   # idle row, frame 2
     ],
     "child": [
-        (11, 35, 291, 322),   # Walking row, frame 1
-        (69, 93, 291, 322),   # Walking row, frame 3
+        (26, 64, 122, 160),  # Walking row, frame 1
+        (64, 101, 122, 160),  # Walking row, frame 2
     ],
     "adult": [
-        (5, 34, 337, 365),    # Running row, frame 1
-        (76, 104, 337, 365),  # Running row, frame 3
+        (194, 234, 134, 168),  # Walking Plus row, frame 1 (energetic stride)
+        (235, 275, 135, 168),  # Walking Plus row, frame 2
     ],
     "perfect": [
-        (70, 96, 470, 508),    # Power Up row, frame 3 (big roar, arms up)
-        (104, 131, 470, 508),  # Power Up row, frame 4 (bulked stance)
+        (478, 513, 0, 42),   # Shot1 row 1: medium fireball charging in hand
+        (510, 547, 0, 42),   # Shot1 row 1: large fireball, ready to throw
     ],
     "ultimate": [
-        (7, 47, 540, 583),    # Rock Breaker (Powered Up) row, frame 1 (flame trail)
-        (52, 90, 540, 583),   # Rock Breaker (Powered Up) row, frame 2 (flame trail)
+        (320, 355, 38, 82),    # Shot1 row 2: fireball release, motion trail
+        (320, 355, 220, 255),  # Shot2 swing row: big cape-slash motion blur
     ],
 }
 
 # Rate-limit warning states for the menubar mascot. Output as
-# sprites/packs/guilmon/{id}-{n}.png (same 32x32 RGBA convention as STAGE_WINDOWS).
+# sprites/packs/impmon/{id}-{n}.png (same 32x32 RGBA convention as
+# STAGE_WINDOWS).
 ALERT_WINDOWS = {
     "limit80": [
-        (69, 92, 700, 747),    # Hit row, frame 3: reeling back, sweat drop, panting
-        (126, 150, 700, 747),  # Hit row, frame 5: reeling back, two sweat drops
+        (191, 229, 410, 442),  # Hit row: shocked impact, motion lines
+        (231, 264, 409, 442),  # Hit row: recoil, arms flung up
     ],
     "limit95": [
-        (413, 453, 1633, 1663),  # Win row lie-down loop, frame 1: flat on ground, small breath bubble
-        (586, 627, 1633, 1663),  # Win row lie-down loop, frame 5: flat on ground, breath bubble at its largest
+        (834, 866, 552, 577),  # Hit2 row: knocked down, lying on ground
+        (879, 910, 554, 577),  # Hit2 row: knocked down, second lying frame
     ],
 }
 
@@ -126,6 +130,12 @@ def main():
             out_path = f"{OUT_DIR}/{stage_id}-{n}.png"
             canvas.save(out_path)
             print(f"wrote {out_path} (source {maxx - minx + 1}x{maxy - miny + 1})")
+
+    # idle is a straight copy of baby (contract requires both filenames).
+    for n in range(2):
+        src = Image.open(f"{OUT_DIR}/baby-{n}.png")
+        src.save(f"{OUT_DIR}/idle-{n}.png")
+        print(f"wrote {OUT_DIR}/idle-{n}.png (copy of baby-{n})")
 
     if scaled_stages:
         print(f"downscaled to fit 32x32: {', '.join(scaled_stages)}")

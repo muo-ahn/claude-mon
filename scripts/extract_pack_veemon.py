@@ -1,62 +1,65 @@
 #!/usr/bin/env python3
-"""Extract menubar-sized stage sprites from the Guilmon Battle Spirit 1.5 sheet.
+"""Extract a 32x32 sprite pack for Veemon from the GBA Digimon Battle
+Spirit character sheet (sprites/sheets/veemon.png, 356x1075 RGB, light
+blue uniform background).
 
-Source sheet: sprites/guilmon15.png (1201x1918 RGB, uniform purple background).
-For each evolution stage this picks two (or more) frames from a specific
-motion row on the sheet, tight-crops them to their sprite content, makes the
-background transparent, and places them bottom-center on a 32x32 RGBA canvas.
-Frames larger than 32px in either dimension are downscaled with NEAREST to
-preserve the hard pixel-art edges.
+This sheet is labeled by section (STAND TYPES/DUCK, WALK(RUN)/SLIDE,
+JUMP/LAND, TAUNT, ATTACKS, AERIAL ATTACKS, DAMAGE/RECOVERY), which made
+mapping straightforward. No distinct evolved-form (ExVeemon/Imperialdramon)
+body shape was found anywhere on the sheet -- every frame is the same
+Veemon silhouette; the two large painterly renders at the very bottom
+of the sheet are cover/signature art for the "Trance" rip, not sprite
+frames, and were not used. Per the pack fallback rule, perfect/ultimate
+use Veemon's in-sheet "Vee Punch" attack, whose boxing glove visibly
+grows from normal size to a huge overgrown glove across the ATTACKS
+section -- perfect takes a mid-charge frame, ultimate takes the peak
+frame, mirroring the perfect=power-stance / ultimate=full-effect split
+used for the Agumon and Gabumon packs.
 
-Usage: python3 scripts/extract-sprites.py
+Usage: python3 scripts/extract_pack_veemon.py
 """
 
 from PIL import Image
 
-SHEET_PATH = "sprites/guilmon15.png"
-OUT_DIR = "sprites/packs/guilmon"
+SHEET_PATH = "sprites/sheets/veemon.png"
+OUT_DIR = "sprites/packs/veemon"
 CANVAS_SIZE = 32
-BG_COLOR = (111, 49, 152)
+BG_COLOR = (196, 225, 255)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
-STAGE_WINDOWS = {
+FRAME_WINDOWS = {
     "digitama": [
-        (42, 66, 427, 456),   # Gaurd row, frame 2 (compact crouch)
-        (73, 98, 427, 456),   # Gaurd row, frame 3 (compact crouch, arms up)
+        (175, 202, 84, 114),   # Duck row, frame 1
+        (202, 225, 84, 114),   # Duck row, frame 2
     ],
     "baby": [
-        (8, 36, 10, 40),      # Idle row, frame 1
-        (45, 73, 10, 40),     # Idle row, frame 2
+        (6, 33, 39, 71),       # Stand Types row, frame 1
+        (32, 58, 39, 71),      # Stand Types row, frame 2
     ],
     "child": [
-        (11, 35, 291, 322),   # Walking row, frame 1
-        (69, 93, 291, 322),   # Walking row, frame 3
+        (5, 32, 148, 182),     # Walk row, frame 1
+        (89, 117, 150, 182),   # Walk row, frame 4 (opposite stride)
     ],
     "adult": [
-        (5, 34, 337, 365),    # Running row, frame 1
-        (76, 104, 337, 365),  # Running row, frame 3
+        (40, 78, 184, 223),    # Run row, dust-cloud frame 1
+        (77, 115, 184, 223),   # Run row, dust-cloud frame 2
     ],
     "perfect": [
-        (70, 96, 470, 508),    # Power Up row, frame 3 (big roar, arms up)
-        (104, 131, 470, 508),  # Power Up row, frame 4 (bulked stance)
+        (61, 95, 608, 644),    # Vee Punch: glove mid-charge
+        (95, 126, 600, 644),   # Vee Punch: glove growing bigger
     ],
     "ultimate": [
-        (7, 47, 540, 583),    # Rock Breaker (Powered Up) row, frame 1 (flame trail)
-        (52, 90, 540, 583),   # Rock Breaker (Powered Up) row, frame 2 (flame trail)
+        (97, 125, 600, 644),   # Vee Punch: glove near peak size
+        (125, 149, 598, 644),  # Vee Punch: glove at peak size
     ],
-}
-
-# Rate-limit warning states for the menubar mascot. Output as
-# sprites/packs/guilmon/{id}-{n}.png (same 32x32 RGBA convention as STAGE_WINDOWS).
-ALERT_WINDOWS = {
     "limit80": [
-        (69, 92, 700, 747),    # Hit row, frame 3: reeling back, sweat drop, panting
-        (126, 150, 700, 747),  # Hit row, frame 5: reeling back, two sweat drops
+        (5, 32, 878, 922),     # Damage/Recovery: reeling from hit
+        (67, 99, 887, 922),    # Damage/Recovery: knocked into a tumble
     ],
     "limit95": [
-        (413, 453, 1633, 1663),  # Win row lie-down loop, frame 1: flat on ground, small breath bubble
-        (586, 627, 1633, 1663),  # Win row lie-down loop, frame 5: flat on ground, breath bubble at its largest
+        (21, 48, 930, 952),    # Damage/Recovery: flat on the ground
+        (48, 84, 943, 963),    # Damage/Recovery: flat on the ground, variant
     ],
 }
 
@@ -115,7 +118,7 @@ def main():
     px = sheet.load()
     scaled_stages = []
 
-    for stage_id, windows in {**STAGE_WINDOWS, **ALERT_WINDOWS}.items():
+    for stage_id, windows in FRAME_WINDOWS.items():
         for n, (x0, x1, y0, y1) in enumerate(windows):
             minx, miny, maxx, maxy = tight_bbox(px, x0, x1, y0, y1)
             frame_rgb = sheet.crop((minx, miny, maxx + 1, maxy + 1))
@@ -126,6 +129,12 @@ def main():
             out_path = f"{OUT_DIR}/{stage_id}-{n}.png"
             canvas.save(out_path)
             print(f"wrote {out_path} (source {maxx - minx + 1}x{maxy - miny + 1})")
+
+    # idle-{0,1} is a copy of baby-{0,1}.
+    for n in range(2):
+        src = Image.open(f"{OUT_DIR}/baby-{n}.png")
+        src.save(f"{OUT_DIR}/idle-{n}.png")
+        print(f"wrote {OUT_DIR}/idle-{n}.png (copy of baby-{n})")
 
     if scaled_stages:
         print(f"downscaled to fit 32x32: {', '.join(scaled_stages)}")

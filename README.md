@@ -66,9 +66,40 @@ node daily-tokens.js
 - 날짜가 바뀌면(`dateKST` 변경) 파일별 `contribution`을 0으로 리셋하되 `offset`은 그대로 유지한다(이전 내용을 다시 읽지 않기 위함).
 - 출력: `$CLAUDEMON_DIR/daily.json`
   ```json
-  { "dateKST": "2026-07-24", "outputTokens": 83002, "stageId": "child", "updatedAt": "2026-07-24T01:40:35.208Z" }
+  { "dateKST": "2026-07-24", "outputTokens": 83002, "stageId": "child", "mon": "guilmon", "updatedAt": "2026-07-24T01:40:35.208Z" }
   ```
 - 메뉴바 앱은 이 파일을 ~30초 주기로 폴링해서 스프라이트를 갱신한다. 증분 스캔이므로 재실행 비용은 대체로 수십 ms 이내.
+
+## 스프라이트 팩 (`sprites/packs/`)
+
+메뉴바 마스코트는 팩 단위로 스프라이트를 묶는다. 각 팩은 `sprites/packs/<팩이름>/` 아래에 아래 파일명 계약을 지켜야 한다(모두 32x32 RGBA PNG):
+
+```
+digitama-0.png, digitama-1.png
+baby-0.png,     baby-1.png
+child-0.png,    child-1.png
+adult-0.png,    adult-1.png
+perfect-0.png,  perfect-1.png
+ultimate-0.png, ultimate-1.png
+limit80-0.png,  limit80-1.png
+limit95-0.png,  limit95-1.png
+idle-0.png,     idle-1.png
+```
+
+- `digitama-0.png`가 존재하는 디렉터리만 "유효 팩"으로 인식된다. 나머지 파일이 일부 빠져도 스캔 자체는 통과하지만, 해당 프레임을 쓰는 화면에서는 표시가 깨질 수 있으니 전체 세트를 채우는 걸 권장한다.
+- 기본 제공 팩: `sprites/packs/guilmon/` (반다이 길몬 도트 — 개인 사용 한정, 배포 금지. 위 라이선스 경고 참고).
+
+### 매일 랜덤 몬 선택 (`lib/daily.js`)
+
+- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(디렉터리명 정렬)을 스캔하고, `dateKST` 문자열의 단순 해시(`hashString` — 문자코드 누적, `Math.random` 미사용) 를 유효 팩 개수로 나눈 나머지로 오늘의 팩을 고른다.
+- 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. 날짜가 바뀌면 다시 해시로 재계산한다.
+- 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다.
+
+### 커스텀 팩 추가
+
+1. `sprites/packs/<새팩이름>/`을 만들고 위 파일명 계약대로 9종 × 2프레임 PNG를 채운다.
+2. `digitama-0.png`만 있으면 스캔 대상에 포함되므로, 최소한 그 파일부터 넣고 나머지를 채워나가도 된다.
+3. 별도 등록 절차는 없다 — 다음 `daily-tokens.js` 실행부터 자동으로 로테이션 후보에 들어간다.
 
 ## working 플래그
 

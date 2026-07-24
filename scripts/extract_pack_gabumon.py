@@ -1,62 +1,64 @@
 #!/usr/bin/env python3
-"""Extract menubar-sized stage sprites from the Guilmon Battle Spirit 1.5 sheet.
+"""Extract a 32x32 sprite pack for Gabumon from the GBA Digimon Battle
+Spirit character sheet (sprites/sheets/gabumon.gif, 400x838 palette GIF,
+teal/green uniform background).
 
-Source sheet: sprites/guilmon15.png (1201x1918 RGB, uniform purple background).
-For each evolution stage this picks two (or more) frames from a specific
-motion row on the sheet, tight-crops them to their sprite content, makes the
-background transparent, and places them bottom-center on a 32x32 RGBA canvas.
-Frames larger than 32px in either dimension are downscaled with NEAREST to
-preserve the hard pixel-art edges.
+Unlike Agumon's sheet, this one has richer state coverage: a full
+tumble/roll-onto-back animation (used for limit95), a red-face hit
+reaction row (used for limit80), and compact curled/seated poses (used
+for digitama). No distinct evolved-form (Garurumon/MetalGarurumon) body
+shape was found anywhere on the sheet after a full row-by-row scan --
+every frame is the same Gabumon silhouette. Per the pack fallback rule,
+perfect uses Gabumon's in-sheet "power up" recolor (yellow belly turning
+to a red armor plate, the closest thing to a digivolve visual on this
+sheet) and ultimate uses the named Blue Blaster ranged attack, mirroring
+the perfect=power-stance / ultimate=special-attack split used for the
+Agumon pack.
 
-Usage: python3 scripts/extract-sprites.py
+Usage: python3 scripts/extract_pack_gabumon.py
 """
 
 from PIL import Image
 
-SHEET_PATH = "sprites/guilmon15.png"
-OUT_DIR = "sprites/packs/guilmon"
+SHEET_PATH = "sprites/sheets/gabumon.gif"
+OUT_DIR = "sprites/packs/gabumon"
 CANVAS_SIZE = 32
-BG_COLOR = (111, 49, 152)
+BG_COLOR = (2, 100, 76)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
-STAGE_WINDOWS = {
+FRAME_WINDOWS = {
     "digitama": [
-        (42, 66, 427, 456),   # Gaurd row, frame 2 (compact crouch)
-        (73, 98, 427, 456),   # Gaurd row, frame 3 (compact crouch, arms up)
+        (11, 49, 620, 652),   # Curled/seated row, frame 1
+        (98, 142, 620, 652),  # Curled/seated row, frame 3
     ],
     "baby": [
-        (8, 36, 10, 40),      # Idle row, frame 1
-        (45, 73, 10, 40),     # Idle row, frame 2
+        (7, 37, 8, 42),       # Idle row, frame 1
+        (42, 72, 7, 42),      # Idle row, frame 2
     ],
     "child": [
-        (11, 35, 291, 322),   # Walking row, frame 1
-        (69, 93, 291, 322),   # Walking row, frame 3
+        (3, 41, 401, 437),    # Walk row, frame 1 (leaning stride, no dust)
+        (45, 83, 401, 437),   # Walk row, frame 2 (opposite stride)
     ],
     "adult": [
-        (5, 34, 337, 365),    # Running row, frame 1
-        (76, 104, 337, 365),  # Running row, frame 3
+        (196, 227, 258, 297),  # Run row, dust-cloud frame 1
+        (230, 262, 258, 297),  # Run row, dust-cloud frame 2
     ],
     "perfect": [
-        (70, 96, 470, 508),    # Power Up row, frame 3 (big roar, arms up)
-        (104, 131, 470, 508),  # Power Up row, frame 4 (bulked stance)
+        (187, 231, 656, 697),  # Power-up row: red chest armor starting
+        (233, 265, 656, 697),  # Power-up row: more red armor visible
     ],
     "ultimate": [
-        (7, 47, 540, 583),    # Rock Breaker (Powered Up) row, frame 1 (flame trail)
-        (52, 90, 540, 583),   # Rock Breaker (Powered Up) row, frame 2 (flame trail)
+        (210, 259, 176, 211),  # Blue Blaster: breath stream mid-release
+        (267, 333, 176, 211),  # Blue Blaster: breath stream full extension
     ],
-}
-
-# Rate-limit warning states for the menubar mascot. Output as
-# sprites/packs/guilmon/{id}-{n}.png (same 32x32 RGBA convention as STAGE_WINDOWS).
-ALERT_WINDOWS = {
     "limit80": [
-        (69, 92, 700, 747),    # Hit row, frame 3: reeling back, sweat drop, panting
-        (126, 150, 700, 747),  # Hit row, frame 5: reeling back, two sweat drops
+        (75, 105, 541, 579),   # Hit-reaction row: red flash face, frame 3
+        (107, 140, 541, 579),  # Hit-reaction row: red flash face, frame 4
     ],
     "limit95": [
-        (413, 453, 1633, 1663),  # Win row lie-down loop, frame 1: flat on ground, small breath bubble
-        (586, 627, 1633, 1663),  # Win row lie-down loop, frame 5: flat on ground, breath bubble at its largest
+        (122, 165, 352, 390),  # Tumble row: rolling onto side
+        (211, 256, 352, 390),  # Tumble row: flat on back
     ],
 }
 
@@ -115,7 +117,7 @@ def main():
     px = sheet.load()
     scaled_stages = []
 
-    for stage_id, windows in {**STAGE_WINDOWS, **ALERT_WINDOWS}.items():
+    for stage_id, windows in FRAME_WINDOWS.items():
         for n, (x0, x1, y0, y1) in enumerate(windows):
             minx, miny, maxx, maxy = tight_bbox(px, x0, x1, y0, y1)
             frame_rgb = sheet.crop((minx, miny, maxx + 1, maxy + 1))
@@ -126,6 +128,12 @@ def main():
             out_path = f"{OUT_DIR}/{stage_id}-{n}.png"
             canvas.save(out_path)
             print(f"wrote {out_path} (source {maxx - minx + 1}x{maxy - miny + 1})")
+
+    # idle-{0,1} is a copy of baby-{0,1}.
+    for n in range(2):
+        src = Image.open(f"{OUT_DIR}/baby-{n}.png")
+        src.save(f"{OUT_DIR}/idle-{n}.png")
+        print(f"wrote {OUT_DIR}/idle-{n}.png (copy of baby-{n})")
 
     if scaled_stages:
         print(f"downscaled to fit 32x32: {', '.join(scaled_stages)}")

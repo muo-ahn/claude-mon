@@ -1,62 +1,72 @@
 #!/usr/bin/env python3
-"""Extract menubar-sized stage sprites from the Guilmon Battle Spirit 1.5 sheet.
+"""Extract menubar-sized stage sprites from the Renamon Battle Spirit sheet.
 
-Source sheet: sprites/guilmon15.png (1201x1918 RGB, uniform purple background).
-For each evolution stage this picks two (or more) frames from a specific
-motion row on the sheet, tight-crops them to their sprite content, makes the
-background transparent, and places them bottom-center on a 32x32 RGBA canvas.
-Frames larger than 32px in either dimension are downscaled with NEAREST to
-preserve the hard pixel-art edges.
+Source sheet: sprites/sheets/renamon.gif (347x500 GIF-palette, uniform
+light-gray background). The sheet only contains Rookie-stage Renamon frames
+(no Sakuyamon digivolve frames present), so every stage below falls back to
+one of Renamon's own poses per the pack fallback convention -- picked to
+loosely track the stage's expected energy (calm stance for digitama/baby,
+more active poses for adult/perfect, biggest/fiercest poses for ultimate,
+flinch-like poses for the limit warnings).
 
-Usage: python3 scripts/extract-sprites.py
+Extraction method: the sheet is not scanned in row bands (that approach
+pulled in neighboring sprite fragments and half-cropped characters on this
+tightly-packed sheet). Instead, background-subtracted pixels are grouped
+into connected components (8-connectivity, small gaps bridged) so every
+crop window below already corresponds to exactly one complete character,
+confirmed by eye against a numbered contact sheet before being hardcoded
+here.
+
+Usage: python3 scripts/extract_pack_renamon.py
 """
 
 from PIL import Image
 
-SHEET_PATH = "sprites/guilmon15.png"
-OUT_DIR = "sprites/packs/guilmon"
+SHEET_PATH = "sprites/sheets/renamon.gif"
+OUT_DIR = "sprites/packs/renamon"
 CANVAS_SIZE = 32
-BG_COLOR = (111, 49, 152)
+BG_COLOR = (224, 219, 220)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
-# Windows are generous; the actual sprite is tight-cropped out of each window.
+# Windows are exact connected-component bounding boxes (one full character
+# each), verified visually against sprites/packs/_debug/renamon_candidates.png.
 STAGE_WINDOWS = {
     "digitama": [
-        (42, 66, 427, 456),   # Gaurd row, frame 2 (compact crouch)
-        (73, 98, 427, 456),   # Gaurd row, frame 3 (compact crouch, arms up)
+        (7, 33, 68, 98),    # small idle stance, facing left
+        (71, 93, 68, 98),   # small idle stance, mirrored
     ],
     "baby": [
-        (8, 36, 10, 40),      # Idle row, frame 1
-        (45, 73, 10, 40),     # Idle row, frame 2
+        (39, 63, 68, 97),   # idle stance variant
+        (101, 134, 72, 104),  # small surprised/alert pose
     ],
     "child": [
-        (11, 35, 291, 322),   # Walking row, frame 1
-        (69, 93, 291, 322),   # Walking row, frame 3
+        (84, 121, 108, 140),  # forward fighting stance, fist raised
+        (81, 106, 396, 431),  # walking pose, leg stepping forward
     ],
     "adult": [
-        (5, 34, 337, 365),    # Running row, frame 1
-        (76, 104, 337, 365),  # Running row, frame 3
+        (46, 74, 104, 139),   # forward fighting stance, larger
+        (35, 72, 398, 435),   # forward stance, leg forward
     ],
     "perfect": [
-        (70, 96, 470, 508),    # Power Up row, frame 3 (big roar, arms up)
-        (104, 131, 470, 508),  # Power Up row, frame 4 (bulked stance)
+        (1, 42, 194, 229),    # Diamond Storm charge, fire-paw pose
+        (195, 232, 299, 332), # attack pose with slash-effect swirl
     ],
     "ultimate": [
-        (7, 47, 540, 583),    # Rock Breaker (Powered Up) row, frame 1 (flame trail)
-        (52, 90, 540, 583),   # Rock Breaker (Powered Up) row, frame 2 (flame trail)
+        (36, 81, 347, 392),   # biggest jump-kick pose with sparkle effect
+        (167, 208, 202, 235), # big spin-kick pose with slash effect
     ],
 }
 
 # Rate-limit warning states for the menubar mascot. Output as
-# sprites/packs/guilmon/{id}-{n}.png (same 32x32 RGBA convention as STAGE_WINDOWS).
+# sprites/packs/renamon/{id}-{n}.png (same 32x32 RGBA convention as STAGE_WINDOWS).
 ALERT_WINDOWS = {
     "limit80": [
-        (69, 92, 700, 747),    # Hit row, frame 3: reeling back, sweat drop, panting
-        (126, 150, 700, 747),  # Hit row, frame 5: reeling back, two sweat drops
+        (179, 221, 255, 284),  # standing pose, arms out (flinch-adjacent)
+        (0, 32, 345, 382),     # small running/recoiling pose
     ],
     "limit95": [
-        (413, 453, 1633, 1663),  # Win row lie-down loop, frame 1: flat on ground, small breath bubble
-        (586, 627, 1633, 1663),  # Win row lie-down loop, frame 5: flat on ground, breath bubble at its largest
+        (89, 121, 149, 197),  # curled, tail-wrapped defensive pose
+        (155, 184, 297, 334), # crouched pose, large tail (low-energy)
     ],
 }
 
@@ -126,6 +136,12 @@ def main():
             out_path = f"{OUT_DIR}/{stage_id}-{n}.png"
             canvas.save(out_path)
             print(f"wrote {out_path} (source {maxx - minx + 1}x{maxy - miny + 1})")
+
+    # idle is a straight copy of baby (contract requires both filenames).
+    for n in range(2):
+        src = Image.open(f"{OUT_DIR}/baby-{n}.png")
+        src.save(f"{OUT_DIR}/idle-{n}.png")
+        print(f"wrote {OUT_DIR}/idle-{n}.png (copy of baby-{n})")
 
     if scaled_stages:
         print(f"downscaled to fit 32x32: {', '.join(scaled_stages)}")

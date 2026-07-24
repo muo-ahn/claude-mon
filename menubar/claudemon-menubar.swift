@@ -1,6 +1,13 @@
 // ClaudeMon menu bar mascot (PoC)
 // Build: swiftc -O -o claudemon-menubar claudemon-menubar.swift
-// Run:   ./claudemon-menubar /path/to/sprites/menubar
+// Run:   ./claudemon-menubar /path/to/sprites
+//
+// The sprite pack is now DYNAMIC: daily.json carries a "mon" field (which
+// digimon pack is active today) alongside its stageId. Frames are loaded
+// from <spriteRoot>/packs/<mon>/<prefix>-<n>.png. If the named pack is
+// missing or incomplete, this falls back to the "guilmon" pack; if that is
+// also unavailable, the last successfully loaded frame set is kept rather
+// than crashing.
 //
 // Evolution stage is now a DAILY GLOBAL value, not tied to any one focused
 // session: every 2s tick reads $CLAUDEMON_DIR/daily.json (written by
@@ -26,11 +33,30 @@
 
 import AppKit
 
-let spriteDir: String = {
-    if CommandLine.arguments.count > 1 { return CommandLine.arguments[1] }
+// Picks the sprite-root positional argument out of argv, skipping over the
+// headless CLI flags (--dump-state, --dump-limits <path>) so both
+// `claudemon-menubar <root> --dump-state` and the flag-only
+// `claudemon-menubar --dump-state` (default root) work.
+let spriteRoot: String = {
+    let args = Array(CommandLine.arguments.dropFirst())
+    var skipNext = false
+    for arg in args {
+        if skipNext { skipNext = false; continue }
+        if arg == "--dump-limits" { skipNext = true; continue }
+        if arg == "--dump-state" { continue }
+        return arg
+    }
     let selfDir = (CommandLine.arguments[0] as NSString).deletingLastPathComponent
-    return selfDir + "/../sprites/menubar"
+    return selfDir + "/../sprites"
 }()
+
+// Fallback pack used whenever the daily-selected mon's pack is missing or
+// incomplete, and whenever daily.json predates the "mon" field entirely.
+let defaultMon = "guilmon"
+
+func packPath(for mon: String) -> String {
+    return spriteRoot + "/packs/" + mon
+}
 
 let resolverScript: String = {
     let selfDir = (CommandLine.arguments[0] as NSString).deletingLastPathComponent
@@ -56,13 +82,29 @@ let sessionsDir = claudemonDir + "/sessions"
 let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate"]
 
 let stageLabels: [String: String] = [
-    "digitama": "알 (Digitama)",
-    "baby": "유년기 (Baby)",
-    "child": "성장기 (Child)",
-    "adult": "성숙기 (Adult)",
-    "perfect": "완전체 (Perfect)",
-    "ultimate": "궁극체 (Ultimate)",
+    "digitama": "알",
+    "baby": "유년기",
+    "child": "성장기",
+    "adult": "성숙기",
+    "perfect": "완전체",
+    "ultimate": "궁극체",
 ]
+
+// Known packs get a Korean display name; an unrecognized/new pack name is
+// shown as-is rather than hidden or blocked.
+let monLabels: [String: String] = [
+    "guilmon": "길몬",
+    "agumon": "아구몬",
+    "gabumon": "파피몬",
+    "veemon": "브이몬",
+    "renamon": "레나몬",
+    "terriermon": "테리어몬",
+    "impmon": "임프몬",
+]
+
+func labelForMon(_ mon: String) -> String {
+    return monLabels[mon] ?? mon
+}
 
 // MARK: - Usage limit display + behavior overrides
 //
@@ -205,15 +247,32 @@ func readHudCache(cwd: String) -> (json: [String: Any], stale: Bool)? {
 // Reads $CLAUDEMON_DIR/daily.json. Any failure (missing file, malformed
 // JSON, unrecognized stageId) falls back to ("digitama", 0, nil) rather
 // than crashing or showing a stale/garbage stage.
-func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?) {
+func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String) {
     guard let data = FileManager.default.contents(atPath: dailyStateFile),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    else { return ("digitama", 0, nil) }
+    else { return ("digitama", 0, nil, defaultMon) }
     let rawStage = json["stageId"] as? String ?? "digitama"
     let stageId = stageIds.contains(rawStage) ? rawStage : "digitama"
     let tokens = intValue(json["outputTokens"])
     let dateKST = json["dateKST"] as? String
-    return (stageId, tokens, dateKST)
+    // Missing "mon" (pre-pack daily.json) or an empty value both mean
+    // "no pack chosen yet" -> guilmon, same fallback as an unknown pack.
+    let rawMon = json["mon"] as? String
+    let mon = (rawMon?.isEmpty ?? true) ? defaultMon : rawMon!
+    return (stageId, tokens, dateKST, mon)
+}
+
+// Resolves which pack directory should actually be used for a requested
+// mon: the requested pack if it has at least a first idle frame on disk,
+// otherwise the guilmon pack. Pure filesystem check (no NSImage decoding),
+// so it is safe to call from --dump-state as well as from the running app
+// before touching any AppKit image state.
+func resolvePack(for mon: String) -> (mon: String, path: String) {
+    let requested = packPath(for: mon)
+    if FileManager.default.fileExists(atPath: requested + "/idle-0.png") {
+        return (mon, requested)
+    }
+    return (defaultMon, packPath(for: defaultMon))
 }
 
 // Locates a usable `node` binary without hardcoding a single path, since
@@ -355,7 +414,10 @@ func dumpState() {
         maxPct = maxUsedPercentage(rateLimits: rateLimits)
     }
     let level = limitLevelForPercentage(maxPct)
+    let resolved = resolvePack(for: daily.mon)
 
+    print("mon: \(resolved.mon)")
+    print("pack: \(resolved.path)")
     print("dailyStage: \(daily.stageId)")
     print("dailyOutputTokens: \(daily.outputTokens)")
     print("workingSessionCount: \(workingCount)")
@@ -365,21 +427,20 @@ func dumpState() {
 }
 
 // CLI test hooks: run headless (no NSApplication) and exit before any
-// GUI/state is touched.
-if CommandLine.arguments.count > 1 {
-    let arg1 = CommandLine.arguments[1]
-    if arg1 == "--dump-limits" {
-        guard CommandLine.arguments.count > 2 else {
-            fputs("usage: claudemon-menubar --dump-limits <hud-cache-path>\n", stderr)
-            exit(1)
-        }
-        dumpLimits(path: CommandLine.arguments[2])
-        exit(0)
+// GUI/state is touched. Accepts an optional leading sprite-root argument
+// ahead of the flag, e.g. `claudemon-menubar <spriteRoot> --dump-state`.
+let cliArgs = Array(CommandLine.arguments.dropFirst())
+if let dumpLimitsIdx = cliArgs.firstIndex(of: "--dump-limits") {
+    guard cliArgs.count > dumpLimitsIdx + 1 else {
+        fputs("usage: claudemon-menubar [spriteRoot] --dump-limits <hud-cache-path>\n", stderr)
+        exit(1)
     }
-    if arg1 == "--dump-state" {
-        dumpState()
-        exit(0)
-    }
+    dumpLimits(path: cliArgs[dumpLimitsIdx + 1])
+    exit(0)
+}
+if cliArgs.contains("--dump-state") {
+    dumpState()
+    exit(0)
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -391,6 +452,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentFrameSetKey = ""
     var frameIdx = 0
     var currentStageId = "digitama"
+    var currentMon = ""
+    var currentPackPath = ""
     var dailyOutputTokens = 0
     var workingSessionCount = 0
     var currentLimitLevel: String? = nil
@@ -405,7 +468,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var focusedLastResolvedPath = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        loadFrames()
+        let daily = readDailyState()
+        currentStageId = daily.stageId
+        dailyOutputTokens = daily.outputTokens
+        switchMonIfNeeded(daily.mon)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
         runDailyTokensAggregator()
@@ -432,10 +498,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // Loads `<prefix>-0.png`, `<prefix>-1.png`, ... until one is missing.
-    func loadImageSequence(prefix: String) -> [NSImage] {
+    func loadImageSequence(inPack pack: String, prefix: String) -> [NSImage] {
         var result: [NSImage] = []
         var i = 0
-        while let img = NSImage(contentsOfFile: "\(spriteDir)/\(prefix)-\(i).png") {
+        while let img = NSImage(contentsOfFile: "\(pack)/\(prefix)-\(i).png") {
             // 32px bitmap shown at 16pt -> 1:1 physical pixels on retina
             img.size = NSSize(width: 16, height: 16)
             result.append(img)
@@ -444,22 +510,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return result
     }
 
-    func loadFrames() {
-        idleFrames = loadImageSequence(prefix: "idle")
-        if idleFrames.isEmpty {
-            fputs("claudemon-menubar: no idle sprites found in \(spriteDir)\n", stderr)
-            exit(1)
-        }
+    // Loads the full frame set (idle/stages/limit overrides) from `pack`.
+    // Returns false without mutating any existing state if the pack has no
+    // idle frames at all, so a failed switch never leaves the mascot with a
+    // half-loaded, mismatched frame set.
+    @discardableResult
+    func loadFrames(fromPack pack: String, mon: String) -> Bool {
+        let idle = loadImageSequence(inPack: pack, prefix: "idle")
+        guard !idle.isEmpty else { return false }
+
+        idleFrames = idle
+        var newStageFrames: [String: [NSImage]] = [:]
         for stage in stageIds {
-            let frames = loadImageSequence(prefix: stage)
-            stageFrames[stage] = frames.isEmpty ? idleFrames : frames
+            let frames = loadImageSequence(inPack: pack, prefix: stage)
+            newStageFrames[stage] = frames.isEmpty ? idle : frames
         }
+        stageFrames = newStageFrames
         // Optional behavior-override sprite sets. If the corresponding
         // files don't exist yet, the array is simply empty and
         // framesForLevel() falls back to the stage frames.
-        limitFrameSets["limit80"] = loadImageSequence(prefix: "limit80")
-        limitFrameSets["limit95"] = loadImageSequence(prefix: "limit95")
-        currentFrames = stageFrames[currentStageId] ?? idleFrames
+        limitFrameSets["limit80"] = loadImageSequence(inPack: pack, prefix: "limit80")
+        limitFrameSets["limit95"] = loadImageSequence(inPack: pack, prefix: "limit95")
+
+        currentMon = mon
+        currentPackPath = pack
+        // Force applyFrameSet() to recompute currentFrames against the
+        // newly loaded sets on the next call, even if the stage/limit key
+        // itself didn't change.
+        currentFrameSetKey = ""
+        currentFrames = framesForLevel(currentLimitLevel, stage: currentStageId)
+        frameIdx = 0
+        return true
+    }
+
+    // Switches the active pack when the daily-selected mon changes (or on
+    // first load). Fallback chain: requested pack -> guilmon pack -> keep
+    // whatever frames are already loaded (never crash after startup). Only
+    // a totally failed first load (no prior frames at all) is fatal.
+    func switchMonIfNeeded(_ mon: String) {
+        let resolved = resolvePack(for: mon)
+        guard resolved.mon != currentMon || stageFrames.isEmpty else { return }
+
+        if loadFrames(fromPack: resolved.path, mon: resolved.mon) { return }
+
+        if !stageFrames.isEmpty {
+            fputs("claudemon-menubar: pack '\(resolved.mon)' at \(resolved.path) failed to load, keeping current frames\n", stderr)
+            return
+        }
+        fputs("claudemon-menubar: no usable sprite pack found for mon '\(mon)' (tried \(resolved.path))\n", stderr)
+        exit(1)
     }
 
     // Picks the frames to display: a limit80/limit95 override (if that
@@ -541,6 +640,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let daily = readDailyState()
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
+        switchMonIfNeeded(daily.mon)
 
         // Global "is anything working" OR across all registered sessions.
         let sessions = scanSessions(dir: sessionsDir)
@@ -617,7 +717,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         let dailyLabel = stageLabels[currentStageId] ?? currentStageId
-        menu.addItem(withTitle: "\(dailyLabel) · 오늘 \(formatTokenCount(dailyOutputTokens)) tok", action: nil, keyEquivalent: "")
+        let monLabel = labelForMon(currentMon.isEmpty ? defaultMon : currentMon)
+        menu.addItem(withTitle: "\(monLabel) · \(dailyLabel) · 오늘 \(formatTokenCount(dailyOutputTokens)) tok", action: nil, keyEquivalent: "")
 
         let statusLine = workingSessionCount > 0 ? "작업 중 세션 \(workingSessionCount)개" : "모든 세션 대기 중"
         menu.addItem(withTitle: statusLine, action: nil, keyEquivalent: "")
