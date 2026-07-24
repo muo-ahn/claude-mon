@@ -263,10 +263,10 @@ func readHudCache(cwd: String) -> (json: [String: Any], stale: Bool)? {
 // Reads $CLAUDEMON_DIR/daily.json. Any failure (missing file, malformed
 // JSON, unrecognized stageId) falls back to ("digitama", 0, nil) rather
 // than crashing or showing a stale/garbage stage.
-func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String) {
+func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int]) {
     guard let data = FileManager.default.contents(atPath: dailyStateFile),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    else { return ("digitama", 0, nil, defaultMon) }
+    else { return ("digitama", 0, nil, defaultMon, [:]) }
     let rawStage = json["stageId"] as? String ?? "digitama"
     let stageId = stageIds.contains(rawStage) ? rawStage : "digitama"
     let tokens = intValue(json["outputTokens"])
@@ -275,7 +275,11 @@ func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, 
     // "no pack chosen yet" -> guilmon, same fallback as an unknown pack.
     let rawMon = json["mon"] as? String
     let mon = (rawMon?.isEmpty ?? true) ? defaultMon : rawMon!
-    return (stageId, tokens, dateKST, mon)
+    var sessionTokens: [String: Int] = [:]
+    if let raw = json["sessionTokens"] as? [String: Any] {
+        for (sid, v) in raw { sessionTokens[sid] = intValue(v) }
+    }
+    return (stageId, tokens, dateKST, mon, sessionTokens)
 }
 
 // Resolves which pack directory should actually be used for a requested
@@ -478,6 +482,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var animationPaused = false
     var evolutionTimer: Timer? = nil
     var lastSessions: [SessionEntry] = []
+    var sessionTokens: [String: Int] = [:]
 
     // Focused-session info: purely informational (one line in the menu),
     // resolved the same way as before via active-session.sh. Does not
@@ -663,6 +668,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let previousMon = currentMon
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
+        sessionTokens = daily.sessionTokens
         switchMonIfNeeded(daily.mon)
 
         // Evolution burst: same mon moved UP a stage -> flash old/new forms
@@ -824,8 +830,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for (entry, working) in live.prefix(10) {
             let json = entry.json
             let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
-            let sid = (json["sessionId"] as? String)?.prefix(8) ?? "--------"
-            let ok = json["toolSuccessCount"] as? Int ?? 0
+            let fullSid = json["sessionId"] as? String ?? ""
+            let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
             let focused = !focusedLastResolvedPath.isEmpty && entry.path == focusedLastResolvedPath
             var status = "○ 대기"
             if working {
@@ -833,7 +839,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else if let ended = json["lastTurnEndAt"] as? String, let d = parseISO8601(ended) {
                 status = "○ 대기 (\(formatClockTime(d)) 종료)"
             }
-            lines.append("\(focused ? "▶" : "  ") \(project) · \(status) · 성공 \(ok) · \(sid)")
+            let tokens = sessionTokens[fullSid] ?? 0
+            lines.append("\(focused ? "▶" : "  ") \(project) · \(status) · \(formatTokenCount(tokens)) tok · \(sid)")
         }
         return lines
     }
