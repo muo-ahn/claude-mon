@@ -33,6 +33,20 @@
 
 import AppKit
 
+// argv[0] can be relative ("./claudemon-menubar") — resolve against CWD
+// once so every derived path is absolute. NOTE: this is main.swift-style
+// top-level code, so globals initialize in DECLARATION ORDER — this must
+// stay above spriteRoot and everything else that reads it. A relative
+// argv[0] previously collapsed projectRoot to "" and silently disabled
+// the token aggregator.
+let executableDir: String = {
+    let raw = CommandLine.arguments[0]
+    let abs = (raw as NSString).isAbsolutePath
+        ? raw
+        : FileManager.default.currentDirectoryPath + "/" + raw
+    return ((abs as NSString).standardizingPath as NSString).deletingLastPathComponent
+}()
+
 // Picks the sprite-root positional argument out of argv, skipping over the
 // headless CLI flags (--dump-state, --dump-limits <path>) so both
 // `claudemon-menubar <root> --dump-state` and the flag-only
@@ -44,10 +58,9 @@ let spriteRoot: String = {
         if skipNext { skipNext = false; continue }
         if arg == "--dump-limits" { skipNext = true; continue }
         if arg == "--dump-state" { continue }
-        return arg
+        return (arg as NSString).isAbsolutePath ? arg : URL(fileURLWithPath: arg).standardizedFileURL.path
     }
-    let selfDir = (CommandLine.arguments[0] as NSString).deletingLastPathComponent
-    return selfDir + "/../sprites"
+    return (executableDir as NSString).deletingLastPathComponent + "/sprites"
 }()
 
 // Fallback pack used whenever the daily-selected mon's pack is missing or
@@ -58,15 +71,9 @@ func packPath(for mon: String) -> String {
     return spriteRoot + "/packs/" + mon
 }
 
-let resolverScript: String = {
-    let selfDir = (CommandLine.arguments[0] as NSString).deletingLastPathComponent
-    return selfDir + "/active-session.sh"
-}()
+let resolverScript = executableDir + "/active-session.sh"
 
-let projectRoot: String = {
-    let selfDir = (CommandLine.arguments[0] as NSString).deletingLastPathComponent
-    return (selfDir as NSString).deletingLastPathComponent
-}()
+let projectRoot = (executableDir as NSString).deletingLastPathComponent
 
 let dailyTokensScript = projectRoot + "/daily-tokens.js"
 
