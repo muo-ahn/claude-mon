@@ -477,6 +477,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var rateLimitMenuLines: [String] = []
     var animationPaused = false
     var evolutionTimer: Timer? = nil
+    var lastSessions: [SessionEntry] = []
 
     // Focused-session info: purely informational (one line in the menu),
     // resolved the same way as before via active-session.sh. Does not
@@ -678,6 +679,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Global "is anything working" OR across all registered sessions.
         let sessions = scanSessions(dir: sessionsDir)
+        lastSessions = sessions
         let (animating, workingCount) = globalWorkingState(sessions: sessions, fallbackGlobalPath: globalStateFile)
         animationPaused = !animating
         workingSessionCount = workingCount
@@ -801,6 +803,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return "\(focusedSessionLabel()) — 성공 \(ok)/실패 \(fail)"
     }
 
+    // One dropdown line per live session. A session file is "live" when its
+    // recorded claude pid still exists AND the file was touched in the last
+    // 24h — the pid check alone can lie after PID reuse, the mtime check
+    // alone would show yesterday's leftovers.
+    func liveSessionLines(sessions: [SessionEntry]) -> [String] {
+        let now = Date()
+        var live: [(entry: SessionEntry, working: Bool)] = []
+        for entry in sessions {
+            guard let pid = entry.json["pid"] as? Int, kill(pid_t(pid), 0) == 0 else { continue }
+            guard let mtime = entry.mtime, now.timeIntervalSince(mtime) < 24 * 3600 else { continue }
+            live.append((entry, sessionIsActivelyWorking(entry, now: now)))
+        }
+        live.sort { a, b in
+            if a.working != b.working { return a.working }
+            return (a.entry.mtime ?? .distantPast) > (b.entry.mtime ?? .distantPast)
+        }
+
+        var lines: [String] = []
+        for (entry, working) in live.prefix(10) {
+            let json = entry.json
+            let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
+            let sid = (json["sessionId"] as? String)?.prefix(8) ?? "--------"
+            let ok = json["toolSuccessCount"] as? Int ?? 0
+            let focused = !focusedLastResolvedPath.isEmpty && entry.path == focusedLastResolvedPath
+            var status = "○ 대기"
+            if working {
+                status = "● 작업 중"
+            } else if let ended = json["lastTurnEndAt"] as? String, let d = parseISO8601(ended) {
+                status = "○ 대기 (\(formatClockTime(d)) 종료)"
+            }
+            lines.append("\(focused ? "▶" : "  ") \(project) · \(status) · 성공 \(ok) · \(sid)")
+        }
+        return lines
+    }
+
     func rebuildMenu() {
         let menu = NSMenu()
 
@@ -815,7 +852,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: statusLine, action: nil, keyEquivalent: "")
 
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: focusedSessionLine(), action: nil, keyEquivalent: "")
+        let sessionLines = liveSessionLines(sessions: lastSessions)
+        if sessionLines.isEmpty {
+            menu.addItem(withTitle: "등록된 세션 없음", action: nil, keyEquivalent: "")
+        } else {
+            for line in sessionLines {
+                menu.addItem(withTitle: line, action: nil, keyEquivalent: "")
+            }
+        }
+        // The focused kitty window may hold a session that hasn't registered
+        // itself yet — it has no row above, so call it out explicitly.
+        if focusedUnregistered {
+            menu.addItem(withTitle: "▶ 새 세션 — 미등록", action: nil, keyEquivalent: "")
+        }
 
         if !rateLimitMenuLines.isEmpty {
             menu.addItem(NSMenuItem.separator())
