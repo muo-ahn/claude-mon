@@ -1,0 +1,116 @@
+# ClaudeMon (프로토타입)
+
+> **레포 소유: 개인 계정 `muo-ahn`** (https://github.com/muo-ahn/claude-mon, private)
+> 회사 계정(`muo-saladlab`)으로 push/이관 금지. gh 활성 계정 확인: `gh auth status`
+> private 유지 필수 — `sprites/`의 길몬 도트는 반다이 IP 에셋(개인 사용 한정, 공개 배포 불가)
+
+디지몬풍 진화 시스템을 가진 Claude Code statusline 마스코트.
+
+## 설치
+
+`~/.claude/settings.json`에 추가:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /절대/경로/claudemon/statusline.js",
+    "padding": 0
+  },
+  "hooks": {
+    "PostToolUse": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claudemon/hook.js tool-success" }] }
+    ]
+  }
+}
+```
+
+에러 발생 시 hook 이벤트를 `tool-failure`로 바꿔 별도 등록.
+
+## 구조
+
+- `evolution-tree.json` — 진화 단계/조건/스프라이트 정의 (수정해서 커스텀 팩 제작 가능)
+- `lib/state.js` — 상태 persist. 전역용 `load()`/`save()`는 `~/.claude/claudemon/state.json`, 세션별용 `loadSession(sessionId)`/`saveSession(state)`는 `~/.claude/claudemon/sessions/<session_id>.json`, 전 세션 누적용 `loadGlobal()`/`saveGlobal(global)`는 `~/.claude/claudemon/global.json`
+- `lib/evolve.js` — 조건 평가, 진화/퇴화 로직
+- `lib/daily.js` — 일일(KST) output 토큰 집계 로직 + 증분 스캔 캐시
+- `hook.js` — Claude Code hook에서 호출, 카운터 갱신 (working 플래그 등 행동용 상태에 계속 사용됨)
+- `daily-tokens.js` — 일일 토큰 집계 CLI. 메뉴바 앱이 주기적으로(30초 간격) 호출해 `daily.json`을 갱신한다
+- `statusline.js` — 실제 statusline에 렌더링되는 스크립트
+
+## 진화 단계 (일일 KST 토큰 소모량 기준)
+
+메뉴바 마스코트의 진화 단계는 **그날(KST, 자정 리셋) 소모한 output 토큰 총량**으로만 결정된다. 세션/전역 tool-success 카운터(`hook.js`, `lib/state.js`)는 여전히 `working` 플래그 등 행동 상태 용도로 유지되지만 더 이상 진화 단계에 영향을 주지 않는다.
+
+| 단계 | 조건 (`dailyOutputTokens`) |
+|---|---|
+| digitama → baby | 오늘 output 토큰 ≥ 1 |
+| baby → child | 오늘 output 토큰 ≥ 30,000 |
+| child → adult | 오늘 output 토큰 ≥ 100,000 |
+| adult → perfect | 오늘 output 토큰 ≥ 300,000 |
+| perfect → ultimate | 오늘 output 토큰 ≥ 1,000,000 |
+
+- 매일 KST 자정에 합계가 0으로 리셋된다(고정 오프셋 UTC+9, DST 없음).
+- `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
+- `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
+
+## 일일 토큰 집계 (`daily-tokens.js`)
+
+```bash
+node daily-tokens.js
+```
+
+- 소스: `~/.claude/projects/*/*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 각 줄의 최상위 `timestamp`(ISO, UTC)와 `message.usage.output_tokens`(assistant 항목)를 본다. 파싱 실패 줄은 조용히 skip.
+- KST(UTC+9) 기준 **오늘 0시 이후** timestamp인 assistant 항목만 합산한다.
+- 같은 `message.id`가 여러 줄에 중복 등장할 수 있어(스트리밍/재기록) id별로 dedupe하고 그중 최댓값만 더한다.
+- **증분 스캔**: 매 실행마다 전체 파일을 재파싱하지 않는다. `$CLAUDEMON_DIR/token-scan-cache.json`에 파일별 `{ offset, contribution, mtimeMs }`를 저장해 다음 실행에서 새로 추가된 바이트만 읽는다. `mtime`이 오늘 KST 0시 이전인 파일은 아예 열지 않고 skip.
+- 날짜가 바뀌면(`dateKST` 변경) 파일별 `contribution`을 0으로 리셋하되 `offset`은 그대로 유지한다(이전 내용을 다시 읽지 않기 위함).
+- 출력: `$CLAUDEMON_DIR/daily.json`
+  ```json
+  { "dateKST": "2026-07-24", "outputTokens": 83002, "stageId": "child", "updatedAt": "2026-07-24T01:40:35.208Z" }
+  ```
+- 메뉴바 앱은 이 파일을 ~30초 주기로 폴링해서 스프라이트를 갱신한다. 증분 스캔이므로 재실행 비용은 대체로 수십 ms 이내.
+
+## working 플래그
+
+세션이 지금 Claude Code 응답을 생성 중인지(작업 중) 아니면 사용자 입력을 기다리는지(대기 중) 구분하는 플래그.
+
+- `UserPromptSubmit` 훅 → `hook.js turn-start` 호출 → `state.working = true`
+- `Stop` 훅 → `hook.js turn-end` 호출 → `state.working = false`, `state.lastTurnEndAt` 기록
+- 세션 시작 시(`hook.js session-start`) → `state.working = false`
+- `tool-success`/`tool-failure` 이벤트도 안전망으로 `state.working = true`를 함께 설정한다(턴 경계 이벤트가 누락돼도 실제 도구 호출 중임을 반영).
+
+`working`/`lastTurnEndAt`은 세션 상태 파일(`~/.claude/claudemon/sessions/<session_id>.json`)에 저장되며, 카운터에는 영향을 주지 않는다.
+
+## 멀티세션 지원
+
+여러 Claude Code 세션을 동시에 띄우면 마스코트가 세션별로 따로 성장한다.
+
+- `hook.js`/`statusline.js`는 stdin으로 전달되는 Claude Code hook/statusline payload에서 `session_id`를 읽는다.
+- `session_id`가 있으면 `~/.claude/claudemon/sessions/<session_id>.json`에 저장하고, 없으면(수동 실행 등) 기존 전역 `state.json`으로 fallback한다.
+- 세션 상태 파일에는 기존 필드 외에 `sessionId`, `pid`(hook 실행 시 부모 프로세스 PID), `cwd`, `updatedAt`이 추가로 저장된다. `pid`는 메뉴바 앱 등이 "포커스된 터미널의 claude PID → 세션 파일"을 매칭하는 데 쓰인다.
+- `CLAUDEMON_DIR` 환경변수로 루트 디렉터리를 오버라이드하면 세션 파일도 `$CLAUDEMON_DIR/sessions/` 아래에 생성된다.
+
+## 상태 초기화
+
+```bash
+# 전역 상태
+rm ~/.claude/claudemon/state.json
+
+# 특정 세션 상태
+rm ~/.claude/claudemon/sessions/<session_id>.json
+
+# 모든 세션 상태
+rm -rf ~/.claude/claudemon/sessions/
+
+# 전역 누적 카운터 (더 이상 진화에 쓰이지 않지만 working 상태 등에 남아있음)
+rm ~/.claude/claudemon/global.json
+
+# 일일 토큰 집계 결과 + 증분 스캔 캐시 (다음 실행 시 처음부터 재집계됨)
+rm ~/.claude/claudemon/daily.json ~/.claude/claudemon/token-scan-cache.json
+```
+
+## 알려진 제한
+
+- pixel-sprite 아님, 텍스트/이모지 기반 (실사용 시 `claude-code-mascot-statusline`처럼 진짜 픽셀아트로 교체 권장)
+- consecutiveDaysActive 로직은 자정 기준 단순 비교라 타임존 이슈 있을 수 있음
+- 궁극체(prMergedCount) 마일스톤은 아직 git/PR 연동 안 됨 — 수동으로 `hook.js pr-merged` 호출 필요

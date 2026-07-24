@@ -1,0 +1,49 @@
+{
+  "packName": "claudemon-default",
+  "version": "0.2.0",
+  "stages": [
+    {
+      "id": "digitama",
+      "label": "알 (Digitama)",
+      "sprite": ["( . )", "(   )"],
+      "condition": { "type": "always" },
+      "next": "baby"
+    },
+    {
+      "id": "baby",
+      "label": "유년기 (Baby)",
+      "sprite": ["(o.o)", "(o_o)"],
+      "condition": { "type": "dailyOutputTokens", "gte": 1 },
+      "next": "child"
+    },
+    {
+      "id": "child",
+      "label": "성장기 (Child)",
+      "sprite": ["(^_^)/", "(^o^)/"],
+      "condition": { "type": "dailyOutputTokens", "gte": 30000 },
+      "warning": { "type": "contextUsagePct", "gte": 70, "colorShift": "red" },
+      "next": "adult"
+    },
+    {
+      "id": "adult",
+      "label": "성숙기 (Adult)",
+      "sprite": ["\\(^▽^)/", "\\(≧▽≦)/"],
+      "condition": { "type": "dailyOutputTokens", "gte": 100000 },
+      "next": "perfect"
+    },
+    {
+      "id": "perfect",
+      "label": "완전체 (Perfect)",
+      "sprite": ["★\\(^▽^)/★", "☆\\(≧▽≦)/☆"],
+      "condition": { "type": "dailyOutputTokens", "gte": 300000 },
+      "next": "ultimate"
+    },
+    {
+      "id": "ultimate",
+      "label": "궁극체 (Ultimate)",
+      "sprite": ["🔥\\(＠▽＠)/🔥", "⚡\\(＠▽＠)/⚡"],
+      "condition": { "type": "dailyOutputTokens", "gte": 1000000 },
+      "next": null
+    }
+  ]
+}

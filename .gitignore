@@ -1,0 +1,12 @@
+# 빌드 산출물
+menubar/claudemon-menubar
+
+# 세션/도구 작업 파일
+.omc/
+.omx/
+.playwright-mcp/
+*.png
+!sprites/**/*.png
+
+# macOS
+.DS_Store
