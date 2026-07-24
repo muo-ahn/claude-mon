@@ -689,18 +689,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         rebuildMenu()
     }
 
-    // Digivolve flash: rapidly alternates the old and new form for ~4s on a
-    // dedicated fast timer, overriding the normal 0.8s animation (and the
-    // pause state — evolution is worth waking up for). Cleans up after
-    // itself; a second evolution during the burst just restarts it.
+    // Fills the sprite's opaque pixels with white — the classic digivolve
+    // "glowing silhouette". sourceAtop keeps the alpha mask intact.
+    func whiteSilhouette(of img: NSImage) -> NSImage {
+        let out = NSImage(size: img.size)
+        out.lockFocus()
+        img.draw(in: NSRect(origin: .zero, size: img.size))
+        NSColor.white.set()
+        NSRect(origin: .zero, size: img.size).fill(using: .sourceAtop)
+        out.unlockFocus()
+        return out
+    }
+
+    // Digivolve sequence (~4.5s), classic anime style:
+    //   1) old form blinks white a few times (진화 시작)
+    //   2) glowing white silhouette morphs old shape <-> new shape
+    //   3) color snaps back on the new form (진화 완료)
+    // Runs on its own fast timer, overriding the normal 0.8s animation and
+    // the pause state — evolution is worth waking up for. A second
+    // evolution during the burst just restarts it.
     func startEvolutionBurst(from oldFrames: [NSImage], to newFrames: [NSImage]) {
         evolutionTimer?.invalidate()
+        let oldNormal = oldFrames[0]
+        let newNormal = newFrames[0]
+        let oldWhite = whiteSilhouette(of: oldNormal)
+        let newWhite = whiteSilhouette(of: newNormal)
+        let oldWhite1 = whiteSilhouette(of: oldFrames.count > 1 ? oldFrames[1] : oldNormal)
+        let newWhite1 = whiteSilhouette(of: newFrames.count > 1 ? newFrames[1] : newNormal)
+
+        var sequence: [NSImage] = []
+        // 1) ignition: color <-> white blink on the old form
+        for _ in 0..<3 { sequence += [oldNormal, oldWhite] }
+        // 2) silhouette morph: white-only shape swap, quickening
+        sequence += [oldWhite, oldWhite1, newWhite, newWhite1,
+                     oldWhite, newWhite, oldWhite1, newWhite1,
+                     oldWhite, newWhite, newWhite1, newWhite]
+        // 3) reveal: white <-> color pop on the new form
+        sequence += [newNormal, newWhite, newNormal, newWhite, newNormal]
+
         var tick = 0
-        let totalTicks = 28 // 28 * 0.14s ≈ 4s
-        evolutionTimer = Timer.scheduledTimer(withTimeInterval: 0.14, repeats: true) { [weak self] timer in
+        evolutionTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] timer in
             guard let self = self else { timer.invalidate(); return }
-            tick += 1
-            if tick >= totalTicks {
+            if tick >= sequence.count {
                 timer.invalidate()
                 self.evolutionTimer = nil
                 self.currentFrameSetKey = "" // force applyFrameSet to resettle
@@ -708,8 +738,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.advanceFrame()
                 return
             }
-            let source = (tick % 2 == 0) ? oldFrames : newFrames
-            self.statusItem.button?.image = source[(tick / 2) % source.count]
+            self.statusItem.button?.image = sequence[tick]
+            tick += 1
         }
     }
 
