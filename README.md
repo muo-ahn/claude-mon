@@ -6,24 +6,71 @@
 
 ## 설치
 
-`~/.claude/settings.json`에 추가:
+### 요구 사항
+
+- **Node.js** (LTS 권장) — `hook.js`, `statusline.js`, `daily-tokens.js` 실행용. 외부 의존성 없이 stdlib만 쓰므로 `npm install`은 필요 없다.
+- **macOS + Swift 툴체인** — 메뉴바 앱을 쓸 경우에만. Xcode 또는 Command Line Tools(`xcode-select --install`)에 포함된 `swiftc`가 필요하다. statusline만 쓸 거라면 생략 가능하다.
+- **스프라이트 도트 이미지** — 레포에 포함되지 않는다. [스프라이트 팩](#스프라이트-팩-spritespacks)을 참고해 직접 준비한다.
+
+### 1. 클론
+
+```bash
+git clone https://github.com/muo-ahn/claude-mon.git
+cd claude-mon
+```
+
+아래 예시에서 `/절대/경로/claude-mon`은 클론한 디렉터리의 절대 경로(`pwd`로 확인)로 바꾼다.
+
+### 2. statusline + hook 등록
+
+`~/.claude/settings.json`에 추가한다(기존 설정이 있으면 `statusLine`/`hooks` 키를 병합):
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "node /절대/경로/claudemon/statusline.js",
+    "command": "node /절대/경로/claude-mon/statusline.js",
     "padding": 0
   },
   "hooks": {
     "PostToolUse": [
-      { "hooks": [{ "type": "command", "command": "node /절대/경로/claudemon/hook.js tool-success" }] }
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js tool-success" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js turn-start" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js turn-end" }] }
+    ],
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js session-start" }] }
     ]
   }
 }
 ```
 
-에러 발생 시 hook 이벤트를 `tool-failure`로 바꿔 별도 등록.
+- `PostToolUse`만 등록해도 진화는 동작한다. `UserPromptSubmit`/`Stop`/`SessionStart`는 [working 플래그](#working-플래그)(작업 중/대기 중 표시)를 정확히 하기 위한 것으로 선택 사항이다.
+- 실패한 도구 호출도 세고 싶으면 `PostToolUse`에 `hook.js tool-failure` 훅을 하나 더 추가한다.
+- 새 세션부터 적용된다. 등록 후 Claude Code 세션을 새로 열면 statusline에 마스코트가 나타난다.
+
+### 3. (선택) 메뉴바 앱 빌드 — macOS
+
+statusline 대신/과 함께 메뉴바에 애니메이션 마스코트를 띄우려면 앱을 직접 빌드한다:
+
+```bash
+cd menubar
+swiftc -O -o claudemon-menubar claudemon-menubar.swift
+./claudemon-menubar &
+```
+
+- 빌드 산출물(`menubar/claudemon-menubar`)은 `.gitignore`로 제외되어 있으므로 각자 빌드해야 한다.
+- 앱은 accessory(백그라운드 상주) 모드로 뜨며 Dock 아이콘 없이 메뉴바에만 나타난다. `active-session.sh`로 현재 포커스된 세션을 추적하고, 30초마다 `daily-tokens.js`를 호출해 토큰 집계를 갱신한다.
+- 로그인 시 자동 실행하려면 `launchd` LaunchAgent(`~/Library/LaunchAgents/`)로 등록하거나 시스템 설정 → 로그인 항목에 추가한다.
+- 스프라이트가 하나도 없으면 표시가 비거나 fallback되므로, 먼저 [스프라이트 팩](#스프라이트-팩-spritespacks)을 최소 하나 채운다.
+
+### 상태 저장 위치
+
+상태 파일은 기본적으로 `~/.claude/claudemon/` 아래에 생성된다(`CLAUDEMON_DIR` 환경변수로 오버라이드 가능). 디렉터리는 자동 생성되며, 초기화 방법은 [상태 초기화](#상태-초기화) 참고.
 
 ## 구조
 
@@ -59,7 +106,16 @@
 node daily-tokens.js
 ```
 
-- 소스: `~/.claude/projects/*/*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 각 줄의 최상위 `timestamp`(ISO, UTC)와 `message.usage.output_tokens`(assistant 항목)를 본다. 파싱 실패 줄은 조용히 skip.
+- 소스: `~/.claude/projects/*/*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 각 줄은 JSON 오브젝트 하나이며, 다음 필드를 읽는다(그 외 필드는 무시, 파싱 실패 줄은 조용히 skip):
+  - 최상위 `timestamp` (ISO 8601, UTC)
+  - `message.role === "assistant"` 인 줄만 대상
+  - `message.usage.output_tokens` (숫자)
+  - dedupe 키로 `message.id`(없으면 최상위 `uuid`)
+
+  실제 Claude Code가 쓰는 줄과 같은 구조이며, 최소 형태는 다음과 같다:
+  ```json
+  {"timestamp":"2026-07-24T01:40:00.000Z","message":{"role":"assistant","id":"msg_abc","usage":{"output_tokens":5000}}}
+  ```
 - KST(UTC+9) 기준 **오늘 0시 이후** timestamp인 assistant 항목만 합산한다.
 - 같은 `message.id`가 여러 줄에 중복 등장할 수 있어(스트리밍/재기록) id별로 dedupe하고 그중 최댓값만 더한다.
 - **증분 스캔**: 매 실행마다 전체 파일을 재파싱하지 않는다. `$CLAUDEMON_DIR/token-scan-cache.json`에 파일별 `{ offset, contribution, mtimeMs }`를 저장해 다음 실행에서 새로 추가된 바이트만 읽는다. `mtime`이 오늘 KST 0시 이전인 파일은 아예 열지 않고 skip.
