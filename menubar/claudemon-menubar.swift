@@ -16,20 +16,30 @@
 // and the stage they map to. Missing/corrupt daily.json falls back to
 // "digitama" and never crashes the app.
 //
-// Whether the mascot ANIMATES is likewise a global signal: every tick scans
-// all of $CLAUDEMON_DIR/sessions/*.json and animates if ANY of them reports
-// working == true with a fresh (< 10 min) mtime. If every session is idle
-// or stale, the mascot freezes on frame 0 — "everyone's done for now".
+// Session state is judged, not just read: hook.js only records facts
+// (working, mtime, pid, awaitingUserSince, endedAt); this file is the sole
+// place that turns those facts into one of five states per session --
+// dead / waitingUser / stalled / working / idle -- via projectState().
+// globalState() then picks the single most urgent state across every
+// registered session (waitingUser > stalled > working > idle; dead
+// sessions never contribute), and that drives both whether the mascot
+// ANIMATES (working or waitingUser) and which sprite set is shown.
 //
 // The dropdown still resolves and shows the single focused session (via
 // active-session.sh, same resolution chain as before: kitty -> tmux ->
 // descendant claude pid -> session file), condensed to one line, purely for
 // human context — it no longer drives the sprite or the animation state.
+// Every live session also gets its own row labeled by its projected state;
+// a session that just died stays visible (labeled "종료") for a short
+// grace window instead of vanishing immediately.
 //
-// Rate-limit sprite overrides (limit80/limit95) read the HUD cache
-// (<cwd>/.omc/state/hud-stdin-cache.json) belonging to whichever registered
-// session's cache was written most recently, since the usage limit itself
-// is account-wide and any session's cache is equally authoritative.
+// Sprite overrides layer on top of the plain per-stage frames, highest
+// priority first: limit95 (rate limit) > waitingUser > stalled > limit80
+// (rate limit) > working/idle (plain stage frames). Rate-limit levels come
+// from the HUD cache (<cwd>/.omc/state/hud-stdin-cache.json) belonging to
+// whichever registered session's cache was written most recently, since
+// the usage limit itself is account-wide and any session's cache is
+// equally authoritative.
 
 import AppKit
 
@@ -207,6 +217,137 @@ func limitLevelForPercentage(_ percentage: Int) -> String? {
 
 let orphanSessionThreshold: TimeInterval = 10 * 60
 
+// How long a `.dead` session keeps a row in the dropdown/--dump-state list
+// after its file stopped being touched, so "it just ended" is visible for
+// a moment instead of the row disappearing the instant the pid exits.
+let deadSessionGracePeriod: TimeInterval = 5 * 60
+
+// MARK: - Session state projection
+//
+// Single source of truth for "what is this session doing right now",
+// replacing three previously-separate ad-hoc checks (isAnimating's
+// working/mtime pair, sessionIsActivelyWorking, and the pid/mtime/status
+// logic that used to live inline in liveSessionLines). hook.js writes only
+// facts to the session JSON; projectState() is where those facts become a
+// judgment.
+enum SessionState: String {
+    case dead, waitingUser, stalled, working, idle
+}
+
+// Signal-0 probe: kill() with signal 0 sends nothing, it only reports
+// whether the pid still exists (0 == alive, -1/ESRCH == gone). Factored
+// out so every "is this session's process still around" check agrees.
+func pidIsAlive(_ pid: Int?) -> Bool {
+    guard let pid = pid else { return false }
+    return kill(pid_t(pid), 0) == 0
+}
+
+// Judges a single session against the facts in its JSON. Checked in this
+// order, first match wins:
+//   1. endedAt present -> dead (hook.js saw the session end explicitly)
+//   2. no pid, or pid no longer alive -> dead (process is just gone)
+//   3. awaitingUserSince present -> waitingUser (a permission prompt can
+//      appear mid-turn while working is still true, so this is checked
+//      before working)
+//   4. working == true but stale (mtime older than orphanSessionThreshold)
+//      -> stalled (reported working from a session that stopped updating)
+//   5. working == true and fresh -> working
+//   6. otherwise -> idle
+func projectState(_ entry: SessionEntry, now: Date = Date()) -> SessionState {
+    if let ended = entry.json["endedAt"] as? String, !ended.isEmpty { return .dead }
+    guard let pid = entry.json["pid"] as? Int, pidIsAlive(pid) else { return .dead }
+    if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty { return .waitingUser }
+    if workingFieldPresent(entry.json) == true {
+        if let mtime = entry.mtime, now.timeIntervalSince(mtime) > orphanSessionThreshold { return .stalled }
+        return .working
+    }
+    return .idle
+}
+
+// Most urgent state across every registered session. Dead sessions are
+// excluded before picking a winner -- an orphaned/ended session must never
+// mask a real waitingUser/working session elsewhere, nor should a machine
+// with only dead sessions register as anything but idle.
+func globalState(_ sessions: [SessionEntry], now: Date = Date()) -> SessionState {
+    let alive = sessions.map { projectState($0, now: now) }.filter { $0 != .dead }
+    if alive.contains(.waitingUser) { return .waitingUser }
+    if alive.contains(.stalled) { return .stalled }
+    if alive.contains(.working) { return .working }
+    return .idle
+}
+
+// Dropdown/--dump-state sort order: most urgent first, mtime-desc within
+// a tie. Kept separate from globalState's own priority (which additionally
+// drops dead sessions entirely) since dead sessions still get a row here,
+// just last.
+func statePriority(_ state: SessionState) -> Int {
+    switch state {
+    case .waitingUser: return 0
+    case .working: return 1
+    case .stalled: return 2
+    case .idle: return 3
+    case .dead: return 4
+    }
+}
+
+// Shared ordering behind both the dropdown and --dump-state: filters to
+// sessions touched in the last 24h (unchanged cutoff), gives `.dead`
+// sessions a short grace window before dropping them, then sorts by
+// urgency/recency. Centralizing this means the two output paths can never
+// silently drift apart.
+func orderedSessionStates(sessions: [SessionEntry], now: Date = Date()) -> [(entry: SessionEntry, state: SessionState)] {
+    var rows: [(entry: SessionEntry, state: SessionState)] = []
+    for entry in sessions {
+        guard let mtime = entry.mtime, now.timeIntervalSince(mtime) < 24 * 3600 else { continue }
+        let state = projectState(entry, now: now)
+        if state == .dead, now.timeIntervalSince(mtime) >= deadSessionGracePeriod { continue }
+        rows.append((entry, state))
+    }
+    rows.sort { a, b in
+        let pa = statePriority(a.state), pb = statePriority(b.state)
+        if pa != pb { return pa < pb }
+        return (a.entry.mtime ?? .distantPast) > (b.entry.mtime ?? .distantPast)
+    }
+    return rows
+}
+
+// Dropdown status label for one session's projected state, kept separate
+// from projectState itself so display-copy tweaks never touch the
+// classification logic.
+func sessionStatusLabel(_ state: SessionState, json: [String: Any]) -> String {
+    switch state {
+    case .working:
+        return "● 작업 중"
+    case .waitingUser:
+        if let raw = json["awaitingUserSince"] as? String, let d = parseISO8601(raw) {
+            return "! 입력 대기 (\(formatClockTime(d))부터)"
+        }
+        return "! 입력 대기"
+    case .stalled:
+        return "⏸ 멈춤"
+    case .idle:
+        if let raw = json["lastTurnEndAt"] as? String, let d = parseISO8601(raw) {
+            return "○ 대기 (\(formatClockTime(d)) 종료)"
+        }
+        return "○ 대기"
+    case .dead:
+        return "× 종료"
+    }
+}
+
+// Combines the two independent override sources -- the account-wide
+// rate-limit level from the HUD cache, and the session-derived global
+// state -- into the single key that picks a frame set. Priority, highest
+// first: limit95 > waitingUser > stalled > limit80 > (nil, i.e. plain
+// stage frames for working/idle).
+func overrideFrameLevel(limitLevel: String?, sessionState: SessionState) -> String? {
+    if limitLevel == "limit95" { return "limit95" }
+    if sessionState == .waitingUser { return "waitingUser" }
+    if sessionState == .stalled { return "stalled" }
+    if limitLevel == "limit80" { return "limit80" }
+    return nil
+}
+
 // Legacy single-file animation rule, used only as a fallback when
 // $CLAUDEMON_DIR/sessions has no files at all (e.g. fresh install before
 // any session has registered). `working` nil (field absent) keeps the old
@@ -349,31 +490,24 @@ func scanSessions(dir: String) -> [SessionEntry] {
     return result
 }
 
-// A session only counts toward the global "working" OR if it explicitly
-// reports working == true AND its file was touched recently — an orphaned
-// session stuck reporting working == true from hours ago must not keep the
-// whole mascot animating forever.
-func sessionIsActivelyWorking(_ entry: SessionEntry, now: Date = Date()) -> Bool {
-    guard workingFieldPresent(entry.json) == true else { return false }
-    guard let mtime = entry.mtime else { return false }
-    return now.timeIntervalSince(mtime) <= orphanSessionThreshold
-}
-
-// Global animate/idle decision + how many sessions are actively working.
-// Falls back to the legacy single global-state-file rule only when there
-// are no session files at all yet (fresh install).
-func globalWorkingState(sessions: [SessionEntry], fallbackGlobalPath: String) -> (animating: Bool, workingCount: Int) {
+// Global state decision + how many sessions are actively working. Falls
+// back to the legacy single global-state-file rule only when there are no
+// session files at all yet (fresh install) -- that path only ever yields
+// working/idle, since there is no per-session awaitingUserSince/mtime data
+// to derive waitingUser/stalled from.
+func globalWorkingState(sessions: [SessionEntry], fallbackGlobalPath: String, now: Date = Date()) -> (state: SessionState, workingCount: Int) {
     if sessions.isEmpty {
         guard let data = FileManager.default.contents(atPath: fallbackGlobalPath),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { return (false, 0) }
+        else { return (.idle, 0) }
         let working = workingFieldPresent(json)
         let mtime = (try? FileManager.default.attributesOfItem(atPath: fallbackGlobalPath))?[.modificationDate] as? Date
-        let animating = isAnimating(working: working, referenceMtime: mtime)
-        return (animating, animating ? 1 : 0)
+        let animating = isAnimating(working: working, referenceMtime: mtime, now: now)
+        return (animating ? .working : .idle, animating ? 1 : 0)
     }
-    let workingCount = sessions.filter { sessionIsActivelyWorking($0) }.count
-    return (workingCount > 0, workingCount)
+    let state = globalState(sessions, now: now)
+    let workingCount = sessions.filter { projectState($0, now: now) == .working }.count
+    return (state, workingCount)
 }
 
 // Picks the HUD cache belonging to whichever registered session's cwd has
@@ -433,14 +567,15 @@ func dumpLimits(path: String) {
 func dumpState() {
     let daily = readDailyState()
     let sessions = scanSessions(dir: sessionsDir)
-    let (animating, workingCount) = globalWorkingState(sessions: sessions, fallbackGlobalPath: globalStateFile)
+    let (state, workingCount) = globalWorkingState(sessions: sessions, fallbackGlobalPath: globalStateFile)
+    let animating = (state == .working || state == .waitingUser)
 
     var maxPct = 0
     if let (cache, _) = mostRecentHudCache(sessions: sessions),
        let rateLimits = cache["rate_limits"] as? [String: Any] {
         maxPct = maxUsedPercentage(rateLimits: rateLimits)
     }
-    let level = limitLevelForPercentage(maxPct)
+    let level = overrideFrameLevel(limitLevel: limitLevelForPercentage(maxPct), sessionState: state)
     let resolved = resolvePack(for: daily.mon)
 
     print("mon: \(resolved.mon)")
@@ -452,6 +587,14 @@ func dumpState() {
     print("animating: \(animating)")
     print("maxRateLimitPercentage: \(maxPct)")
     print("frameSet: \(level ?? "stage:\(daily.stageId)")")
+    print("globalState: \(state.rawValue)")
+    for (entry, sessState) in orderedSessionStates(sessions: sessions) {
+        let json = entry.json
+        let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
+        let fullSid = json["sessionId"] as? String ?? ""
+        let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
+        print("session \(sid) \(sessState.rawValue) \(project)")
+    }
 }
 
 // CLI test hooks: run headless (no NSApplication) and exit before any
@@ -489,6 +632,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var animationPaused = false
     var evolutionTimer: Timer? = nil
     var lastSessions: [SessionEntry] = []
+    // Winning state across all registered sessions (see globalState()).
+    // Feeds the sprite override slot (overrideFrameLevel) alongside the
+    // rate-limit level; defaults to .idle so a pre-refreshState frame load
+    // behaves exactly like "no override" did before this existed.
+    var currentSessionState: SessionState = .idle
     var sessionTokens: [String: Int] = [:]
 
     // Focused-session info: purely informational (one line in the menu),
@@ -569,7 +717,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // newly loaded sets on the next call, even if the stage/limit key
         // itself didn't change.
         currentFrameSetKey = ""
-        currentFrames = framesForLevel(currentLimitLevel, stage: currentStageId)
+        let level = overrideFrameLevel(limitLevel: currentLimitLevel, sessionState: currentSessionState)
+        currentFrames = framesForLevel(level, stage: currentStageId)
         frameIdx = 0
         return true
     }
@@ -592,11 +741,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         exit(1)
     }
 
-    // Picks the frames to display: a limit80/limit95 override (if that
-    // level is active and its sprites are actually available) beats the
-    // current evolution-stage frames. Stays in effect even while frozen.
+    // Picks the frames to display for a resolved override key (from
+    // overrideFrameLevel: nil, "limit80", "limit95", "waitingUser", or
+    // "stalled"). limit80/limit95 use their own pack-provided sprites when
+    // available; "waitingUser" reuses the pack's generic idle frames
+    // (visually distinct from a frozen stage frame); "stalled" reuses the
+    // limit80 sprite as a generic "paused, needs attention" look. Any
+    // override whose sprites aren't in this pack -- or no override at all
+    // -- falls back to the current evolution-stage frames, same fallback
+    // principle as the original limit-only version of this function.
     func framesForLevel(_ level: String?, stage: String) -> [NSImage] {
-        if let level = level, let frames = limitFrameSets[level], !frames.isEmpty {
+        if level == "limit80" || level == "limit95", let frames = limitFrameSets[level!], !frames.isEmpty {
+            return frames
+        }
+        if level == "waitingUser" {
+            return idleFrames
+        }
+        if level == "stalled", let frames = limitFrameSets["limit80"], !frames.isEmpty {
             return frames
         }
         return stageFrames[stage] ?? idleFrames
@@ -690,11 +851,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             startEvolutionBurst(from: oldFrames, to: newFrames)
         }
 
-        // Global "is anything working" OR across all registered sessions.
+        // Global session-state judgment across all registered sessions.
+        // The mascot animates for .working or .waitingUser -- everything
+        // else (.stalled, .idle) freezes on frame 0, same rule as before
+        // this existed, just driven by the richer state now.
         let sessions = scanSessions(dir: sessionsDir)
         lastSessions = sessions
-        let (animating, workingCount) = globalWorkingState(sessions: sessions, fallbackGlobalPath: globalStateFile)
-        animationPaused = !animating
+        let (state, workingCount) = globalWorkingState(sessions: sessions, fallbackGlobalPath: globalStateFile)
+        currentSessionState = state
+        animationPaused = !(state == .working || state == .waitingUser)
         workingSessionCount = workingCount
 
         updateRateLimits(sessions: sessions)
@@ -758,14 +923,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Recomputes currentFrames from (currentStageId, currentLimitLevel).
-    // Only resets frameIdx when the selected set actually changes, so a
-    // running animation doesn't restart every 2s tick for no reason.
+    // Recomputes currentFrames from (currentStageId, currentLimitLevel,
+    // currentSessionState) via overrideFrameLevel's priority order. Only
+    // resets frameIdx when the selected set actually changes, so a running
+    // animation doesn't restart every 2s tick for no reason.
     func applyFrameSet() {
-        let key = currentLimitLevel ?? "stage:\(currentStageId)"
+        let level = overrideFrameLevel(limitLevel: currentLimitLevel, sessionState: currentSessionState)
+        let key = level ?? "stage:\(currentStageId)"
         guard key != currentFrameSetKey else { return }
         currentFrameSetKey = key
-        currentFrames = framesForLevel(currentLimitLevel, stage: currentStageId)
+        currentFrames = framesForLevel(level, stage: currentStageId)
         frameIdx = 0
     }
 
@@ -816,36 +983,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return "\(focusedSessionLabel()) — 성공 \(ok)/실패 \(fail)"
     }
 
-    // One dropdown line per live session. A session file is "live" when its
-    // recorded claude pid still exists AND the file was touched in the last
-    // 24h — the pid check alone can lie after PID reuse, the mtime check
-    // alone would show yesterday's leftovers.
+    // One dropdown line per live session, ordered/filtered by
+    // orderedSessionStates (24h mtime cutoff, dead sessions kept for a
+    // short grace window then dropped, sorted by state urgency then
+    // mtime-desc) so this list and --dump-state's session lines can never
+    // disagree on what "live" means.
     func liveSessionLines(sessions: [SessionEntry]) -> [String] {
-        let now = Date()
-        var live: [(entry: SessionEntry, working: Bool)] = []
-        for entry in sessions {
-            guard let pid = entry.json["pid"] as? Int, kill(pid_t(pid), 0) == 0 else { continue }
-            guard let mtime = entry.mtime, now.timeIntervalSince(mtime) < 24 * 3600 else { continue }
-            live.append((entry, sessionIsActivelyWorking(entry, now: now)))
-        }
-        live.sort { a, b in
-            if a.working != b.working { return a.working }
-            return (a.entry.mtime ?? .distantPast) > (b.entry.mtime ?? .distantPast)
-        }
-
         var lines: [String] = []
-        for (entry, working) in live.prefix(10) {
+        for (entry, state) in orderedSessionStates(sessions: sessions).prefix(10) {
             let json = entry.json
             let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
             let fullSid = json["sessionId"] as? String ?? ""
             let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
             let focused = !focusedLastResolvedPath.isEmpty && entry.path == focusedLastResolvedPath
-            var status = "○ 대기"
-            if working {
-                status = "● 작업 중"
-            } else if let ended = json["lastTurnEndAt"] as? String, let d = parseISO8601(ended) {
-                status = "○ 대기 (\(formatClockTime(d)) 종료)"
-            }
+            let status = sessionStatusLabel(state, json: json)
             let tokens = sessionTokens[fullSid] ?? 0
             lines.append("\(focused ? "▶" : "  ") \(project) · \(status) · \(formatTokenCount(tokens)) tok · \(sid)")
         }
@@ -862,7 +1013,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             : evolvedName(pack: currentPackPath, mon: mon, stageId: currentStageId)
         menu.addItem(withTitle: "\(name) · \(dailyLabel) · 오늘 \(formatTokenCount(dailyOutputTokens)) tok", action: nil, keyEquivalent: "")
 
-        let statusLine = workingSessionCount > 0 ? "작업 중 세션 \(workingSessionCount)개" : "모든 세션 대기 중"
+        // Waiting-for-human sessions get called out first — they need
+        // attention more urgently than a plain "still working" count.
+        let waitingUserCount = lastSessions.filter { projectState($0) == .waitingUser }.count
+        let statusLine: String
+        if waitingUserCount > 0 {
+            statusLine = "입력 대기 \(waitingUserCount)개 · 작업 중 \(workingSessionCount)개"
+        } else if workingSessionCount > 0 {
+            statusLine = "작업 중 세션 \(workingSessionCount)개"
+        } else {
+            statusLine = "모든 세션 대기 중"
+        }
         menu.addItem(withTitle: statusLine, action: nil, keyEquivalent: "")
 
         menu.addItem(NSMenuItem.separator())
