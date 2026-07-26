@@ -73,8 +73,16 @@ function main() {
     case 'turn-end':
       state.working = false;
       state.lastTurnEndAt = now.toISOString();
-      // Don't clear awaitingUserSince here: a Notification hook call
-      // typically follows turn-end, and its start time must be preserved.
+      // Safe to clear here: Stop only fires once the turn actually ends,
+      // and a turn is blocked (Stop withheld) while a permission prompt is
+      // pending, so this never clobbers a live wait. Two cases:
+      // - idle-60s wait: turn-end fires (no-op, nothing was pending) and
+      //   Notification follows it, (re)setting awaitingUserSince as usual.
+      // - permission denied mid-turn: the turn ends without ever reaching
+      //   tool-success/tool-failure, so this is the only place that clears
+      //   the stale "waiting" state left by the earlier Notification call.
+      // endedAt is intentionally untouched: turn end != session end.
+      state.awaitingUserSince = null;
       break;
     case 'session-start':
       state.working = false;

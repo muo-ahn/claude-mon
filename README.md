@@ -169,7 +169,7 @@ node daily-tokens.js
 세션이 사용자 응답을 기다리는 중인지, 종료됐는지를 나타내는 사실(fact) 필드. `hook.js`는 이 값을 기록만 하고, 상태 판정(예: stalled/dead 여부)은 하지 않는다.
 
 - `Notification` 훅 → `hook.js notification` 호출 → `state.awaitingUserSince`에 대기 시작 시각(ISO)을 기록. 이미 값이 있으면 덮어쓰지 않는다(최초 대기 시각 유지).
-- `turn-start`/`tool-success`/`tool-failure`/`session-start` 이벤트 → `state.awaitingUserSince = null`로 해제(응답 확인/작업 재개).
+- `turn-start`/`tool-success`/`tool-failure`/`session-start`/`turn-end` 이벤트 → `state.awaitingUserSince = null`로 해제(응답 확인/작업 재개). `turn-end`(`Stop` 훅)는 턴이 실제로 끝날 때만 발화하고 권한 프롬프트 대기 중에는 막혀 있으므로, 권한 거부처럼 `tool-success`/`tool-failure`가 오지 않는 경로에서 대기 상태가 남는 것을 막아준다.
 - `SessionEnd` 훅 → `hook.js session-end` 호출 → `state.endedAt`에 종료 시각을 기록하고, 7일 지난 세션 파일을 정리한다(현재 세션 파일은 제외).
 - `session-start`/`turn-start` 이벤트 → `state.endedAt = null`로 해제.
 
