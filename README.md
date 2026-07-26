@@ -25,6 +25,23 @@
 
 에러 발생 시 hook 이벤트를 `tool-failure`로 바꿔 별도 등록.
 
+`notification`/`session-end` 이벤트도 같은 방식으로 등록할 수 있다(아래는 예시 — 사용자 승인 전이라 아직 실제 `~/.claude/settings.json`에는 등록되어 있지 않다):
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claudemon/hook.js notification" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claudemon/hook.js session-end" }] }
+    ]
+  }
+}
+```
+
+등록하면 `Notification`(권한 대기/입력 유휴 시 발화)은 `state.awaitingUserSince`를, `SessionEnd`는 `state.endedAt`을 기록한다 — 자세한 동작은 [대기/종료 기록](#대기종료-기록-awaitingusersinceendedat) 참고.
+
 ## 구조
 
 - `evolution-tree.json` — 진화 단계/조건/스프라이트 정의 (수정해서 커스텀 팩 제작 가능)
@@ -146,6 +163,17 @@ node daily-tokens.js
 - `tool-success`/`tool-failure` 이벤트도 안전망으로 `state.working = true`를 함께 설정한다(턴 경계 이벤트가 누락돼도 실제 도구 호출 중임을 반영).
 
 `working`/`lastTurnEndAt`은 세션 상태 파일(`~/.claude/claudemon/sessions/<session_id>.json`)에 저장되며, 카운터에는 영향을 주지 않는다.
+
+## 대기/종료 기록 (`awaitingUserSince`/`endedAt`)
+
+세션이 사용자 응답을 기다리는 중인지, 종료됐는지를 나타내는 사실(fact) 필드. `hook.js`는 이 값을 기록만 하고, 상태 판정(예: stalled/dead 여부)은 하지 않는다.
+
+- `Notification` 훅 → `hook.js notification` 호출 → `state.awaitingUserSince`에 대기 시작 시각(ISO)을 기록. 이미 값이 있으면 덮어쓰지 않는다(최초 대기 시각 유지).
+- `turn-start`/`tool-success`/`tool-failure`/`session-start` 이벤트 → `state.awaitingUserSince = null`로 해제(응답 확인/작업 재개).
+- `SessionEnd` 훅 → `hook.js session-end` 호출 → `state.endedAt`에 종료 시각을 기록하고, 7일 지난 세션 파일을 정리한다(현재 세션 파일은 제외).
+- `session-start`/`turn-start` 이벤트 → `state.endedAt = null`로 해제.
+
+> `Notification`/`SessionEnd` 훅은 아직 `~/.claude/settings.json`에 등록되어 있지 않다. 등록하면 위 동작이 실행된다 — 등록 스니펫은 [설치](#설치) 참고.
 
 ## 멀티세션 지원
 
