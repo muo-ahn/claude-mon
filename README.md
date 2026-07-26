@@ -25,7 +25,7 @@
 
 에러 발생 시 hook 이벤트를 `tool-failure`로 바꿔 별도 등록.
 
-`notification`/`session-end` 이벤트도 같은 방식으로 등록할 수 있다(아래는 예시 — 사용자 승인 전이라 아직 실제 `~/.claude/settings.json`에는 등록되어 있지 않다):
+`notification`/`session-end` 이벤트도 같은 방식으로 등록한다:
 
 ```json
 {
@@ -173,7 +173,7 @@ node daily-tokens.js
 - `SessionEnd` 훅 → `hook.js session-end` 호출 → `state.endedAt`에 종료 시각을 기록하고, 7일 지난 세션 파일을 정리한다(현재 세션 파일은 제외).
 - `session-start`/`turn-start` 이벤트 → `state.endedAt = null`로 해제.
 
-> `Notification`/`SessionEnd` 훅은 아직 `~/.claude/settings.json`에 등록되어 있지 않다. 등록하면 위 동작이 실행된다 — 등록 스니펫은 [설치](#설치) 참고.
+> 이 두 이벤트는 `Notification`/`SessionEnd` 훅을 등록해야 동작한다 — 등록 스니펫은 [설치](#설치) 참고.
 
 ## 멀티세션 지원
 
