@@ -264,30 +264,29 @@ func projectState(_ entry: SessionEntry, now: Date = Date()) -> SessionState {
     return .idle
 }
 
-// Most urgent state across every registered session. Dead sessions are
-// excluded before picking a winner -- an orphaned/ended session must never
-// mask a real waitingUser/working session elsewhere, nor should a machine
-// with only dead sessions register as anything but idle.
+// Single urgency ordering shared by globalState (winner across all
+// sessions) and statePriority (dropdown/--dump-state row sort): a stalled
+// session needs intervention more than one that's just working fine, so it
+// ranks above working, same as waitingUser ranks above both. The only
+// place these two consumers differ is dead sessions -- globalState drops
+// them before picking a winner (a dead session must never mask a real one
+// elsewhere), while statePriority still ranks them, last, since a dead row
+// is still shown (briefly) in the dropdown.
+private let stateUrgencyOrder: [SessionState] = [.waitingUser, .stalled, .working, .idle, .dead]
+
+// Most urgent state across every registered session, per stateUrgencyOrder
+// with dead sessions excluded first -- an orphaned/ended session must
+// never mask a real waitingUser/working session elsewhere, nor should a
+// machine with only dead sessions register as anything but idle.
 func globalState(_ sessions: [SessionEntry], now: Date = Date()) -> SessionState {
-    let alive = sessions.map { projectState($0, now: now) }.filter { $0 != .dead }
-    if alive.contains(.waitingUser) { return .waitingUser }
-    if alive.contains(.stalled) { return .stalled }
-    if alive.contains(.working) { return .working }
-    return .idle
+    let alive = Set(sessions.map { projectState($0, now: now) }).subtracting([.dead])
+    return stateUrgencyOrder.first { alive.contains($0) } ?? .idle
 }
 
-// Dropdown/--dump-state sort order: most urgent first, mtime-desc within
-// a tie. Kept separate from globalState's own priority (which additionally
-// drops dead sessions entirely) since dead sessions still get a row here,
-// just last.
+// Dropdown/--dump-state sort order: most urgent first (stateUrgencyOrder),
+// mtime-desc within a tie.
 func statePriority(_ state: SessionState) -> Int {
-    switch state {
-    case .waitingUser: return 0
-    case .working: return 1
-    case .stalled: return 2
-    case .idle: return 3
-    case .dead: return 4
-    }
+    stateUrgencyOrder.firstIndex(of: state) ?? stateUrgencyOrder.count
 }
 
 // Shared ordering behind both the dropdown and --dump-state: filters to
