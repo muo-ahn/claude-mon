@@ -217,6 +217,14 @@ func limitLevelForPercentage(_ percentage: Int) -> String? {
 
 let orphanSessionThreshold: TimeInterval = 10 * 60
 
+// If awaitingUserSince has been sitting unattended longer than this, the
+// user has presumably left that tab/session rather than being about to
+// respond, so projectState() demotes it to .idle instead of leaving it as
+// .waitingUser forever. Demoted to .idle rather than .stalled because
+// .stalled outranks .working in stateUrgencyOrder and would keep hijacking
+// the global state; .idle is the correct "nothing to see here" bucket.
+let abandonedWaitThreshold: TimeInterval = 60 * 60
+
 // How long a `.dead` session keeps a row in the dropdown/--dump-state list
 // after its file stopped being touched, so "it just ended" is visible for
 // a moment instead of the row disappearing the instant the pid exits.
@@ -248,7 +256,9 @@ func pidIsAlive(_ pid: Int?) -> Bool {
 //   2. no pid, or pid no longer alive -> dead (process is just gone)
 //   3. awaitingUserSince present -> waitingUser (a permission prompt can
 //      appear mid-turn while working is still true, so this is checked
-//      before working)
+//      before working), unless it has been sitting for longer than
+//      abandonedWaitThreshold, in which case the user is presumed to have
+//      left and it demotes to idle instead
 //   4. working == true but stale (mtime older than orphanSessionThreshold)
 //      -> stalled (reported working from a session that stopped updating)
 //   5. working == true and fresh -> working
@@ -256,7 +266,12 @@ func pidIsAlive(_ pid: Int?) -> Bool {
 func projectState(_ entry: SessionEntry, now: Date = Date()) -> SessionState {
     if let ended = entry.json["endedAt"] as? String, !ended.isEmpty { return .dead }
     guard let pid = entry.json["pid"] as? Int, pidIsAlive(pid) else { return .dead }
-    if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty { return .waitingUser }
+    if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty {
+        if let awaitingSince = parseISO8601(awaiting), now.timeIntervalSince(awaitingSince) > abandonedWaitThreshold {
+            return .idle
+        }
+        return .waitingUser
+    }
     if workingFieldPresent(entry.json) == true {
         if let mtime = entry.mtime, now.timeIntervalSince(mtime) > orphanSessionThreshold { return .stalled }
         return .working
@@ -325,6 +340,9 @@ func sessionStatusLabel(_ state: SessionState, json: [String: Any]) -> String {
     case .stalled:
         return "⏸ 멈춤"
     case .idle:
+        if let raw = json["awaitingUserSince"] as? String, !raw.isEmpty, let d = parseISO8601(raw) {
+            return "○ 대기 (입력 대기 방치, \(formatClockTime(d))부터)"
+        }
         if let raw = json["lastTurnEndAt"] as? String, let d = parseISO8601(raw) {
             return "○ 대기 (\(formatClockTime(d)) 종료)"
         }
