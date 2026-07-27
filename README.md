@@ -153,6 +153,19 @@ node daily-tokens.js
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
 
+### 진화체 스프라이트 (`adult`/`perfect`/`ultimate`)
+
+`scripts/extract_pack_<mon>.py`가 쓰는 Battle Spirit 시트에는 성장기(Rookie) 본인의 모션만 있고 진화체 프레임이 없다. 그래서 상위 3단계는 원래 "성장기가 강한 포즈를 취한 그림"으로 대체돼 있었고, 이름은 `pack.json`의 `stageNames`를 따라 그레이몬/메탈그레이몬/워그레이몬으로 표시되는데 도트는 아구몬인 불일치가 있었다.
+
+`scripts/extract_pack_evolved_dwds.py`가 이 세 단계를 **Digimon World DS** 시트에서 다시 뽑는다 — DWDS에는 게임 내 모든 진화체의 필드(보행) 스프라이트가 32×32 언저리 크기로 들어있다.
+
+1. 시트를 `sprites/sheets/dwds/<이름>.png`로 넣는다. 필요한 이름은 스크립트의 `PICKS` 표 참고(예: `greymon`, `metalgreymon`, `wargreymon`).
+2. `python3 scripts/extract_pack_evolved_dwds.py [팩이름 ...]` — 인자를 생략하면 표에 있는 7개 팩을 모두 처리한다.
+
+프레임 위치는 손으로 좌표를 재지 않는다. 밴드를 시트 아래로 훑으면서 **그 밴드 안에서만** 지배적인 색(시트 배경색 + 셀 패널색)을 배경으로 잡아 분할하고, 크기가 고르고 등간격이며 밴드 경계에 잘리지 않은 작은 스프라이트가 가장 많이 나오는 밴드를 필드 스프라이트 행으로 고른다. 사람이 정한 값은 `PICKS`의 프레임 인덱스 2개(정면 포즈 — 행 안에서의 위치가 시트마다 다르다)뿐이다.
+
+한계: 임프몬 라인의 스컬사탄몬은 DWDS에 없어 완전체를 뱀파이몬으로 대체했다(`sprites/packs/impmon/pack.json`의 이름도 그에 맞춰져 있다). 원본이 32px보다 큰 프레임은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 해당 파일 목록을 출력한다.
+
 ## working 플래그
 
 세션이 지금 Claude Code 응답을 생성 중인지(작업 중) 아니면 사용자 입력을 기다리는지(대기 중) 구분하는 플래그.

@@ -3,12 +3,12 @@
 
 Source sheet: sprites/sheets/terriermon.gif (317x300 GIF-palette, uniform
 light-gray background). The sheet only contains Terriermon-stage frames (no
-Gargomon/other digivolve frames present), so every stage below falls back to
-one of Terriermon's own poses per the pack fallback convention -- picked to
-loosely track the stage's expected energy (curled ball for digitama, calm
-stance for baby, reach/lunge for child, claw-attack for adult, bigger jump
-and cheer poses for perfect, biggest bared-teeth poses for ultimate, and the
-sheet's alternate-tinted big poses for the limit warnings).
+Gargomon/other digivolve frames present), so this script only extracts
+digitama/baby/child + limit80/limit95 frames from it -- picked to loosely
+track each stage's expected energy (curled ball for digitama, calm stance
+for baby, reach/lunge for child, and the sheet's alternate-tinted big poses
+for the limit warnings). adult/perfect/ultimate are extracted separately by
+scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
 Extraction method: the sheet is not scanned in row bands (that approach
 pulled in neighboring sprite fragments and half-cropped characters on this
@@ -46,18 +46,6 @@ STAGE_WINDOWS = {
     "child": [
         (155, 198, 67, 104),  # arched-tail lunge/reach pose
         (46, 99, 83, 103),    # arched-tail lunge pose, other angle
-    ],
-    "adult": [
-        (205, 257, 76, 102),  # clawed-arm reach/attack pose
-        (262, 311, 77, 103),  # clawed-arm reach/attack pose, mirrored
-    ],
-    "perfect": [
-        (171, 195, 144, 186),  # ears-raised cheer/jump pose
-        (3, 42, 149, 182),     # flying/glide pose, arms spread wide
-    ],
-    "ultimate": [
-        (204, 225, 158, 184),  # biggest fierce bared-teeth pose
-        (198, 227, 206, 229),  # biggest fierce bared-teeth pose, variant
     ],
 }
 

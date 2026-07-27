@@ -6,10 +6,11 @@ green background). The sheet contains three palette-swapped copies of
 Rookie-stage Impmon only (labeled rows: idle, walking, walking plus, jump,
 land, fall, jump2, HAHA!, defend, shot1, shot2, shot miss, in-air variants,
 hit, hit2, on fire, shocked, win, lose) -- no Beelzemon digivolve frames are
-present anywhere on the sheet. perfect/ultimate therefore fall back to
-Impmon's strongest special-move poses (Shot1 fireball charge / release and
-Shot2 cape slash) per the pack fallback convention. All windows below are
-taken from the first (vivid blue "real color") copy in the top-left corner.
+present anywhere on the sheet, so this script only extracts digitama/baby/
+child + limit80/limit95 frames from it. adult/perfect/ultimate are
+extracted separately by scripts/extract_pack_evolved_dwds.py from the
+Digimon World DS sheet. All windows below are taken from the first (vivid
+blue "real color") copy in the top-left corner.
 
 Usage: python3 scripts/extract_pack_impmon.py
 """
@@ -35,18 +36,6 @@ STAGE_WINDOWS = {
     "child": [
         (26, 64, 122, 160),  # Walking row, frame 1
         (64, 101, 122, 160),  # Walking row, frame 2
-    ],
-    "adult": [
-        (194, 234, 134, 168),  # Walking Plus row, frame 1 (energetic stride)
-        (235, 275, 135, 168),  # Walking Plus row, frame 2
-    ],
-    "perfect": [
-        (478, 513, 0, 42),   # Shot1 row 1: medium fireball charging in hand
-        (510, 547, 0, 42),   # Shot1 row 1: large fireball, ready to throw
-    ],
-    "ultimate": [
-        (320, 355, 38, 82),    # Shot1 row 2: fireball release, motion trail
-        (320, 355, 220, 255),  # Shot2 swing row: big cape-slash motion blur
     ],
 }
 

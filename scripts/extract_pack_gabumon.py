@@ -6,14 +6,10 @@ teal/green uniform background).
 Unlike Agumon's sheet, this one has richer state coverage: a full
 tumble/roll-onto-back animation (used for limit95), a red-face hit
 reaction row (used for limit80), and compact curled/seated poses (used
-for digitama). No distinct evolved-form (Garurumon/MetalGarurumon) body
-shape was found anywhere on the sheet after a full row-by-row scan --
-every frame is the same Gabumon silhouette. Per the pack fallback rule,
-perfect uses Gabumon's in-sheet "power up" recolor (yellow belly turning
-to a red armor plate, the closest thing to a digivolve visual on this
-sheet) and ultimate uses the named Blue Blaster ranged attack, mirroring
-the perfect=power-stance / ultimate=special-attack split used for the
-Agumon pack.
+for digitama). This script only extracts digitama/baby/child + limit80/
+limit95 frames; adult/perfect/ultimate (Garurumon/MetalGarurumon) are
+extracted separately by scripts/extract_pack_evolved_dwds.py from the
+Digimon World DS sheet.
 
 Usage: python3 scripts/extract_pack_gabumon.py
 """
@@ -39,18 +35,6 @@ FRAME_WINDOWS = {
     "child": [
         (3, 41, 401, 437),    # Walk row, frame 1 (leaning stride, no dust)
         (45, 83, 401, 437),   # Walk row, frame 2 (opposite stride)
-    ],
-    "adult": [
-        (196, 227, 258, 297),  # Run row, dust-cloud frame 1
-        (230, 262, 258, 297),  # Run row, dust-cloud frame 2
-    ],
-    "perfect": [
-        (187, 231, 656, 697),  # Power-up row: red chest armor starting
-        (233, 265, 656, 697),  # Power-up row: more red armor visible
-    ],
-    "ultimate": [
-        (210, 259, 176, 211),  # Blue Blaster: breath stream mid-release
-        (267, 333, 176, 211),  # Blue Blaster: breath stream full extension
     ],
     "limit80": [
         (75, 105, 541, 579),   # Hit-reaction row: red flash face, frame 3
