@@ -39,7 +39,10 @@
 // from the HUD cache (<cwd>/.omc/state/hud-stdin-cache.json) belonging to
 // whichever registered session's cache was written most recently, since
 // the usage limit itself is account-wide and any session's cache is
-// equally authoritative.
+// equally authoritative. For genericOverrideStages the overrides reuse the
+// pack's generic sprite files (Rookie-only); for adult/perfect/ultimate
+// they instead tint the current stage frames, since no generic sprite
+// matches those species (see framesForLevel).
 
 import AppKit
 
@@ -97,6 +100,14 @@ let dailyStateFile = claudemonDir + "/daily.json"
 let sessionsDir = claudemonDir + "/sessions"
 
 let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate"]
+
+// Stages where the pack's generic override sprites (idle-*.png,
+// limit80-*.png, limit95-*.png) are safe to use as-is. Those files are all
+// drawn from the Rookie (성장기) sheet, so the species only matches while
+// currentStageId is still at or before "child". From "adult" onward the
+// generic sprites would show the wrong species, so framesForLevel tints the
+// current stage frames instead of swapping in the generic sprite.
+let genericOverrideStages = ["digitama", "baby", "child"]
 
 let stageLabels: [String: String] = [
     "digitama": "알",
@@ -760,24 +771,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Picks the frames to display for a resolved override key (from
     // overrideFrameLevel: nil, "limit80", "limit95", "waitingUser", or
-    // "stalled"). limit80/limit95 use their own pack-provided sprites when
-    // available; "waitingUser" reuses the pack's generic idle frames
-    // (visually distinct from a frozen stage frame); "stalled" reuses the
-    // limit80 sprite as a generic "paused, needs attention" look. Any
-    // override whose sprites aren't in this pack -- or no override at all
-    // -- falls back to the current evolution-stage frames, same fallback
-    // principle as the original limit-only version of this function.
+    // "stalled").
+    //
+    // For genericOverrideStages (digitama/baby/child), the pack's generic
+    // override sprites are the right species, so we use them directly:
+    // limit80/limit95 use their own pack-provided sprites when available;
+    // "waitingUser" reuses the pack's generic idle frames (visually distinct
+    // from a frozen stage frame); "stalled" reuses the limit80 sprite as a
+    // generic "paused, needs attention" look. Any override whose sprites
+    // aren't in this pack -- or no override at all -- falls back to the
+    // current evolution-stage frames.
+    //
+    // For adult/perfect/ultimate the generic sprites are the wrong species
+    // (they're all drawn from the Rookie sheet), so instead we tint the
+    // current stage frames to signal the override state while keeping the
+    // correct species on screen.
     func framesForLevel(_ level: String?, stage: String) -> [NSImage] {
-        if level == "limit80" || level == "limit95", let frames = limitFrameSets[level!], !frames.isEmpty {
-            return frames
+        if genericOverrideStages.contains(stage) {
+            if level == "limit80" || level == "limit95", let frames = limitFrameSets[level!], !frames.isEmpty {
+                return frames
+            }
+            if level == "waitingUser" {
+                return idleFrames
+            }
+            if level == "stalled", let frames = limitFrameSets["limit80"], !frames.isEmpty {
+                return frames
+            }
+            return stageFrames[stage] ?? idleFrames
         }
-        if level == "waitingUser" {
-            return idleFrames
+
+        let base = stageFrames[stage] ?? idleFrames
+        switch level {
+        case "waitingUser":
+            return tinted(base, NSColor.systemYellow, 0.25)
+        case "stalled":
+            return tinted(base, NSColor.gray, 0.45)
+        case "limit80":
+            return tinted(base, NSColor.black, 0.35)
+        case "limit95":
+            return tinted(base, NSColor.systemRed, 0.40)
+        default:
+            return base
         }
-        if level == "stalled", let frames = limitFrameSets["limit80"], !frames.isEmpty {
-            return frames
-        }
-        return stageFrames[stage] ?? idleFrames
     }
 
     func advanceFrame() {
@@ -898,6 +933,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return out
     }
 
+    // Tints a sprite's opaque pixels with `color` at `alpha`, sourceAtop so
+    // the alpha mask is preserved. Used to distinguish override states
+    // (waitingUser/stalled/limit80/limit95) on evolved stages that have no
+    // matching generic override sprite -- see framesForLevel.
+    func tinted(_ img: NSImage, _ color: NSColor, _ alpha: CGFloat) -> NSImage {
+        let out = NSImage(size: img.size)
+        out.lockFocus()
+        img.draw(in: NSRect(origin: .zero, size: img.size))
+        color.withAlphaComponent(alpha).set()
+        NSRect(origin: .zero, size: img.size).fill(using: .sourceAtop)
+        out.unlockFocus()
+        return out
+    }
+
+    // Frame-array wrapper for tinted(_:_:_:).
+    func tinted(_ frames: [NSImage], _ color: NSColor, _ alpha: CGFloat) -> [NSImage] {
+        return frames.map { tinted($0, color, alpha) }
+    }
+
     // Digivolve sequence (~4.5s), classic anime style:
     //   1) old form blinks white a few times (진화 시작)
     //   2) glowing white silhouette morphs old shape <-> new shape
@@ -946,7 +1000,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // animation doesn't restart every 2s tick for no reason.
     func applyFrameSet() {
         let level = overrideFrameLevel(limitLevel: currentLimitLevel, sessionState: currentSessionState)
-        let key = level ?? "stage:\(currentStageId)"
+        // Override frames are now tinted per-stage on evolved forms (see
+        // framesForLevel), so the cache key must include currentStageId even
+        // when an override is active -- otherwise a stage change while an
+        // override is active would keep showing stale tinted frames.
+        let key = "\(level ?? "stage"):\(currentStageId)"
         guard key != currentFrameSetKey else { return }
         currentFrameSetKey = key
         currentFrames = framesForLevel(level, stage: currentStageId)
