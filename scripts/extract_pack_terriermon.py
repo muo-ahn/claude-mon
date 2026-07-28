@@ -44,8 +44,8 @@ STAGE_WINDOWS = {
         (5, 30, 37, 64),     # standing idle stance, mirrored
     ],
     "child": [
-        (155, 198, 67, 104),  # arched-tail lunge/reach pose
-        (46, 99, 83, 103),    # arched-tail lunge pose, other angle
+        (37, 61, 39, 65),  # standing stance, calm expression
+        (69, 95, 38, 64),  # standing stance, alert expression, same facing
     ],
 }
 
