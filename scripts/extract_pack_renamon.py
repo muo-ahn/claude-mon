@@ -3,11 +3,12 @@
 
 Source sheet: sprites/sheets/renamon.gif (347x500 GIF-palette, uniform
 light-gray background). The sheet only contains Rookie-stage Renamon frames
-(no Sakuyamon digivolve frames present), so every stage below falls back to
-one of Renamon's own poses per the pack fallback convention -- picked to
-loosely track the stage's expected energy (calm stance for digitama/baby,
-more active poses for adult/perfect, biggest/fiercest poses for ultimate,
-flinch-like poses for the limit warnings).
+(no Sakuyamon digivolve frames present), so this script only extracts
+digitama/baby/child + limit80/limit95 frames from it -- picked to loosely
+track each stage's expected energy (calm stance for digitama/baby, more
+active poses for child, flinch-like poses for the limit warnings).
+adult/perfect/ultimate are extracted separately by
+scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
 Extraction method: the sheet is not scanned in row bands (that approach
 pulled in neighboring sprite fragments and half-cropped characters on this
@@ -42,18 +43,6 @@ STAGE_WINDOWS = {
     "child": [
         (84, 121, 108, 140),  # forward fighting stance, fist raised
         (81, 106, 396, 431),  # walking pose, leg stepping forward
-    ],
-    "adult": [
-        (46, 74, 104, 139),   # forward fighting stance, larger
-        (35, 72, 398, 435),   # forward stance, leg forward
-    ],
-    "perfect": [
-        (1, 42, 194, 229),    # Diamond Storm charge, fire-paw pose
-        (195, 232, 299, 332), # attack pose with slash-effect swirl
-    ],
-    "ultimate": [
-        (36, 81, 347, 392),   # biggest jump-kick pose with sparkle effect
-        (167, 208, 202, 235), # big spin-kick pose with slash effect
     ],
 }
 

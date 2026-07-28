@@ -4,13 +4,12 @@ Spirit character sheet (sprites/sheets/agumon.gif, 308x686 palette GIF,
 teal/green uniform background).
 
 The sheet contains only Agumon's own move set (idle, walk, run, claw
-combo, roar, Pepper Breath fireball throw) -- no distinct evolved-form
-(Greymon/WarGreymon) frames were found anywhere on the sheet after a
-full row-by-row visual scan. Per the pack fallback rule, perfect/ultimate
-use Agumon's strongest in-sheet frames (roar -> Pepper Breath fireball
-throw) instead of a true digivolution sprite. The sheet also has no
-explicit hit-reaction or knock-out/lying frame, so limit80/limit95 use
-the closest available tired/hunched poses.
+combo, roar, Pepper Breath fireball throw), so this script only extracts
+digitama/baby/child + limit80/limit95 frames from it. adult/perfect/
+ultimate (Greymon/WarGreymon) are extracted separately by
+scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
+The sheet also has no explicit hit-reaction or knock-out/lying frame, so
+limit80/limit95 use the closest available tired/hunched poses.
 
 Usage: python3 scripts/extract_pack_agumon.py
 """
@@ -36,18 +35,6 @@ FRAME_WINDOWS = {
     "child": [
         (46, 76, 166, 196),   # Walk row, frame 2 (mid-stride)
         (150, 184, 166, 196),  # Walk row, frame 5 (opposite stride, arm up)
-    ],
-    "adult": [
-        (10, 49, 330, 367),   # Running row, frame 1 (dust cloud trail)
-        (90, 127, 330, 367),  # Running row, frame 3 (dust cloud trail)
-    ],
-    "perfect": [
-        (9, 43, 420, 458),    # Roar row, frame 1: roar wind-up
-        (80, 118, 420, 458),  # Roar row, frame 3: full roar, mouth wide
-    ],
-    "ultimate": [
-        (196, 244, 425, 458),  # Pepper Breath: charging fireball, body glow
-        (243, 297, 425, 458),  # Pepper Breath: fireball released, full effect
     ],
     "limit80": [
         (183, 213, 168, 196),  # Walk row, frame 6: eyes squinting, tired

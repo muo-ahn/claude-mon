@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+"""Extract adult/perfect/ultimate stage sprites from Digimon World DS sheets.
+
+Why a second source: every pack's Battle Spirit sheet (sprites/sheets/*.gif)
+contains only the Rookie's own move set, so the existing extract_pack_<mon>.py
+scripts had to fall back to "the rookie doing something dramatic" for the three
+evolved stages -- the mascot was named 그레이몬 while the dots still showed
+아구몬. Digimon World DS ships a field/walking sprite for every digivolution in
+the game, at roughly the 32x32 the menubar wants, so adult/perfect/ultimate now
+come from there instead.
+
+Sheets are NOT committed (see README "스프라이트 팩"). Put the DWDS sheets in
+sprites/sheets/dwds/<name>.png using the names in PICKS below; each one is the
+full character sheet as ripped (battle poses on top, field sprites in a row or
+grid further down).
+
+Frame location is automatic rather than hand-tuned windows: a band is slid down
+the sheet and segmented using the colours that dominate *that band* (sheets use
+one backdrop colour plus a per-cell panel colour, and a panel is only dominant
+inside its own row). The band scoring the most uniformly sized, evenly spaced,
+unclipped small sprites is the field-sprite row. Only the two frame indices per
+stage in PICKS were chosen by eye -- they select the front-facing pose, whose
+position in the row differs per sheet.
+
+Usage: python3 scripts/extract_pack_evolved_dwds.py [pack ...]
+"""
+
+import os
+import sys
+from collections import Counter, deque
+
+from PIL import Image
+
+SHEET_DIR = "sprites/sheets/dwds"
+PACK_DIR = "sprites/packs"
+CANVAS = 32
+
+# Sliding-band search parameters (pixels).
+BAND_H = 56
+BAND_STEP = 8
+MIN_H, MAX_H = 13, 44
+MIN_W, MAX_W = 8, 52
+MIN_PX = 70
+COLOR_TOL = 12
+
+# pack -> stage -> (DWDS sheet, [frame index, frame index] | [(x0,y0,x1,y1), ...])
+#
+# The second element is normally a pair of indices into the auto-detected
+# field-frame row (see field_frames() below). Some sheets don't cooperate: the
+# band search on metalgreymon locks onto a row that holds a back-facing pose
+# mirrored left/right rather than a real 2-frame walk cycle, so indices 0/1
+# there are the same pose flipped, not two frames. For those, give explicit
+# (x0, y0, x1, y1) source boxes instead -- to_sprite() only reads box[0..3],
+# so a literal box works exactly like boxes[index] would.
+PICKS = {
+    "agumon": {
+        "adult": ("greymon", [6, 7]),
+        "perfect": ("metalgreymon", [(291, 214, 319, 246), (292, 257, 320, 289)]),
+        "ultimate": ("wargreymon", [0, 1]),
+    },
+    "guilmon": {
+        "adult": ("growlmon", [0, 1]),
+        "perfect": ("wargrowlmon", [4, 5]),
+        "ultimate": ("gallantmon", [6, 7]),
+    },
+    "gabumon": {
+        "adult": ("garurumon", [6, 7]),
+        "perfect": ("weregarurumon", [6, 7]),
+        "ultimate": ("metalgarurumon", [6, 7]),
+    },
+    "veemon": {
+        "adult": ("exveemon", [6, 7]),
+        "perfect": ("paildramon", [5, 6]),
+        "ultimate": ("imperialdramon_fm", [6, 7]),
+    },
+    "renamon": {
+        "adult": ("kyubimon", [6, 7]),
+        "perfect": ("taomon", [3, 4]),
+        "ultimate": ("sakuyamon", [3, 4]),
+    },
+    "terriermon": {
+        "adult": ("gargomon", [3, 4]),
+        "perfect": ("rapidmon", [0, 1]),
+        "ultimate": ("megagargomon", [0, 1]),
+    },
+    # Impmon has no canonical Champion/Ultimate; the pack already stood in
+    # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses
+    # 뱀파이몬 (Myotismon) -- pack.json carries the matching name.
+    "impmon": {
+        "adult": ("devimon", [0, 1]),
+        "perfect": ("myotismon", [3, 4]),
+        "ultimate": ("beelzemon", [0, 1]),
+    },
+}
+
+
+def dominant_colors(im, min_share):
+    total = im.width * im.height
+    hist = Counter(c for c in im.getdata() if c[3] >= 32)
+    return {c for c, n in hist.items() if n / total >= min_share}
+
+
+def is_backdrop(color, backdrops):
+    return any(abs(color[0] - b[0]) + abs(color[1] - b[1]) + abs(color[2] - b[2]) <= COLOR_TOL
+               for b in backdrops)
+
+
+def components(im, backdrops):
+    w, h = im.size
+    px = im.load()
+    fg = bytearray(w * h)
+    for y in range(h):
+        for x in range(w):
+            c = px[x, y]
+            if c[3] >= 32 and not is_backdrop(c, backdrops):
+                fg[y * w + x] = 1
+    seen = bytearray(w * h)
+    boxes = []
+    for y in range(h):
+        for x in range(w):
+            if not fg[y * w + x] or seen[y * w + x]:
+                continue
+            seen[y * w + x] = 1
+            queue = deque([(x, y)])
+            x0 = x1 = x
+            y0 = y1 = y
+            count = 0
+            while queue:
+                cx, cy = queue.popleft()
+                count += 1
+                x0 = min(x0, cx); x1 = max(x1, cx)
+                y0 = min(y0, cy); y1 = max(y1, cy)
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        nx, ny = cx + dx, cy + dy
+                        if 0 <= nx < w and 0 <= ny < h and fg[ny * w + nx] and not seen[ny * w + nx]:
+                            seen[ny * w + nx] = 1
+                            queue.append((nx, ny))
+            boxes.append((x0, y0, x1, y1, count))
+    return boxes
+
+
+def merge_touching(boxes):
+    """An outline gap can split one sprite into several components; overlapping
+    bounding boxes belong to the same sprite."""
+    merged = []
+    for b in sorted(boxes, key=lambda b: (b[1], b[0])):
+        for i, m in enumerate(merged):
+            if b[0] <= m[2] and m[0] <= b[2] and b[1] <= m[3] and m[1] <= b[3]:
+                merged[i] = (min(m[0], b[0]), min(m[1], b[1]),
+                             max(m[2], b[2]), max(m[3], b[3]), m[4] + b[4])
+                break
+        else:
+            merged.append(b)
+    return merged
+
+
+def segment(band, drop_clipped=True):
+    boxes = components(band, dominant_colors(band, 0.08))
+    for _ in range(3):
+        boxes = merge_touching(boxes)
+    return [b for b in boxes
+            if MIN_H <= b[3] - b[1] + 1 <= MAX_H
+            and MIN_W <= b[2] - b[0] + 1 <= MAX_W
+            and b[4] >= MIN_PX
+            # a box touching the band edge is a slice of a taller battle sprite
+            and (not drop_clipped or (b[1] >= 1 and b[3] <= band.height - 2))]
+
+
+def score_band(boxes):
+    """Frames of one animation are near-identical in size and evenly spaced;
+    fragments of a big battle sprite are neither."""
+    boxes = [b for b in boxes if 0.5 <= (b[2] - b[0] + 1) / (b[3] - b[1] + 1) <= 1.6]
+    if len(boxes) < 3:
+        return 0, []
+    heights = sorted(b[3] - b[1] + 1 for b in boxes)
+    median = heights[len(heights) // 2]
+    keep = [b for b in boxes if abs((b[3] - b[1] + 1) - median) <= max(4, median * 0.25)]
+    if len(keep) < 3:
+        return 0, []
+    keep.sort(key=lambda b: b[0])
+    gaps = [keep[i + 1][0] - keep[i][0] for i in range(len(keep) - 1)]
+    gap = sorted(gaps)[len(gaps) // 2] or 1
+    regular = sum(1 for g in gaps if abs(g - gap) <= max(3, gap * 0.2))
+    return len(keep) + regular, keep
+
+
+def field_frames(sheet):
+    im = Image.open(os.path.join(SHEET_DIR, sheet + ".png")).convert("RGBA")
+    w, h = im.size
+    best_score, best_top, best_boxes = 0, 0, []
+    for y0 in range(0, max(1, h - MIN_H), BAND_STEP):
+        score, boxes = score_band(segment(im.crop((0, y0, w, min(h, y0 + BAND_H)))))
+        if score > best_score:
+            best_score, best_top, best_boxes = score, y0, boxes
+    if not best_boxes:
+        return im, []
+    # re-cut tightly around the winning row so nothing stays clipped
+    top = max(0, best_top + min(b[1] for b in best_boxes) - 6)
+    bottom = min(h, best_top + max(b[3] for b in best_boxes) + 7)
+    _, boxes = score_band(segment(im.crop((0, top, w, bottom)), drop_clipped=False))
+    boxes = [(b[0], b[1] + top, b[2], b[3] + top, b[4]) for b in boxes]
+    boxes.sort(key=lambda b: b[0])
+    return im, boxes
+
+
+def cell_backdrops(crop):
+    """A colour filling 2+ corners of a frame is its panel, never the sprite."""
+    px = crop.load()
+    w, h = crop.width, crop.height
+    corners = Counter(px[x, y] for x in (0, w - 1) for y in (0, h - 1))
+    backdrops = {c for c, n in corners.items() if n >= 2 and c[3] >= 32}
+    color, n = Counter(c for c in crop.getdata() if c[3] >= 32).most_common(1)[0]
+    if n / (w * h) >= 0.20:
+        backdrops.add(color)
+    return backdrops
+
+
+def to_sprite(im, box):
+    crop = im.crop((box[0], box[1], box[2] + 1, box[3] + 1)).convert("RGBA")
+    backdrops = cell_backdrops(crop)
+    px = crop.load()
+    for y in range(crop.height):
+        for x in range(crop.width):
+            c = px[x, y]
+            if is_backdrop(c, backdrops):
+                px[x, y] = (c[0], c[1], c[2], 0)
+    crop = crop.crop(crop.getbbox() or (0, 0, crop.width, crop.height))
+    scaled = crop.width > CANVAS or crop.height > CANVAS
+    if scaled:
+        factor = min(CANVAS / crop.width, CANVAS / crop.height)
+        crop = crop.resize((max(1, int(crop.width * factor)), max(1, int(crop.height * factor))),
+                           Image.NEAREST)
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    canvas.paste(crop, ((CANVAS - crop.width) // 2, CANVAS - crop.height), crop)
+    return canvas, scaled
+
+
+def main(packs):
+    cache = {}
+    scaled_frames = []
+    for pack in packs:
+        out_dir = os.path.join(PACK_DIR, pack)
+        if not os.path.isdir(out_dir):
+            print(f"skip {pack}: {out_dir} does not exist")
+            continue
+        for stage, (sheet, picks) in PICKS[pack].items():
+            if sheet not in cache:
+                cache[sheet] = field_frames(sheet)
+            im, boxes = cache[sheet]
+            indices = [p for p in picks if isinstance(p, int)]
+            if indices and len(boxes) <= max(indices):
+                raise SystemExit(
+                    f"{pack}/{stage}: {sheet} yielded {len(boxes)} field frames, "
+                    f"need index {max(indices)} -- check the sheet or the PICKS table")
+            for n, pick in enumerate(picks):
+                if isinstance(pick, int):
+                    src_box, label = boxes[pick], f"[{pick}]"
+                else:
+                    src_box, label = pick, f"{pick}"
+                sprite, scaled = to_sprite(im, src_box)
+                path = os.path.join(out_dir, f"{stage}-{n}.png")
+                sprite.save(path)
+                if scaled:
+                    scaled_frames.append(path)
+                print(f"{path}  <- {sheet}{label}")
+    if scaled_frames:
+        print("\ndownscaled to fit 32x32 (pixels are no longer 1:1): "
+              + ", ".join(scaled_frames))
+
+
+if __name__ == "__main__":
+    requested = sys.argv[1:] or list(PICKS)
+    unknown = [p for p in requested if p not in PICKS]
+    if unknown:
+        raise SystemExit(f"unknown pack(s): {', '.join(unknown)}; known: {', '.join(PICKS)}")
+    main(requested)

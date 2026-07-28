@@ -5,16 +5,12 @@ blue uniform background).
 
 This sheet is labeled by section (STAND TYPES/DUCK, WALK(RUN)/SLIDE,
 JUMP/LAND, TAUNT, ATTACKS, AERIAL ATTACKS, DAMAGE/RECOVERY), which made
-mapping straightforward. No distinct evolved-form (ExVeemon/Imperialdramon)
-body shape was found anywhere on the sheet -- every frame is the same
-Veemon silhouette; the two large painterly renders at the very bottom
-of the sheet are cover/signature art for the "Trance" rip, not sprite
-frames, and were not used. Per the pack fallback rule, perfect/ultimate
-use Veemon's in-sheet "Vee Punch" attack, whose boxing glove visibly
-grows from normal size to a huge overgrown glove across the ATTACKS
-section -- perfect takes a mid-charge frame, ultimate takes the peak
-frame, mirroring the perfect=power-stance / ultimate=full-effect split
-used for the Agumon and Gabumon packs.
+mapping straightforward; the two large painterly renders at the very
+bottom of the sheet are cover/signature art for the "Trance" rip, not
+sprite frames, and were not used. This script only extracts digitama/
+baby/child + limit80/limit95 frames; adult/perfect/ultimate
+(ExVeemon/Imperialdramon) are extracted separately by
+scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
 Usage: python3 scripts/extract_pack_veemon.py
 """
@@ -40,18 +36,6 @@ FRAME_WINDOWS = {
     "child": [
         (5, 32, 148, 182),     # Walk row, frame 1
         (89, 117, 150, 182),   # Walk row, frame 4 (opposite stride)
-    ],
-    "adult": [
-        (40, 78, 184, 223),    # Run row, dust-cloud frame 1
-        (77, 115, 184, 223),   # Run row, dust-cloud frame 2
-    ],
-    "perfect": [
-        (61, 95, 608, 644),    # Vee Punch: glove mid-charge
-        (95, 126, 600, 644),   # Vee Punch: glove growing bigger
-    ],
-    "ultimate": [
-        (97, 125, 600, 644),   # Vee Punch: glove near peak size
-        (125, 149, 598, 644),  # Vee Punch: glove at peak size
     ],
     "limit80": [
         (5, 32, 878, 922),     # Damage/Recovery: reeling from hit

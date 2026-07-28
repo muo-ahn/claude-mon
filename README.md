@@ -72,6 +72,23 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 
 상태 파일은 기본적으로 `~/.claude/claudemon/` 아래에 생성된다(`CLAUDEMON_DIR` 환경변수로 오버라이드 가능). 디렉터리는 자동 생성되며, 초기화 방법은 [상태 초기화](#상태-초기화) 참고.
 
+`notification`/`session-end` 이벤트도 같은 방식으로 등록한다:
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claudemon/hook.js notification" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claudemon/hook.js session-end" }] }
+    ]
+  }
+}
+```
+
+등록하면 `Notification`(권한 대기/입력 유휴 시 발화)은 `state.awaitingUserSince`를, `SessionEnd`는 `state.endedAt`을 기록한다 — 자세한 동작은 [대기/종료 기록](#대기종료-기록-awaitingusersinceendedat) 참고.
+
 ## 구조
 
 - `evolution-tree.json` — 진화 단계/조건/스프라이트 정의 (수정해서 커스텀 팩 제작 가능)
@@ -192,6 +209,19 @@ node daily-tokens.js
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
 
+### 진화체 스프라이트 (`adult`/`perfect`/`ultimate`)
+
+`scripts/extract_pack_<mon>.py`가 쓰는 Battle Spirit 시트에는 성장기(Rookie) 본인의 모션만 있고 진화체 프레임이 없다. 그래서 상위 3단계는 원래 "성장기가 강한 포즈를 취한 그림"으로 대체돼 있었고, 이름은 `pack.json`의 `stageNames`를 따라 그레이몬/메탈그레이몬/워그레이몬으로 표시되는데 도트는 아구몬인 불일치가 있었다.
+
+`scripts/extract_pack_evolved_dwds.py`가 이 세 단계를 **Digimon World DS** 시트에서 다시 뽑는다 — DWDS에는 게임 내 모든 진화체의 필드(보행) 스프라이트가 32×32 언저리 크기로 들어있다.
+
+1. 시트를 `sprites/sheets/dwds/<이름>.png`로 넣는다. 필요한 이름은 스크립트의 `PICKS` 표 참고(예: `greymon`, `metalgreymon`, `wargreymon`).
+2. `python3 scripts/extract_pack_evolved_dwds.py [팩이름 ...]` — 인자를 생략하면 표에 있는 7개 팩을 모두 처리한다.
+
+프레임 위치는 손으로 좌표를 재지 않는다. 밴드를 시트 아래로 훑으면서 **그 밴드 안에서만** 지배적인 색(시트 배경색 + 셀 패널색)을 배경으로 잡아 분할하고, 크기가 고르고 등간격이며 밴드 경계에 잘리지 않은 작은 스프라이트가 가장 많이 나오는 밴드를 필드 스프라이트 행으로 고른다. 사람이 정한 값은 `PICKS`의 프레임 인덱스 2개(정면 포즈 — 행 안에서의 위치가 시트마다 다르다)뿐이다.
+
+한계: 임프몬 라인의 스컬사탄몬은 DWDS에 없어 완전체를 뱀파이몬으로 대체했다(`sprites/packs/impmon/pack.json`의 이름도 그에 맞춰져 있다). 원본이 32px보다 큰 프레임은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 해당 파일 목록을 출력한다.
+
 ## working 플래그
 
 세션이 지금 Claude Code 응답을 생성 중인지(작업 중) 아니면 사용자 입력을 기다리는지(대기 중) 구분하는 플래그.
@@ -202,6 +232,59 @@ node daily-tokens.js
 - `tool-success`/`tool-failure` 이벤트도 안전망으로 `state.working = true`를 함께 설정한다(턴 경계 이벤트가 누락돼도 실제 도구 호출 중임을 반영).
 
 `working`/`lastTurnEndAt`은 세션 상태 파일(`~/.claude/claudemon/sessions/<session_id>.json`)에 저장되며, 카운터에는 영향을 주지 않는다.
+
+## 대기/종료 기록 (`awaitingUserSince`/`endedAt`)
+
+세션이 사용자 응답을 기다리는 중인지, 종료됐는지를 나타내는 사실(fact) 필드. `hook.js`는 이 값을 기록만 하고, 상태 판정(예: stalled/dead 여부)은 하지 않는다.
+
+- `Notification` 훅 → `hook.js notification` 호출 → `state.awaitingUserSince`에 대기 시작 시각(ISO)을 기록. 이미 값이 있으면 덮어쓰지 않는다(최초 대기 시각 유지).
+- `turn-start`/`tool-success`/`tool-failure`/`session-start`/`turn-end` 이벤트 → `state.awaitingUserSince = null`로 해제(응답 확인/작업 재개). `turn-end`(`Stop` 훅)는 턴이 실제로 끝날 때만 발화하고 권한 프롬프트 대기 중에는 막혀 있으므로, 권한 거부처럼 `tool-success`/`tool-failure`가 오지 않는 경로에서 대기 상태가 남는 것을 막아준다.
+- `SessionEnd` 훅 → `hook.js session-end` 호출 → `state.endedAt`에 종료 시각을 기록하고, 7일 지난 세션 파일을 정리한다(현재 세션 파일은 제외).
+- `session-start`/`turn-start` 이벤트 → `state.endedAt = null`로 해제.
+
+> 이 두 이벤트는 `Notification`/`SessionEnd` 훅을 등록해야 동작한다 — 등록 스니펫은 [설치](#설치) 참고. 이 값들이 상태 판정에 어떻게 쓰이는지는 [세션 상태 판정과 표시](#세션-상태-판정과-표시-메뉴바) 참고.
+
+## 세션 상태 판정과 표시 (메뉴바)
+
+메뉴바 앱은 세션 상태 파일의 사실 필드(`working`, `awaitingUserSince`, `endedAt`, `pid`)로부터 세션 상태를 5가지로 판정한다. 위에서부터 처음 맞는 조건 하나로 결정된다.
+
+1. `endedAt`이 기록됨 → `dead`
+2. 기록된 `pid`가 살아있지 않음 → `dead`
+3. `awaitingUserSince`가 기록됨 → `waiting_user` (권한 프롬프트는 턴 중간에도 뜰 수 있어 working보다 우선한다)
+4. `working = true`인데 세션 파일이 10분 넘게 갱신되지 않음 → `stalled`
+5. `working = true` → `working`
+6. 그 외 → `idle`
+
+### 전역 상태(메뉴바 아이콘)
+
+메뉴바 아이콘은 모든 세션을 종합한 상태 하나를 표시한다.
+
+- `dead` 세션은 전역 집계에서 제외한다(죽은 세션이 살아있는 세션을 가리면 안 되므로).
+- 남은 세션 중 가장 긴급한 것을 표시한다: `waiting_user > stalled > working > idle`.
+
+### 스프라이트 프레임 매핑
+
+신규 프레임은 추가되지 않는다 — 기존 [프레임 세트(prefix) 목록](#프레임-세트prefix-목록)을 재사용한다.
+
+| 상태 | 사용 프레임 | 모션 |
+|---|---|---|
+| working | 현재 진화 단계 프레임 | 애니메이션 |
+| idle | 현재 진화 단계 프레임 | 정지 |
+| waiting_user | 팩의 범용 `idle-N` 프레임 | 애니메이션 |
+| stalled | `limit80-N` 프레임 | 정지 |
+| dead | (아이콘에 반영 안 됨 — 드롭다운에만 표시) | — |
+
+최종 프레임 우선순위: `limit95 > waiting_user > stalled > limit80 > 진화 단계`. `limit80` 프레임이 팩에 없으면 stalled는 진화 단계 프레임으로 폴백한다(기존 팩과 호환).
+
+`waiting_user`가 범용 `idle-N`을 쓰는 이유: `idle` 상태는 진화 단계 프레임의 *정지*로 이미 표시되므로, 범용 `idle` 프레임은 원래 쓰이지 않던 슬롯이었다. 그 슬롯을 재사용해 셋을 시각적으로 구분한다.
+
+### 드롭다운
+
+세션별 라벨: `● 작업 중` / `! 입력 대기` / `⏸ 멈춤` / `○ 대기` / `× 종료`
+
+- `× 종료`(dead)는 종료 후 5분간만 표시되고 사라진다.
+- 정렬은 긴급도 순이다.
+- 요약 줄에 입력 대기 세션이 있으면 먼저 알린다.
 
 ## 멀티세션 지원
 
