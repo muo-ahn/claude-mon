@@ -110,14 +110,13 @@ node daily-tokens.js
 | prefix | 용도 | 필수 여부 |
 |---|---|---|
 | `idle` | 대기(작업 안 하는 중) 기본 프레임 | **필수** — 팩 로드/전환의 최소 조건 |
-| `digitama` | 진화 1단계(알). 로테이션 후보 등록 조건 | **필수(로테이션용)** |
+| `digitama` | 진화 1단계(알) | 선택 — 없으면 공용 알 스프라이트로 대체 |
 | `baby` / `child` / `adult` / `perfect` / `ultimate` | 진화 2~6단계 | 권장 |
 | `limit80` | 사용량 80% 이상일 때 오버라이드(지친 모습) | 선택 |
 | `limit95` | 사용량 95% 이상일 때 오버라이드(뻗은 모습) | 선택 |
 
-- **두 개의 필수 조건이 다르다:**
-  - `digitama-0.png`가 있어야 [매일 랜덤 선택](#매일-랜덤-몬-선택-libdailyjs)의 **로테이션 후보**로 등록된다 (`lib/daily.js`).
-  - `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). 팩을 만들 땐 두 파일을 함께 넣는 게 안전하다.
+- **알(digitama)은 종족 무관이라 팩마다 따로 그릴 필요가 없다.** `sprites/shared/digitama-0.png`가 있으면 메뉴바 앱과 `lib/daily.js`의 로테이션 후보 판정 둘 다 그 공용 스프라이트를 우선 사용하고, 팩 자체의 `digitama-0.png`는 공용 파일이 없을 때만 쓰이는 폴백이다 (`scripts/make_shared_digitama.py` 참고).
+- `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). **로테이션 후보 등록**은 `idle-0.png`와 무관하게 digitama 조건(공용 또는 팩 자체)만으로 결정된다 — 팩을 만들 땐 헷갈리지 않도록 `idle-0.png`를 함께 넣는 게 안전하다.
 - 진화 단계 프레임(`baby`…`ultimate`)이 비어 있으면 해당 단계에서 자동으로 `idle` 프레임으로 폴백한다. `limit80`/`limit95`가 없으면 사용량이 높아도 현재 단계 프레임을 그대로 쓴다.
 
 ### 팩 메타데이터 (`pack.json`, 선택)
@@ -140,14 +139,14 @@ node daily-tokens.js
 
 ### 매일 랜덤 몬 선택 (`lib/daily.js`)
 
-- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`digitama-0.png` 보유 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 단순 해시(`hashString` — 문자코드 누적, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
+- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`digitama-0.png`를 자체적으로 보유했거나, `sprites/shared/digitama-0.png`가 존재하는 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 단순 해시(`hashString` — 문자코드 누적, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
 - 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. 날짜가 바뀌면 다시 해시로 재계산한다.
 - 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
 
 ### 새 팩 등록하기
 
 1. `sprites/packs/<새팩이름>/` 디렉터리를 만든다.
-2. 최소 `idle-0.png`와 `digitama-0.png`를 넣는다 — 이 둘만 있어도 로테이션 후보 + 전환이 동작한다. 이후 나머지 단계·프레임을 채워나가면 된다.
+2. 최소 `idle-0.png`를 넣는다 — 팩 자체의 `digitama-0.png` 없이도 `sprites/shared/digitama-0.png`(공용 알)가 있으면 로테이션 후보 + 전환이 동작한다. 공용 알을 아직 안 만들었다면 `python3 scripts/make_shared_digitama.py`로 먼저 생성한다. 이후 나머지 단계·프레임을 채워나가면 된다.
 3. (선택) 표시 이름을 바꾸고 싶으면 `pack.json`을 추가한다.
 4. 별도 등록 명령은 없다 — 다음 `daily-tokens.js` 실행(메뉴바 앱이 ~30초 주기로 호출)부터 자동으로 후보에 들어간다.
 
