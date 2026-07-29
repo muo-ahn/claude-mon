@@ -89,7 +89,7 @@ PICKS = {
     "impmon": {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
-        "ultimate": ("beelzemon", [0, 1]),
+        "ultimate": ("beelzemon", [4, 5]),
     },
 }
 

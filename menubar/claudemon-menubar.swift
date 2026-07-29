@@ -7,7 +7,9 @@
 // from <spriteRoot>/packs/<mon>/<prefix>-<n>.png. If the named pack is
 // missing or incomplete, this falls back to the "guilmon" pack; if that is
 // also unavailable, the last successfully loaded frame set is kept rather
-// than crashing.
+// than crashing. One exception: species-agnostic stages (currently just
+// "digitama") load from <spriteRoot>/shared instead, since a Digi-Egg looks
+// the same whoever is inside it.
 //
 // Evolution stage is now a DAILY GLOBAL value, not tied to any one focused
 // session: every 2s tick reads $CLAUDEMON_DIR/daily.json (written by
@@ -108,6 +110,13 @@ let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate"]
 // generic sprites would show the wrong species, so framesForLevel tints the
 // current stage frames instead of swapping in the generic sprite.
 let genericOverrideStages = ["digitama", "baby", "child"]
+
+// Stages whose sprite is species-agnostic and therefore shared by every pack,
+// loaded from <spriteRoot>/shared instead of the pack directory -- a Digi-Egg
+// looks the same whoever is inside it. The per-pack digitama-*.png files stay
+// as a fallback for a sprite root that has no shared/ directory.
+let sharedStages = ["digitama"]
+let sharedSpriteDir = spriteRoot + "/shared"
 
 let stageLabels: [String: String] = [
     "digitama": "알",
@@ -705,10 +714,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // Loads `<prefix>-0.png`, `<prefix>-1.png`, ... until one is missing.
-    func loadImageSequence(inPack pack: String, prefix: String) -> [NSImage] {
+    func loadImageSequence(inDir dir: String, prefix: String) -> [NSImage] {
         var result: [NSImage] = []
         var i = 0
-        while let img = NSImage(contentsOfFile: "\(pack)/\(prefix)-\(i).png") {
+        while let img = NSImage(contentsOfFile: "\(dir)/\(prefix)-\(i).png") {
             // 32px bitmap shown at 16pt -> 1:1 physical pixels on retina
             img.size = NSSize(width: 16, height: 16)
             result.append(img)
@@ -723,21 +732,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // half-loaded, mismatched frame set.
     @discardableResult
     func loadFrames(fromPack pack: String, mon: String) -> Bool {
-        let idle = loadImageSequence(inPack: pack, prefix: "idle")
+        let idle = loadImageSequence(inDir: pack, prefix: "idle")
         guard !idle.isEmpty else { return false }
 
         idleFrames = idle
         var newStageFrames: [String: [NSImage]] = [:]
         for stage in stageIds {
-            let frames = loadImageSequence(inPack: pack, prefix: stage)
+            var frames: [NSImage] = []
+            if sharedStages.contains(stage) {
+                frames = loadImageSequence(inDir: sharedSpriteDir, prefix: stage)
+            }
+            if frames.isEmpty {
+                frames = loadImageSequence(inDir: pack, prefix: stage)
+            }
             newStageFrames[stage] = frames.isEmpty ? idle : frames
         }
         stageFrames = newStageFrames
         // Optional behavior-override sprite sets. If the corresponding
         // files don't exist yet, the array is simply empty and
         // framesForLevel() falls back to the stage frames.
-        limitFrameSets["limit80"] = loadImageSequence(inPack: pack, prefix: "limit80")
-        limitFrameSets["limit95"] = loadImageSequence(inPack: pack, prefix: "limit95")
+        limitFrameSets["limit80"] = loadImageSequence(inDir: pack, prefix: "limit80")
+        limitFrameSets["limit95"] = loadImageSequence(inDir: pack, prefix: "limit95")
 
         currentMon = mon
         currentPackPath = pack
