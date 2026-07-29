@@ -98,6 +98,15 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 - `hook.js` — Claude Code hook에서 호출, 카운터 갱신 (working 플래그 등 행동용 상태에 계속 사용됨)
 - `daily-tokens.js` — 일일 토큰 집계 CLI. 메뉴바 앱이 주기적으로(30초 간격) 호출해 `daily.json`을 갱신한다
 - `statusline.js` — 실제 statusline에 렌더링되는 스크립트
+- `test/daily.test.js` — 몬 로테이션 회귀 테스트
+
+## 테스트
+
+```bash
+node --test
+```
+
+Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 후보 판정(`listValidPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
@@ -139,7 +148,7 @@ node daily-tokens.js
 - 날짜가 바뀌면(`dateKST` 변경) 파일별 `contribution`을 0으로 리셋하되 `offset`은 그대로 유지한다(이전 내용을 다시 읽지 않기 위함).
 - 출력: `$CLAUDEMON_DIR/daily.json`
   ```json
-  { "dateKST": "2026-07-24", "outputTokens": 83002, "stageId": "child", "mon": "guilmon", "updatedAt": "2026-07-24T01:40:35.208Z" }
+  { "dateKST": "2026-07-24", "outputTokens": 83002, "stageId": "child", "mon": "guilmon", "prevMon": "agumon", "sessionTokens": { "<session_id>": 5000 }, "updatedAt": "2026-07-24T01:40:35.208Z" }
   ```
 - 메뉴바 앱은 이 파일을 ~30초 주기로 폴링해서 스프라이트를 갱신한다. 증분 스캔이므로 재실행 비용은 대체로 수십 ms 이내.
 
@@ -198,7 +207,9 @@ node daily-tokens.js
 
 - `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`.`으로 시작하지 않고, `idle-0.png`가 있고, 자체 `digitama-0.png` 또는 공용 `sprites/shared/digitama-0.png`가 있는 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 해시(`hashString` — 문자코드 누적 + murmur3 fmix32 finalizer, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
 - finalizer가 있어야 하는 이유: 누적 해시만 쓰면 하루 차이 날짜의 해시가 정확히 `+1`이라 인덱스가 알파벳 순서를 하루 한 칸씩 걷는 꼴이 된다. 그러면 앞쪽에 정렬되는 후보가 하나 늘어날 때 인덱스가 한 칸 밀리면서 일일 `+1`과 상쇄돼 **이틀 연속 같은 몬**이 나온다(실제로 `.omc` 때문에 파피몬이 이틀 연속 나온 적 있다). fmix32로 인접 입력을 흩어놓아 이 결합을 끊는다.
-- 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. 날짜가 바뀌면 다시 해시로 재계산한다.
+- **연속 중복 방지(`prevMon`)**: 해시를 잘 섞어도 균등 분포라면 `1/N` 확률로 어제와 같은 팩이 뽑힌다. 밖에서 보면 우연한 중복과 로테이션 고장이 구분되지 않으므로, `daily.json`의 `prevMon`(직전에 실제로 표시된 팩)과 오늘 뽑힌 팩이 같으면 이름순 다음 팩으로 한 칸 민다. 후보가 1개뿐이면 밀 곳이 없으므로 그대로 둔다.
+- 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. `prevMon`도 그날 내내 함께 보존된다(30초마다 덮어써도 유실되지 않아야 내일 가드가 비교 대상을 갖는다). 날짜가 바뀌면 그때의 `mon`이 다음 날의 `prevMon`이 되고 해시로 재계산한다.
+- 며칠 쉬었다 실행해도 `prevMon`은 "마지막으로 실제 표시된 팩"이라 가드가 그대로 동작한다. `daily.json`이 없거나 깨졌으면 `prevMon`은 `null`이고 가드는 그냥 건너뛴다.
 - 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
 
 ### 새 팩 등록하기
