@@ -116,7 +116,8 @@ node daily-tokens.js
 | `limit95` | 사용량 95% 이상일 때 오버라이드(뻗은 모습) | 선택 |
 
 - **알(digitama)은 종족 무관이라 팩마다 따로 그릴 필요가 없다.** `sprites/shared/digitama-0.png`가 있으면 메뉴바 앱과 `lib/daily.js`의 로테이션 후보 판정 둘 다 그 공용 스프라이트를 우선 사용하고, 팩 자체의 `digitama-0.png`는 공용 파일이 없을 때만 쓰이는 폴백이다 (`scripts/make_shared_digitama.py` 참고).
-- `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). **로테이션 후보 등록**은 `idle-0.png`와 무관하게 digitama 조건(공용 또는 팩 자체)만으로 결정된다 — 팩을 만들 땐 헷갈리지 않도록 `idle-0.png`를 함께 넣는 게 안전하다.
+- `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). **로테이션 후보 등록**도 같은 조건을 요구한다 — `idle-0.png`가 없는 디렉터리를 후보로 뽑아봐야 화면은 어제 몬 그대로이므로, `lib/daily.js`의 `listValidPacks`는 `idle-0.png` + digitama(공용 또는 팩 자체)를 둘 다 확인한다.
+- `.`으로 시작하는 디렉터리는 후보에서 제외된다. `sprites/packs/`는 평범한 디렉터리라 무관한 도구가 상태 파일을 남길 수 있는데(`.omc/state`), 그런 디렉터리가 후보에 끼면 이름순 정렬에서 뒤 팩들의 인덱스를 통째로 밀어 로테이션이 어긋난다.
 - 진화 단계 프레임(`baby`…`ultimate`)이 비어 있으면 해당 단계에서 자동으로 `idle` 프레임으로 폴백한다. `limit80`/`limit95`가 없으면 사용량이 높아도 현재 단계 프레임을 그대로 쓴다.
 
 ### 팩 메타데이터 (`pack.json`, 선택)
@@ -139,7 +140,8 @@ node daily-tokens.js
 
 ### 매일 랜덤 몬 선택 (`lib/daily.js`)
 
-- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`digitama-0.png`를 자체적으로 보유했거나, `sprites/shared/digitama-0.png`가 존재하는 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 단순 해시(`hashString` — 문자코드 누적, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
+- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`.`으로 시작하지 않고, `idle-0.png`가 있고, 자체 `digitama-0.png` 또는 공용 `sprites/shared/digitama-0.png`가 있는 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 해시(`hashString` — 문자코드 누적 + murmur3 fmix32 finalizer, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
+- finalizer가 있어야 하는 이유: 누적 해시만 쓰면 하루 차이 날짜의 해시가 정확히 `+1`이라 인덱스가 알파벳 순서를 하루 한 칸씩 걷는 꼴이 된다. 그러면 앞쪽에 정렬되는 후보가 하나 늘어날 때 인덱스가 한 칸 밀리면서 일일 `+1`과 상쇄돼 **이틀 연속 같은 몬**이 나온다(실제로 `.omc` 때문에 파피몬이 이틀 연속 나온 적 있다). fmix32로 인접 입력을 흩어놓아 이 결합을 끊는다.
 - 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. 날짜가 바뀌면 다시 해시로 재계산한다.
 - 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
 
