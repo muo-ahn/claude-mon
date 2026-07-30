@@ -23,6 +23,10 @@ stage in PICKS were chosen by eye -- they select the front-facing pose, whose
 position in the row differs per sheet.
 
 Usage: python3 scripts/extract_pack_evolved_dwds.py [pack ...]
+       python3 scripts/extract_pack_evolved_dwds.py --contact <sheet> [out.png]
+
+--contact renders every detected field frame of one sheet into a numbered strip,
+which is how the two indices per stage in PICKS get chosen without guessing.
 """
 
 import os
@@ -52,26 +56,41 @@ COLOR_TOL = 12
 # there are the same pose flipped, not two frames. For those, give explicit
 # (x0, y0, x1, y1) source boxes instead -- to_sprite() only reads box[0..3],
 # so a literal box works exactly like boxes[index] would.
+#
+# `PENDING` marks a stage whose sheet is known but whose frames haven't been
+# chosen yet: the sheet is not in sprites/sheets/dwds/ (they are never
+# committed), and the two indices can only be read off the sheet itself. Such a
+# stage is skipped with a note instead of failing the run; drop the sheet in,
+# run --contact <sheet> to get a numbered strip of the detected field frames,
+# then replace PENDING with the pair you picked.
+PENDING = None
+
 PICKS = {
     "agumon": {
         "adult": ("greymon", [6, 7]),
         "perfect": ("metalgreymon", [(291, 214, 319, 246), (292, 257, 320, 289)]),
         "ultimate": ("wargreymon", [0, 1]),
+        # 아구몬·파피몬의 초궁극체는 둘 다 합체체인 오메가몬이라 같은 시트를
+        # 공유한다 (계보상 사실이고, pack.json의 이름도 양쪽 다 오메가몬).
+        "superultimate": ("omegamon", PENDING),
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
         "perfect": ("wargrowlmon", [4, 5]),
         "ultimate": ("gallantmon", [6, 7]),
+        "superultimate": ("gallantmon_crimson", PENDING),
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
         "perfect": ("weregarurumon", [6, 7]),
         "ultimate": ("metalgarurumon", [6, 7]),
+        "superultimate": ("omegamon", PENDING),
     },
     "veemon": {
         "adult": ("exveemon", [6, 7]),
         "perfect": ("paildramon", [5, 6]),
         "ultimate": ("imperialdramon_fm", [6, 7]),
+        "superultimate": ("imperialdramon_pm", PENDING),
     },
     "renamon": {
         "adult": ("kyubimon", [6, 7]),
@@ -90,8 +109,13 @@ PICKS = {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
+        "superultimate": ("beelzemon_blast", PENDING),
     },
 }
+
+# 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)에는 superultimate 항목이 없다 --
+# 캐논상 초궁극체가 없어 pack.json에도 이름이 비어 있고, 그래서 두 팩은
+# lib/daily.js의 로테이션 후보에서도 빠진다 (README "로테이션 후보 요건").
 
 
 def dominant_colors(im, min_share):
@@ -245,6 +269,13 @@ def main(packs):
             print(f"skip {pack}: {out_dir} does not exist")
             continue
         for stage, (sheet, picks) in PICKS[pack].items():
+            if picks is PENDING:
+                print(f"skip {pack}/{stage}: frames not chosen yet "
+                      f"-- run --contact {sheet} and fill in PICKS")
+                continue
+            if not os.path.exists(os.path.join(SHEET_DIR, sheet + ".png")):
+                print(f"skip {pack}/{stage}: {SHEET_DIR}/{sheet}.png not found")
+                continue
             if sheet not in cache:
                 cache[sheet] = field_frames(sheet)
             im, boxes = cache[sheet]
@@ -269,8 +300,38 @@ def main(packs):
               + ", ".join(scaled_frames))
 
 
+# Writes every detected field frame of `sheet` side by side, in index order,
+# each on its own 32x32 cell with a tick mark under the cell whose index is a
+# multiple of 5 (so counting stays honest past ~6 frames). This is what turns
+# "pick the front-facing pose by eye" into a two-step loop: render the strip,
+# look at it, write the two indices into PICKS.
+def contact_sheet(sheet, out_path):
+    im, boxes = field_frames(sheet)
+    if not boxes:
+        raise SystemExit(f"{sheet}: no field-frame row detected -- is the sheet a DWDS rip?")
+    cells = [to_sprite(im, b)[0] for b in boxes]
+    gap, tick = 2, 4
+    strip = Image.new("RGBA", (len(cells) * (CANVAS + gap), CANVAS + tick), (0, 0, 0, 0))
+    for i, cell in enumerate(cells):
+        x = i * (CANVAS + gap)
+        strip.paste(cell, (x, 0), cell)
+        if i % 5 == 0:
+            for ty in range(CANVAS, CANVAS + tick):
+                for tx in range(x, x + CANVAS):
+                    strip.putpixel((tx, ty), (255, 0, 0, 255))
+    strip.save(out_path)
+    print(f"{out_path}  <- {sheet}, {len(cells)} frames (indices 0..{len(cells) - 1}, "
+          f"red tick under 0, 5, 10, ...)")
+
+
 if __name__ == "__main__":
-    requested = sys.argv[1:] or list(PICKS)
+    args = sys.argv[1:]
+    if args and args[0] == "--contact":
+        if len(args) < 2:
+            raise SystemExit("usage: --contact <sheet> [out.png]")
+        contact_sheet(args[1], args[2] if len(args) > 2 else f"/tmp/{args[1]}-frames.png")
+        sys.exit(0)
+    requested = args or list(PICKS)
     unknown = [p for p in requested if p not in PICKS]
     if unknown:
         raise SystemExit(f"unknown pack(s): {', '.join(unknown)}; known: {', '.join(PICKS)}")

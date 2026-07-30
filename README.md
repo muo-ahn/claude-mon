@@ -236,7 +236,7 @@ node daily-tokens.js
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
 
-### 진화체 스프라이트 (`adult`/`perfect`/`ultimate`)
+### 진화체 스프라이트 (`adult`/`perfect`/`ultimate`/`superultimate`)
 
 `scripts/extract_pack_<mon>.py`가 쓰는 Battle Spirit 시트에는 성장기(Rookie) 본인의 모션만 있고 진화체 프레임이 없다. 그래서 상위 3단계는 원래 "성장기가 강한 포즈를 취한 그림"으로 대체돼 있었고, 이름은 `pack.json`의 `stageNames`를 따라 그레이몬/메탈그레이몬/워그레이몬으로 표시되는데 도트는 아구몬인 불일치가 있었다.
 
@@ -247,7 +247,31 @@ node daily-tokens.js
 
 프레임 위치는 손으로 좌표를 재지 않는다. 밴드를 시트 아래로 훑으면서 **그 밴드 안에서만** 지배적인 색(시트 배경색 + 셀 패널색)을 배경으로 잡아 분할하고, 크기가 고르고 등간격이며 밴드 경계에 잘리지 않은 작은 스프라이트가 가장 많이 나오는 밴드를 필드 스프라이트 행으로 고른다. 사람이 정한 값은 `PICKS`의 프레임 인덱스 2개(정면 포즈 — 행 안에서의 위치가 시트마다 다르다)뿐이다.
 
-`superultimate`(초궁극체) 도트는 아직 비어 있다 — 단계·이름·폴백만 먼저 들어갔고, 도트가 없는 동안은 `ultimate` 프레임을 물려받는다. 채울 때 필요한 형태는 팩별로 아구몬/파피몬 = 오메가몬, 브이몬 = 임페리얼드라몬 팔라딘 모드, 길몬 = 듀크몬 크림슨 모드, 임프몬 = 베르제브몬 블래스트 모드다(DWDS 시트에 해당 스프라이트가 실제로 있는지는 시트를 넣어보며 확인해야 한다). 아구몬·파피몬 라인의 초궁극체는 둘 다 합체체인 오메가몬이라 도트가 겹친다 — 계보상 사실이지만 두 팩이 같은 그림을 쓰는 게 싫으면 한쪽 `pack.json`의 이름을 바꾸거나 아예 비워 후보에서 빼면 된다.
+#### 초궁극체(`superultimate`) 도트 채우기
+
+`PICKS`에 초궁극체 항목이 들어가 있지만 프레임 인덱스는 `PENDING`이다. 시트는 커밋되지 않으므로(위 규격 참고) 아래 4개를 `sprites/sheets/dwds/`에 넣어야 시작할 수 있다.
+
+| 파일명 | 형태 | 쓰는 팩 |
+|---|---|---|
+| `omegamon.png` | 오메가몬 | 아구몬, 파피몬 (공유) |
+| `gallantmon_crimson.png` | 듀크몬 크림슨 모드 | 길몬 |
+| `imperialdramon_pm.png` | 임페리얼드라몬 팔라딘 모드 | 브이몬 |
+| `beelzemon_blast.png` | 베르제브몬 블래스트 모드 | 임프몬 |
+
+아구몬·파피몬의 초궁극체는 둘 다 합체체인 오메가몬이라 같은 시트를 공유한다 — 계보상 사실이고 `pack.json`의 이름도 양쪽 다 오메가몬이다.
+
+시트를 넣은 뒤 프레임 인덱스는 눈으로 고른다. 추측하지 않도록 대조용 스트립을 뽑는 모드가 있다:
+
+```bash
+# 감지된 필드 프레임 전체를 인덱스 순서로 한 줄에 나열 (0, 5, 10... 아래 빨간 눈금)
+python3 scripts/extract_pack_evolved_dwds.py --contact omegamon /tmp/omegamon-frames.png
+# 정면 포즈 2개의 인덱스를 PICKS의 PENDING 자리에 써넣고
+python3 scripts/extract_pack_evolved_dwds.py agumon gabumon
+```
+
+시트가 없거나 인덱스가 아직 `PENDING`인 단계는 실행을 멈추지 않고 건너뛴다 — 도트가 들어올 때까지 그 단계는 `ultimate` 프레임을 물려받아 라벨만 초궁극체로 뜬다. 해당 형태가 DWDS에 없으면 같은 엔진·같은 화풍의 Dawn/Dusk 시트로 대체해도 파이프라인은 동일하게 동작한다.
+
+`feat/portrait-cutin`의 `scripts/extract_portraits_dwds.py`에도 같은 시트 이름을 `PACK_SHEETS`에 추가해야 `portrait-superultimate-*.png`가 나온다.
 
 한계: 임프몬 라인의 스컬사탄몬은 DWDS에 없어 완전체를 뱀파이몬으로 대체했다(`sprites/packs/impmon/pack.json`의 이름도 그에 맞춰져 있다). 원본이 32px보다 큰 프레임은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 해당 파일 목록을 출력한다.
 
