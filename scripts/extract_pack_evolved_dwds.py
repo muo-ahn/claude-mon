@@ -58,11 +58,13 @@ COLOR_TOL = 12
 # so a literal box works exactly like boxes[index] would.
 #
 # `PENDING` marks a stage whose sheet is known but whose frames haven't been
-# chosen yet: the sheet is not in sprites/sheets/dwds/ (they are never
-# committed), and the two indices can only be read off the sheet itself. Such a
-# stage is skipped with a note instead of failing the run; drop the sheet in,
-# run --contact <sheet> to get a numbered strip of the detected field frames,
-# then replace PENDING with the pair you picked.
+# chosen yet: the two indices can only be read off the sheet itself, and sheets
+# are never committed. Such a stage is skipped with a note instead of failing
+# the run; drop the sheet in, run --contact <sheet> to get a numbered strip of
+# the detected field frames, then replace PENDING with the pair you picked.
+#
+# Every sheet here puts the back-facing walk first and the front-facing walk
+# last, so the picked pair is always near the end of the row.
 PENDING = None
 
 PICKS = {
@@ -72,25 +74,25 @@ PICKS = {
         "ultimate": ("wargreymon", [0, 1]),
         # 아구몬·파피몬의 초궁극체는 둘 다 합체체인 오메가몬이라 같은 시트를
         # 공유한다 (계보상 사실이고, pack.json의 이름도 양쪽 다 오메가몬).
-        "superultimate": ("omegamon", PENDING),
+        "superultimate": ("omegamon", [5, 6]),
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
         "perfect": ("wargrowlmon", [4, 5]),
         "ultimate": ("gallantmon", [6, 7]),
-        "superultimate": ("gallantmon_crimson", PENDING),
+        "superultimate": ("gallantmon_crimson", [3, 4]),
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
         "perfect": ("weregarurumon", [6, 7]),
         "ultimate": ("metalgarurumon", [6, 7]),
-        "superultimate": ("omegamon", PENDING),
+        "superultimate": ("omegamon", [5, 6]),
     },
     "veemon": {
         "adult": ("exveemon", [6, 7]),
         "perfect": ("paildramon", [5, 6]),
         "ultimate": ("imperialdramon_fm", [6, 7]),
-        "superultimate": ("imperialdramon_pm", PENDING),
+        "superultimate": ("imperialdramon_pm", [6, 7]),
     },
     "renamon": {
         "adult": ("kyubimon", [6, 7]),
@@ -105,17 +107,19 @@ PICKS = {
     # Impmon has no canonical Champion/Ultimate; the pack already stood in
     # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses
     # 뱀파이몬 (Myotismon) -- pack.json carries the matching name.
+    # 베르제브몬 블래스트 모드는 캐논에는 있지만 DWDS 시트에 없다 (Dawn/Dusk
+    # 섹션에도 없음). 초궁극체 도트를 구할 수 없으므로 impmon도 superultimate
+    # 항목이 없고, 따라서 로테이션 후보에서 빠진다.
     "impmon": {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
-        "superultimate": ("beelzemon_blast", PENDING),
     },
 }
 
-# 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)에는 superultimate 항목이 없다 --
-# 캐논상 초궁극체가 없어 pack.json에도 이름이 비어 있고, 그래서 두 팩은
-# lib/daily.js의 로테이션 후보에서도 빠진다 (README "로테이션 후보 요건").
+# 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)에도 superultimate 항목이 없다 --
+# 이쪽은 캐논상 초궁극체 자체가 없다. 세 팩 모두 pack.json에 이름이 비어 있어
+# lib/daily.js의 로테이션 후보에서 빠진다 (README "로테이션 후보 요건").
 
 
 def dominant_colors(im, min_share):
