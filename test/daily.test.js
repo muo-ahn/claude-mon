@@ -16,6 +16,8 @@ const path = require('node:path');
 
 const {
   listValidPacks,
+  listRotationPacks,
+  topStageId,
   hashString,
   selectMon,
   computeDailyTokens,
@@ -39,10 +41,16 @@ function makeRoot(t) {
   };
 }
 
-function writePack(packsDir, name, files) {
+// Writes a pack that is also a rotation candidate: pack.json names the
+// tree's top stage, which is what listRotationPacks requires. Pass
+// `{ topStage: false }` for a line that stops short of it.
+function writePack(packsDir, name, files, { topStage = true } = {}) {
   const dir = path.join(packsDir, name);
   fs.mkdirSync(dir, { recursive: true });
   for (const f of files) fs.writeFileSync(path.join(dir, f), 'png');
+  const stageNames = { child: name };
+  if (topStage) stageNames[topStageId()] = `${name}-최종체`;
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({ name, stageNames }, null, 2));
 }
 
 function writeSharedEgg(sharedDir) {
@@ -354,6 +362,74 @@ test('computeDailyTokens counts a session filed under two project dirs once', (t
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.outputTokens, 140);
   assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 140 });
+});
+
+// --- rotation pool: only lines that reach the top stage ---------------
+//
+// A pack whose evolution line tops out early would sit one stage below
+// the ceiling on the heaviest days of the month, so it is held out of the
+// daily rotation entirely rather than shown with a stage it can never
+// reach. It stays a *valid* pack - explicit selection and the guilmon
+// fallback still render it.
+
+test('listRotationPacks drops a line that stops short of the top stage', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'reaches-top', FULL);
+  writePack(dirs.packsDir, 'tops-out-early', FULL, { topStage: false });
+
+  assert.deepStrictEqual(listRotationPacks(dirs.packsDir, dirs.sharedDir), ['reaches-top']);
+  // Still a perfectly loadable pack - just not a rotation candidate.
+  assert.deepStrictEqual(listValidPacks(dirs.packsDir, dirs.sharedDir), [
+    'reaches-top',
+    'tops-out-early'
+  ]);
+});
+
+test('listRotationPacks drops a pack with no pack.json at all', (t) => {
+  const dirs = makeRoot(t);
+  const dir = path.join(dirs.packsDir, 'nameless');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+
+  assert.deepStrictEqual(listValidPacks(dirs.packsDir, dirs.sharedDir), ['nameless']);
+  assert.deepStrictEqual(listRotationPacks(dirs.packsDir, dirs.sharedDir), []);
+});
+
+test('selectMon never lands on a pack outside the rotation pool', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'aaa-early', FULL, { topStage: false });
+  writePack(dirs.packsDir, 'zzz-early', FULL, { topStage: false });
+  for (const name of ['agumon', 'gabumon', 'guilmon']) writePack(dirs.packsDir, name, FULL);
+
+  for (const key of dateKeys(120)) {
+    const mon = selectMon(key, dirs.packsDir, dirs.sharedDir, null);
+    assert.ok(['agumon', 'gabumon', 'guilmon'].includes(mon), `picked ${mon} on ${key}`);
+  }
+});
+
+test('computeDailyTokens reaches the top stage past its threshold', (t) => {
+  const dirs = setupDaily(t);
+  // 2.1M output tokens in one KST day: past the top stage's gte.
+  writeTranscript(
+    dirs.projectsDir,
+    `-Users-me-repo/${SESSION}.jsonl`,
+    [assistantLine('msg_a', 1_100_000), assistantLine('msg_b', 1_000_000)]
+  );
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 2_100_000);
+  assert.strictEqual(result.stageId, topStageId());
+});
+
+test('computeDailyTokens stays one stage below just under the threshold', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    assistantLine('msg_a', 1_999_999)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.notStrictEqual(result.stageId, topStageId());
+  assert.strictEqual(result.stageId, 'ultimate');
 });
 
 test('computeDailyTokens keeps one copy while the other catches up', (t) => {

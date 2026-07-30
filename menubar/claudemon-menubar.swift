@@ -101,7 +101,9 @@ let globalStateFile = claudemonDir + "/state.json"
 let dailyStateFile = claudemonDir + "/daily.json"
 let sessionsDir = claudemonDir + "/sessions"
 
-let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate"]
+// Ordered low to high: loadFrames() relies on the order to fall back to the
+// stage below when a pack has no art for one yet.
+let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate", "superultimate"]
 
 // Stages where the pack's generic override sprites (idle-*.png,
 // limit80-*.png, limit95-*.png) are safe to use as-is. Those files are all
@@ -125,6 +127,7 @@ let stageLabels: [String: String] = [
     "adult": "성숙기",
     "perfect": "완전체",
     "ultimate": "궁극체",
+    "superultimate": "초궁극체",
 ]
 
 // Known packs get a Korean display name; an unrecognized/new pack name is
@@ -737,15 +740,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         idleFrames = idle
         var newStageFrames: [String: [NSImage]] = [:]
+        // stageIds runs low to high, so `previous` always holds the frames of
+        // the highest stage this pack does have art for. A stage with no art
+        // of its own inherits those rather than the idle (성장기) sprite:
+        // idle would read as the mascot *de-evolving* at the exact moment it
+        // just evolved, which is what happened when a stage was added to the
+        // tree ahead of its sprites.
+        var previous = idle
         for stage in stageIds {
+            let isShared = sharedStages.contains(stage)
             var frames: [NSImage] = []
-            if sharedStages.contains(stage) {
+            if isShared {
                 frames = loadImageSequence(inDir: sharedSpriteDir, prefix: stage)
             }
             if frames.isEmpty {
                 frames = loadImageSequence(inDir: pack, prefix: stage)
             }
-            newStageFrames[stage] = frames.isEmpty ? idle : frames
+            if frames.isEmpty {
+                frames = previous
+            } else if !isShared {
+                // The Digi-Egg is species-agnostic, so it is never what a
+                // later stage should inherit - only real forms of this
+                // pack's line become the fallback for the stage above.
+                previous = frames
+            }
+            newStageFrames[stage] = frames
         }
         stageFrames = newStageFrames
         // Optional behavior-override sprite sets. If the corresponding

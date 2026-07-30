@@ -43,6 +43,13 @@
       "label": "궁극체 (Ultimate)",
       "sprite": ["🔥\\(＠▽＠)/🔥", "⚡\\(＠▽＠)/⚡"],
       "condition": { "type": "dailyOutputTokens", "gte": 1000000 },
+      "next": "superultimate"
+    },
+    {
+      "id": "superultimate",
+      "label": "초궁극체 (Super Ultimate)",
+      "sprite": ["✨🔥\\(◎▽◎)/🔥✨", "✨⚡\\(◎▽◎)/⚡✨"],
+      "condition": { "type": "dailyOutputTokens", "gte": 2000000 },
       "next": null
     }
   ]

@@ -106,13 +106,13 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 node --test
 ```
 
-Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 후보 판정(`listValidPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
+Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`) — 과 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
 진화 단계는 **그날(KST, 자정 리셋) 소모한 output 토큰 총량**으로만 결정된다. 세션/전역 tool-success 카운터(`hook.js`, `lib/state.js`)는 여전히 `working` 플래그 등 행동 상태 용도로 유지되지만 더 이상 진화 단계에 영향을 주지 않는다.
 
-단계는 6개(`digitama` → `baby` → `child` → `adult` → `perfect` → `ultimate`)이며, 스프라이트 파일명도 이 stage id를 그대로 쓴다.
+단계는 7개(`digitama` → `baby` → `child` → `adult` → `perfect` → `ultimate` → `superultimate`)이며, 스프라이트 파일명도 이 stage id를 그대로 쓴다.
 
 | 단계 전이 | 조건 (`dailyOutputTokens`) |
 |---|---|
@@ -121,8 +121,11 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 | child → adult | 오늘 output 토큰 ≥ 100,000 |
 | adult → perfect | 오늘 output 토큰 ≥ 300,000 |
 | perfect → ultimate | 오늘 output 토큰 ≥ 1,000,000 |
+| ultimate → superultimate | 오늘 output 토큰 ≥ 2,000,000 |
 
 - 매일 KST 자정에 합계가 0으로 리셋된다(고정 오프셋 UTC+9, DST 없음).
+- `superultimate`(초궁극체, 2M) 임계값은 실측으로 정했다. 집계를 고친 뒤 16일치를 재계산했을 때 1M+는 4일, 2M+는 1일(최고 2.75M)이었다 — 1M이 4일에 한 번꼴이 되면서 궁극체의 희소성이 사라진 자리를 메우는 단계다.
+- **최상위 단계에 도달하지 못하는 팩은 로테이션 후보에서 빠진다** — 아래 [로테이션 후보 요건](#로테이션-후보-요건) 참고.
 - `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
 - `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
 
@@ -178,18 +181,27 @@ node daily-tokens.js
 |---|---|---|
 | `idle` | 대기(작업 안 하는 중) 기본 프레임 | **필수** — 팩 로드/전환의 최소 조건 |
 | `digitama` | 진화 1단계(알) | 선택 — 없으면 공용 알 스프라이트로 대체 |
-| `baby` / `child` / `adult` / `perfect` / `ultimate` | 진화 2~6단계 | 권장 |
+| `baby` / `child` / `adult` / `perfect` / `ultimate` / `superultimate` | 진화 2~7단계 | 권장 |
 | `limit80` | 사용량 80% 이상일 때 오버라이드(지친 모습) | 선택 |
 | `limit95` | 사용량 95% 이상일 때 오버라이드(뻗은 모습) | 선택 |
 
 - **알(digitama)은 종족 무관이라 팩마다 따로 그릴 필요가 없다.** `sprites/shared/digitama-0.png`가 있으면 메뉴바 앱과 `lib/daily.js`의 로테이션 후보 판정 둘 다 그 공용 스프라이트를 우선 사용하고, 팩 자체의 `digitama-0.png`는 공용 파일이 없을 때만 쓰이는 폴백이다 (`scripts/make_shared_digitama.py` 참고).
 - `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). **로테이션 후보 등록**도 같은 조건을 요구한다 — `idle-0.png`가 없는 디렉터리를 후보로 뽑아봐야 화면은 어제 몬 그대로이므로, `lib/daily.js`의 `listValidPacks`는 `idle-0.png` + digitama(공용 또는 팩 자체)를 둘 다 확인한다.
 - `.`으로 시작하는 디렉터리는 후보에서 제외된다. `sprites/packs/`는 평범한 디렉터리라 무관한 도구가 상태 파일을 남길 수 있는데(`.omc/state`), 그런 디렉터리가 후보에 끼면 이름순 정렬에서 뒤 팩들의 인덱스를 통째로 밀어 로테이션이 어긋난다.
-- 진화 단계 프레임(`baby`…`ultimate`)이 비어 있으면 해당 단계에서 자동으로 `idle` 프레임으로 폴백한다. `limit80`/`limit95`가 없으면 사용량이 높아도 현재 단계 프레임을 그대로 쓴다.
+- 진화 단계 프레임이 비어 있으면 **바로 아래 단계의 프레임**을 물려받는다(예: `superultimate` 도트를 아직 안 넣었으면 `ultimate` 도트로 표시). 아래로 내려가도 아무 것도 없으면 마지막 폴백이 `idle`이다. 알(`digitama`)은 종족 무관 공용 스프라이트라 위 단계의 폴백원이 되지 않는다 — 예전에는 모든 미보유 단계가 곧바로 `idle`로 폴백했는데, 그러면 새 단계를 트리에 먼저 추가한 순간 진화하자마자 성장기로 *퇴화한 것처럼* 보였다. `limit80`/`limit95`가 없으면 사용량이 높아도 현재 단계 프레임을 그대로 쓴다.
+
+### 로테이션 후보 요건
+
+`listValidPacks`(팩이 로드 가능한가)와 `listRotationPacks`(오늘의 몬으로 뽑을 후보인가)는 다른 질문이다. 후자는 전자에 조건 하나를 더 얹는다 — **`pack.json`의 `stageNames`에 트리 최상위 단계(현재 `superultimate`)의 이름이 있어야 한다.**
+
+- 최상위 단계까지 진화하지 못하는 계보는 한 달 중 가장 무거운 날에 천장 한 칸 아래에 머무른다. 그런 팩은 도달할 수 없는 단계를 붙여 보여주는 대신 로테이션에서 빼둔다.
+- 후보에서 빠져도 팩 자체는 유효하다 — 명시적으로 지정하거나 `guilmon` 폴백으로 걸리면 그대로 렌더된다.
+- 기준값은 `evolution-tree.json`의 마지막 단계에서 읽으므로(`topStageId()`), 나중에 단계를 더 추가하면 기준도 함께 올라간다.
+- 현 기본 팩 중 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)은 캐논상 초궁극체가 없어 `superultimate` 이름이 비어 있고, 따라서 로테이션 후보가 아니다. 나중에 대체 종족을 정하면 `pack.json`에 이름 한 줄을 넣는 것으로 다시 후보가 된다.
 
 ### 팩 메타데이터 (`pack.json`, 선택)
 
-팩 디렉터리에 `pack.json`을 두면 메뉴바에 표시할 이름과 단계별 이름을 지정할 수 있다. 없으면 폴더 이름을 그대로 표시한다.
+팩 디렉터리에 `pack.json`을 두면 메뉴바에 표시할 이름과 단계별 이름을 지정할 수 있다. 없으면 폴더 이름을 그대로 표시한다. 표시용이지만 완전히 선택은 아니다 — 최상위 단계 이름은 로테이션 후보 판정에도 쓰인다(위 [로테이션 후보 요건](#로테이션-후보-요건)).
 
 ```json
 {
@@ -200,25 +212,26 @@ node daily-tokens.js
     "child": "...",
     "adult": "...",
     "perfect": "...",
-    "ultimate": "..."
+    "ultimate": "...",
+    "superultimate": "..."
   }
 }
 ```
 
 ### 매일 랜덤 몬 선택 (`lib/daily.js`)
 
-- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 유효 팩 목록(`.`으로 시작하지 않고, `idle-0.png`가 있고, 자체 `digitama-0.png` 또는 공용 `sprites/shared/digitama-0.png`가 있는 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 해시(`hashString` — 문자코드 누적 + murmur3 fmix32 finalizer, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
+- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 로테이션 후보 목록(`.`으로 시작하지 않고, `idle-0.png`가 있고, 자체 `digitama-0.png` 또는 공용 `sprites/shared/digitama-0.png`가 있고, `pack.json`이 최상위 단계 이름을 선언한 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 해시(`hashString` — 문자코드 누적 + murmur3 fmix32 finalizer, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
 - finalizer가 있어야 하는 이유: 누적 해시만 쓰면 하루 차이 날짜의 해시가 정확히 `+1`이라 인덱스가 알파벳 순서를 하루 한 칸씩 걷는 꼴이 된다. 그러면 앞쪽에 정렬되는 후보가 하나 늘어날 때 인덱스가 한 칸 밀리면서 일일 `+1`과 상쇄돼 **이틀 연속 같은 몬**이 나온다(실제로 `.omc` 때문에 파피몬이 이틀 연속 나온 적 있다). fmix32로 인접 입력을 흩어놓아 이 결합을 끊는다.
 - **연속 중복 방지(`prevMon`)**: 해시를 잘 섞어도 균등 분포라면 `1/N` 확률로 어제와 같은 팩이 뽑힌다. 밖에서 보면 우연한 중복과 로테이션 고장이 구분되지 않으므로, `daily.json`의 `prevMon`(직전에 실제로 표시된 팩)과 오늘 뽑힌 팩이 같으면 이름순 다음 팩으로 한 칸 민다. 후보가 1개뿐이면 밀 곳이 없으므로 그대로 둔다.
 - 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. `prevMon`도 그날 내내 함께 보존된다(30초마다 덮어써도 유실되지 않아야 내일 가드가 비교 대상을 갖는다). 날짜가 바뀌면 그때의 `mon`이 다음 날의 `prevMon`이 되고 해시로 재계산한다.
 - 며칠 쉬었다 실행해도 `prevMon`은 "마지막으로 실제 표시된 팩"이라 가드가 그대로 동작한다. `daily.json`이 없거나 깨졌으면 `prevMon`은 `null`이고 가드는 그냥 건너뛴다.
-- 유효 팩이 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
+- 후보가 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
 
 ### 새 팩 등록하기
 
 1. `sprites/packs/<새팩이름>/` 디렉터리를 만든다.
 2. 최소 `idle-0.png`를 넣는다 — 팩 자체의 `digitama-0.png` 없이도 `sprites/shared/digitama-0.png`(공용 알)가 있으면 로테이션 후보 + 전환이 동작한다. 공용 알을 아직 안 만들었다면 `python3 scripts/make_shared_digitama.py`로 먼저 생성한다. 이후 나머지 단계·프레임을 채워나가면 된다.
-3. (선택) 표시 이름을 바꾸고 싶으면 `pack.json`을 추가한다.
+3. `pack.json`을 추가한다 — 표시 이름 지정용이지만, `stageNames`에 최상위 단계(`superultimate`) 이름이 없으면 로테이션 후보로 뽑히지 않는다.
 4. 별도 등록 명령은 없다 — 다음 `daily-tokens.js` 실행(메뉴바 앱이 ~30초 주기로 호출)부터 자동으로 후보에 들어간다.
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
@@ -233,6 +246,8 @@ node daily-tokens.js
 2. `python3 scripts/extract_pack_evolved_dwds.py [팩이름 ...]` — 인자를 생략하면 표에 있는 7개 팩을 모두 처리한다.
 
 프레임 위치는 손으로 좌표를 재지 않는다. 밴드를 시트 아래로 훑으면서 **그 밴드 안에서만** 지배적인 색(시트 배경색 + 셀 패널색)을 배경으로 잡아 분할하고, 크기가 고르고 등간격이며 밴드 경계에 잘리지 않은 작은 스프라이트가 가장 많이 나오는 밴드를 필드 스프라이트 행으로 고른다. 사람이 정한 값은 `PICKS`의 프레임 인덱스 2개(정면 포즈 — 행 안에서의 위치가 시트마다 다르다)뿐이다.
+
+`superultimate`(초궁극체) 도트는 아직 비어 있다 — 단계·이름·폴백만 먼저 들어갔고, 도트가 없는 동안은 `ultimate` 프레임을 물려받는다. 채울 때 필요한 형태는 팩별로 아구몬/파피몬 = 오메가몬, 브이몬 = 임페리얼드라몬 팔라딘 모드, 길몬 = 듀크몬 크림슨 모드, 임프몬 = 베르제브몬 블래스트 모드다(DWDS 시트에 해당 스프라이트가 실제로 있는지는 시트를 넣어보며 확인해야 한다). 아구몬·파피몬 라인의 초궁극체는 둘 다 합체체인 오메가몬이라 도트가 겹친다 — 계보상 사실이지만 두 팩이 같은 그림을 쓰는 게 싫으면 한쪽 `pack.json`의 이름을 바꾸거나 아예 비워 후보에서 빼면 된다.
 
 한계: 임프몬 라인의 스컬사탄몬은 DWDS에 없어 완전체를 뱀파이몬으로 대체했다(`sprites/packs/impmon/pack.json`의 이름도 그에 맞춰져 있다). 원본이 32px보다 큰 프레임은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 해당 파일 목록을 출력한다.
 
