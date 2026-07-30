@@ -1,0 +1,12 @@
+{
+  "name": "케라몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "쿠라몬",
+    "child": "케라몬",
+    "adult": "크리사리몬",
+    "perfect": "인퍼몬",
+    "ultimate": "디아블로몬",
+    "superultimate": "아머게몬"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "팔코몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "푸치몬",
+    "child": "팔코몬",
+    "adult": "펙몬",
+    "perfect": "야타가라몬",
+    "ultimate": "바로두르몬",
+    "superultimate": "크로노몬 홀리 모드"
+  }
+}
