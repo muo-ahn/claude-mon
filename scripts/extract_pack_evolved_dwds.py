@@ -75,24 +75,33 @@ PICKS = {
         # 아구몬·파피몬의 초궁극체는 둘 다 합체체인 오메가몬이라 같은 시트를
         # 공유한다 (계보상 사실이고, pack.json의 이름도 양쪽 다 오메가몬).
         "superultimate": ("omegamon", [5, 6]),
+        # 분기 도트: 트리의 대체 노드(pack.json의 sprite 값이 그대로 prefix).
+        "adult-geogreymon": ("geogreymon", [0, 1]),
+        "perfect-rizegreymon": ("rizegreymon", [0, 1]),
+        "ultimate-blackwargreymon": ("blackwargreymon", [0, 1]),
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
         "perfect": ("wargrowlmon", [4, 5]),
         "ultimate": ("gallantmon", [6, 7]),
         "superultimate": ("gallantmon_crimson", [3, 4]),
+        "perfect-blackmegalogrowlmon": ("blackwargrowlmon", [4, 5]),
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
         "perfect": ("weregarurumon", [6, 7]),
         "ultimate": ("metalgarurumon", [6, 7]),
         "superultimate": ("omegamon", [5, 6]),
+        "ultimate-darkdramon": ("darkdramon", [5, 6]),
     },
     "veemon": {
         "adult": ("exveemon", [6, 7]),
         "perfect": ("paildramon", [5, 6]),
         "ultimate": ("imperialdramon_fm", [6, 7]),
         "superultimate": ("imperialdramon_pm", [6, 7]),
+        "perfect-flamedramon": ("flamedramon", [3, 4]),
+        "perfect-magnamon": ("magnamon", [4, 5]),
+        "ultimate-imperialdramon_dm": ("imperialdramon_dm", [4, 5]),
     },
     "renamon": {
         "adult": ("kyubimon", [6, 7]),
@@ -104,9 +113,6 @@ PICKS = {
         "perfect": ("rapidmon", [0, 1]),
         "ultimate": ("megagargomon", [0, 1]),
     },
-    # Impmon has no canonical Champion/Ultimate; the pack already stood in
-    # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses
-    # 뱀파이몬 (Myotismon) -- pack.json carries the matching name.
     # 케라몬 라인은 Battle Spirit 시트가 없어 성장기·유년기까지 전부 DWDS에서
     # 온다. `idle`은 팩 로드의 최소 조건이자 대기 프레임인데 관례상 성장기
     # 도트와 같으므로 child와 같은 프레임을 쓴다 -- 스테이지 이름이 그대로
@@ -121,24 +127,27 @@ PICKS = {
         "perfect": ("infermon", [1, 2]),
         "ultimate": ("diaboromon", [3, 4]),
         "superultimate": ("armagemon", [3, 4]),
+        "ultimate-beelzebumon": ("beelzemon", [4, 5]),
     },
     # 팔코몬 라인도 전 단계를 DWDS에서 뽑는다. 초궁극체는 크로노몬 홀리 모드 --
-    # DWDS의 최종 보스이고 게임 안에서 Super Ultimate로 불린다. 유년기만
-    # 대역이다: 팔코몬의 캐논 유년기(피나몬)가 DWDS에 없어 같은 날개 달린
-    # 유년기인 푸치몬을 쓴다.
+    # DWDS의 최종 보스이고 게임 안에서 Super Ultimate로 불린다. 유년기는 게임
+    # 진화표대로 토코몬이다(캐논 유년기 피나몬은 DWDS에 없다).
     #
     # 펙몬·야타가라몬·바로두르몬 시트는 필드 프레임 행이 3칸뿐이어서 고를 수
     # 있는 쌍이 [0, 1] 하나다.
     "falcomon": {
         "idle": ("falcomon", [3, 4]),
-        "baby": ("puttimon", [3, 4]),
+        "baby": ("tokomon", [3, 4]),
         "child": ("falcomon", [3, 4]),
         "adult": ("peckmon", [0, 1]),
         "perfect": ("yatagaramon", [0, 1]),
         "ultimate": ("varodurumon", [0, 1]),
         "superultimate": ("chronomon_hm", [6, 7]),
     },
-    # 베르제브몬 블래스트 모드는 캐논에는 있지만 DWDS 시트에 없다 (Dawn/Dusk
+    # Impmon has no canonical Champion/Ultimate; the pack already stood in
+    # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses
+    # 뱀파이몬 (Myotismon) -- pack.json carries the matching name. 베르제브몬
+    # 블래스트 모드는 캐논에는 있지만 DWDS 시트에 없다 (Dawn/Dusk
     # 섹션에도 없음). 초궁극체 도트를 구할 수 없으므로 impmon도 superultimate
     # 항목이 없고, 따라서 로테이션 후보에서 빠진다.
     "impmon": {

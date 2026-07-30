@@ -8,5 +8,88 @@
     "perfect": "메가로그라우몬",
     "ultimate": "듀크몬",
     "superultimate": "듀크몬 크림슨 모드"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "gigimon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "gigimon",
+        "name": "기기몬",
+        "sprite": "baby",
+        "next": [
+          "guilmon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "guilmon",
+        "name": "길몬",
+        "sprite": "child",
+        "next": [
+          "growlmon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "growlmon",
+        "name": "그라우몬",
+        "sprite": "adult",
+        "next": [
+          "megalogrowlmon",
+          "blackmegalogrowlmon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "megalogrowlmon",
+        "name": "메가로그라우몬",
+        "sprite": "perfect",
+        "next": [
+          "dukemon"
+        ],
+        "traits": [
+          "focus"
+        ]
+      },
+      {
+        "id": "blackmegalogrowlmon",
+        "name": "블랙메가로그라우몬",
+        "sprite": "perfect-blackmegalogrowlmon",
+        "next": [],
+        "traits": [
+          "dark"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "dukemon",
+        "name": "듀크몬",
+        "sprite": "ultimate",
+        "next": [
+          "dukemon_crimson"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "dukemon_crimson",
+        "name": "듀크몬 크림슨 모드",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
   }
 }

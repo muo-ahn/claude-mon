@@ -6,7 +6,109 @@
     "child": "브이몬",
     "adult": "엑스브이몬",
     "perfect": "파일드라몬",
-    "ultimate": "임페리얼드라몬",
-    "superultimate": "임페리얼드라몬 팔라딘 모드"
+    "ultimate": "황제드라몬 파이터 모드",
+    "superultimate": "황제드라몬 팔라딘 모드"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "chibomon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "chibomon",
+        "name": "치비몬",
+        "sprite": "baby",
+        "next": [
+          "veemon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "veemon",
+        "name": "브이몬",
+        "sprite": "child",
+        "next": [
+          "exveemon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "exveemon",
+        "name": "엑스브이몬",
+        "sprite": "adult",
+        "next": [
+          "paildramon",
+          "flamedramon",
+          "magnamon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "paildramon",
+        "name": "파일드라몬",
+        "sprite": "perfect",
+        "next": [
+          "imperialdramon_fm",
+          "imperialdramon_dm"
+        ]
+      },
+      {
+        "id": "flamedramon",
+        "name": "화염드라몬",
+        "sprite": "perfect-flamedramon",
+        "next": [],
+        "traits": [
+          "swarm"
+        ]
+      },
+      {
+        "id": "magnamon",
+        "name": "매그너몬",
+        "sprite": "perfect-magnamon",
+        "next": [],
+        "traits": [
+          "swarm"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "imperialdramon_fm",
+        "name": "황제드라몬 파이터 모드",
+        "sprite": "ultimate",
+        "next": [
+          "imperialdramon_pm"
+        ],
+        "traits": [
+          "focus"
+        ]
+      },
+      {
+        "id": "imperialdramon_dm",
+        "name": "황제드라몬 드래곤 모드",
+        "sprite": "ultimate-imperialdramon_dm",
+        "next": [
+          "imperialdramon_pm"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "imperialdramon_pm",
+        "name": "황제드라몬 팔라딘 모드",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
   }
 }

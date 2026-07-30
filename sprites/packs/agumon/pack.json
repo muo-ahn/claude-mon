@@ -8,5 +8,111 @@
     "perfect": "메탈그레이몬",
     "ultimate": "워그레이몬",
     "superultimate": "오메가몬"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "koromon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "koromon",
+        "name": "코로몬",
+        "sprite": "baby",
+        "next": [
+          "agumon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "agumon",
+        "name": "아구몬",
+        "sprite": "child",
+        "next": [
+          "greymon",
+          "geogreymon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "greymon",
+        "name": "그레이몬",
+        "sprite": "adult",
+        "next": [
+          "metalgreymon"
+        ]
+      },
+      {
+        "id": "geogreymon",
+        "name": "지오그레이몬",
+        "sprite": "adult-geogreymon",
+        "next": [
+          "rizegreymon"
+        ],
+        "traits": [
+          "swarm"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "metalgreymon",
+        "name": "메탈그레이몬",
+        "sprite": "perfect",
+        "next": [
+          "wargreymon",
+          "blackwargreymon"
+        ]
+      },
+      {
+        "id": "rizegreymon",
+        "name": "라이즈그레이몬",
+        "sprite": "perfect-rizegreymon",
+        "next": [],
+        "traits": [
+          "swarm"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "wargreymon",
+        "name": "워그레이몬",
+        "sprite": "ultimate",
+        "next": [
+          "omegamon"
+        ],
+        "traits": [
+          "focus"
+        ]
+      },
+      {
+        "id": "blackwargreymon",
+        "name": "블랙워그레이몬",
+        "sprite": "ultimate-blackwargreymon",
+        "next": [
+          "omegamon"
+        ],
+        "traits": [
+          "dark"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "omegamon",
+        "name": "오메가몬",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
   }
 }

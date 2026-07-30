@@ -7,6 +7,91 @@
     "adult": "크리사리몬",
     "perfect": "인퍼몬",
     "ultimate": "디아블로몬",
-    "superultimate": "아머게몬"
+    "superultimate": "아마게몬"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "kuramon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "kuramon",
+        "name": "쿠라몬",
+        "sprite": "baby",
+        "next": [
+          "keramon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "keramon",
+        "name": "케라몬",
+        "sprite": "child",
+        "next": [
+          "kurisarimon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "kurisarimon",
+        "name": "크리사리몬",
+        "sprite": "adult",
+        "next": [
+          "infermon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "infermon",
+        "name": "인퍼몬",
+        "sprite": "perfect",
+        "next": [
+          "diablomon",
+          "beelzebumon"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "diablomon",
+        "name": "디아블로몬",
+        "sprite": "ultimate",
+        "next": [
+          "armagemon"
+        ],
+        "traits": [
+          "swarm"
+        ]
+      },
+      {
+        "id": "beelzebumon",
+        "name": "베르제브몬",
+        "sprite": "ultimate-beelzebumon",
+        "next": [
+          "armagemon"
+        ],
+        "traits": [
+          "dark"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "armagemon",
+        "name": "아마게몬",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
   }
 }

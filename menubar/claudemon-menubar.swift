@@ -140,6 +140,8 @@ let monLabels: [String: String] = [
     "renamon": "레나몬",
     "terriermon": "테리어몬",
     "impmon": "임프몬",
+    "keramon": "케라몬",
+    "falcomon": "팔코몬",
 ]
 
 func labelForMon(_ mon: String) -> String {
@@ -158,8 +160,34 @@ func stageNames(forPack pack: String) -> [String: String] {
     return names
 }
 
+// Today's branch through the pack's evolution tree, straight from
+// daily.json's "route" (see lib/daily.js selectRoute). Empty means the pack
+// has no tree, so every stage renders from its spine files and stageNames --
+// exactly the old behaviour.
+var activeRouteSprites: [String: String] = [:]
+var activeRouteNames: [String: String] = [:]
+var activeRouteKey = ""
+
 func evolvedName(pack: String, mon: String, stageId: String) -> String {
+    if let routed = activeRouteNames[stageId] { return routed }
     return stageNames(forPack: pack)[stageId] ?? labelForMon(mon)
+}
+
+// Returns true when the route actually changed, which is the signal to
+// reload frame sets (a new route can point a stage at different art).
+func applyRoute(_ route: [String: [String: String]]) -> Bool {
+    var sprites: [String: String] = [:]
+    var names: [String: String] = [:]
+    for (stage, node) in route {
+        if let s = node["sprite"], !s.isEmpty { sprites[stage] = s }
+        if let n = node["name"], !n.isEmpty { names[stage] = n }
+    }
+    let key = stageIds.map { sprites[$0] ?? $0 }.joined(separator: ">")
+    guard key != activeRouteKey else { return false }
+    activeRouteSprites = sprites
+    activeRouteNames = names
+    activeRouteKey = key
+    return true
 }
 
 // MARK: - Usage limit display + behavior overrides
@@ -451,10 +479,10 @@ func readHudCache(cwd: String) -> (json: [String: Any], stale: Bool)? {
 // Reads $CLAUDEMON_DIR/daily.json. Any failure (missing file, malformed
 // JSON, unrecognized stageId) falls back to ("digitama", 0, nil) rather
 // than crashing or showing a stale/garbage stage.
-func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int]) {
+func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int], route: [String: [String: String]]) {
     guard let data = FileManager.default.contents(atPath: dailyStateFile),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    else { return ("digitama", 0, nil, defaultMon, [:]) }
+    else { return ("digitama", 0, nil, defaultMon, [:], [:]) }
     let rawStage = json["stageId"] as? String ?? "digitama"
     let stageId = stageIds.contains(rawStage) ? rawStage : "digitama"
     let tokens = intValue(json["outputTokens"])
@@ -467,7 +495,8 @@ func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, 
     if let raw = json["sessionTokens"] as? [String: Any] {
         for (sid, v) in raw { sessionTokens[sid] = intValue(v) }
     }
-    return (stageId, tokens, dateKST, mon, sessionTokens)
+    let route = json["route"] as? [String: [String: String]] ?? [:]
+    return (stageId, tokens, dateKST, mon, sessionTokens, route)
 }
 
 // Resolves which pack directory should actually be used for a requested
@@ -690,6 +719,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let daily = readDailyState()
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
+        _ = applyRoute(daily.route)
         switchMonIfNeeded(daily.mon)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
@@ -749,11 +779,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var previous = idle
         for stage in stageIds {
             let isShared = sharedStages.contains(stage)
+            // The route may point this stage at a branch's own files
+            // (e.g. adult-geogreymon-*.png); the spine keeps the plain
+            // <stage>-*.png names.
+            let prefix = activeRouteSprites[stage] ?? stage
             var frames: [NSImage] = []
             if isShared {
                 frames = loadImageSequence(inDir: sharedSpriteDir, prefix: stage)
             }
             if frames.isEmpty {
+                frames = loadImageSequence(inDir: pack, prefix: prefix)
+            }
+            if frames.isEmpty && prefix != stage {
                 frames = loadImageSequence(inDir: pack, prefix: stage)
             }
             if frames.isEmpty {
@@ -789,9 +826,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // first load). Fallback chain: requested pack -> guilmon pack -> keep
     // whatever frames are already loaded (never crash after startup). Only
     // a totally failed first load (no prior frames at all) is fatal.
-    func switchMonIfNeeded(_ mon: String) {
+    func switchMonIfNeeded(_ mon: String, routeChanged: Bool = false) {
         let resolved = resolvePack(for: mon)
-        guard resolved.mon != currentMon || stageFrames.isEmpty else { return }
+        guard resolved.mon != currentMon || stageFrames.isEmpty || routeChanged else { return }
 
         if loadFrames(fromPack: resolved.path, mon: resolved.mon) { return }
 
@@ -923,7 +960,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
-        switchMonIfNeeded(daily.mon)
+        switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route))
 
         // Evolution burst: same mon moved UP a stage -> flash old/new forms
         // for a few seconds, classic digivolve style. Mon switches (daily

@@ -106,7 +106,7 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 node --test
 ```
 
-Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`) — 과 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
+Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`), 분기 루트 추첨(`selectRoute` — 하루 고정·spine 복귀·trait 편향·어제 회피) — 과 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
@@ -198,7 +198,32 @@ node daily-tokens.js
 - 후보에서 빠져도 팩 자체는 유효하다 — 명시적으로 지정하거나 `guilmon` 폴백으로 걸리면 그대로 렌더된다.
 - 기준값은 `evolution-tree.json`의 마지막 단계에서 읽으므로(`topStageId()`), 나중에 단계를 더 추가하면 기준도 함께 올라간다.
 - 현 기본 팩 9개 중 3개가 후보에서 빠져 있다. 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)은 캐논상 초궁극체가 없고, 임프몬은 캐논에는 있지만(베르제브몬 블래스트 모드) DWDS 시트에 없어 도트를 구할 수 없다. 셋 다 `pack.json`의 `superultimate` 이름이 비어 있다 — 나중에 대체 종족이나 시트를 확보하면 이름 한 줄을 넣는 것으로 다시 후보가 된다.
-- 후보가 줄어드는 만큼 반대 방향도 열려 있다: 초궁극체까지 이어지는 계보를 새로 추가하면 그대로 후보가 된다. 케라몬 팩(→ 아머게몬)과 팔코몬 팩(→ 크로노몬 홀리 모드)이 그렇게 들어왔다.
+- 후보가 줄어드는 만큼 반대 방향도 열려 있다: 초궁극체까지 이어지는 계보를 새로 추가하면 그대로 후보가 된다. 케라몬 팩(→ 아마게몬)과 팔코몬 팩(→ 크로노몬 홀리 모드)이 그렇게 들어왔다.
+
+### 랜덤 진화 (분기 루트)
+
+디지몬은 같은 종족이라도 성장 배경에 따라 다른 형태로 진화한다. claudemon도 하루 단위로 **루트**를 뽑는다 — 오늘의 마스코트는 (팩, 루트) 쌍이다.
+
+**트리는 `pack.json`의 `tree`에 있다.** stage id → 노드 배열이고, 각 노드는 `{ id, name, sprite, next, traits? }`다. 각 단계 배열의 **첫 노드가 그 단계의 spine**(아무 것도 개입하지 않을 때의 형태)이다. `sprite`가 그대로 파일 prefix라서 분기 도트는 `adult-geogreymon-0.png`처럼 저장되고, spine은 기존 `adult-0.png`를 그대로 쓴다 — 기존 팩은 무수정 호환.
+
+루트 선택 규칙 세 개:
+
+1. **하루 고정.** `hashString(dateKST|팩|단계)`로 뽑으므로 같은 날 몇 번 재실행해도 같고, `daily.json`에 오늘 루트가 이미 있으면 그 값을 유지한다(30초마다 덮어써도 형태가 바뀌지 않는다). `Math.random`은 여전히 쓰지 않는다.
+2. **spine 복귀.** 중간에서 끊기는 분기(DWDS에는 지오그레이몬의 궁극체가 없고, 아머 진화체도 이어지지 않는다)를 뽑으면 다음 단계는 spine으로 돌아온다. 그래서 루트는 **항상 최상위 단계까지 도달**한다 — 2M을 찍은 날이 "이 계보는 초궁극체가 없다"로 낭비되지 않는다.
+3. **어제 회피.** `prevRoute`와 완전히 같은 루트가 나오면 마지막으로 선택지가 있던 단계를 한 칸 민다(`prevMon` 가드와 같은 방식).
+
+**성장 배경 = 그날의 지표.** 노드의 `traits`와 그날 활성화된 trait이 겹치면 그 후보들만 추첨 대상이 된다. 겹치는 후보가 없으면 전체가 대상이므로, 조용한 날에도 모든 형태가 나올 수 있다.
+
+| trait | 조건 | 그쪽으로 기울는 형태 |
+|---|---|---|
+| `dark` | 도구 호출 실패율 ≥ 5% | 블랙워그레이몬, 다크드라몬, 블랙메가로그라우몬, 베르제브몬 |
+| `swarm` | 그날 토큰을 쓴 세션 ≥ 5개 | 지오그레이몬·라이즈그레이몬, 화염드라몬, 매그너몬, 디아블로몬 |
+| `focus` | 한 세션이 그날 output의 60% 이상 | 워그레이몬, 메탈가루몬, 메가로그라우몬, 황제드라몬 파이터 모드 |
+
+한계: `dark`의 실패율은 `global.json`의 **누적** 카운터라 하루 단위가 아니라 천천히 움직인다. 일일 실패 카운터를 `hook.js`에 넣으면 해결되는데, 없는 값을 그럴듯하게 만들지 않기 위해 후속으로 남겼다.
+
+`daily.json`에 `route`(단계별 `{id, name, sprite}`), `prevRoute`, `traits`가 추가된다. 메뉴바 앱은 `route[단계].sprite`를 프레임 prefix로, `route[단계].name`을 표시 이름으로 쓰고, 루트가 바뀌면 프레임 세트를 다시 읽는다. 트리가 없는 팩은 `route: null`이라 기존 `stageNames` 경로로 그대로 동작한다.
+
 
 ### 팩 메타데이터 (`pack.json`, 선택)
 
@@ -256,7 +281,7 @@ node daily-tokens.js
 |---|---|---|---|
 | `omegamon.png` | 오메가몬 | 아구몬, 파피몬 (공유) | `[5, 6]` |
 | `gallantmon_crimson.png` | 듀크몬 크림슨 모드 | 길몬 | `[3, 4]` |
-| `imperialdramon_pm.png` | 임페리얼드라몬 팔라딘 모드 | 브이몬 | `[6, 7]` |
+| `imperialdramon_pm.png` | 황제드라몬 팔라딘 모드 | 브이몬 | `[6, 7]` |
 
 아구몬·파피몬의 초궁극체는 둘 다 합체체인 오메가몬이라 같은 시트를 공유한다 — 계보상 사실이고 `pack.json`의 이름도 양쪽 다 오메가몬이다.
 
@@ -264,11 +289,11 @@ node daily-tokens.js
 
 #### 새로 추가한 라인 (전 단계를 DWDS에서)
 
-캐논상 초궁극체는 많지만(수사노오몬·알파몬·샤인그레이몬 버스트 모드·루체몬 사탄 모드…) **DS 도트로 구할 수 있는 건 훨씬 적다.** 확인한 범위: spriters-resource의 DWDS 섹션(에셋 348개)에서 Ultra 등급은 아머게몬·크로노몬 홀리 모드·크로노몬 다크 모드 3종뿐이고, Dawn/Dusk 섹션은 성장기 위주의 부분 립이라 상위 단계가 없다. Lost Evolution·Super Xros Wars 시트는 spriters-resource·spritedatabase 어느 쪽에도 없고, Digimon 위키에 있는 건 카드/공식 일러스트와 디지바이스용 도트뿐이다. 그래서 상위 단계는 계속 DWDS 로스터가 상한이다.
+캐논상 초궁극체는 많지만(수사노오몬·알파몬·샤인그레이몬 버스트 모드·루체몬 사탄 모드…) **DS 도트로 구할 수 있는 건 훨씬 적다.** 확인한 범위: spriters-resource의 DWDS 섹션(에셋 348개)에서 Ultra 등급은 아마게몬·크로노몬 홀리 모드·크로노몬 다크 모드 3종뿐이고, Dawn/Dusk 섹션은 성장기 위주의 부분 립이라 상위 단계가 없다. Lost Evolution·Super Xros Wars 시트는 spriters-resource·spritedatabase 어느 쪽에도 없고, Digimon 위키에 있는 건 카드/공식 일러스트와 디지바이스용 도트뿐이다. 그래서 상위 단계는 계속 DWDS 로스터가 상한이다.
 
 그 3종 중 성장기부터 이어지는 계보가 있는 둘을 팩으로 만들었다. 두 팩 모두 Battle Spirit 시트가 없어 **`idle`·유년기·성장기까지 전 단계를 DWDS에서 뽑는다**(기존 팩은 성숙기 이상만 DWDS).
 
-**케라몬 팩** — 디아블로몬 계보, 초궁극체는 아머게몬.
+**케라몬 팩** — 디아블로몬 계보, 초궁극체는 아마게몬.
 
 | 파일명 | 형태 | 단계 | 고른 프레임 |
 |---|---|---|---|
@@ -277,24 +302,46 @@ node daily-tokens.js
 | `kurisarimon.png` | 크리사리몬 | `adult` | `[1, 2]` |
 | `infermon.png` | 인퍼몬 | `perfect` | `[1, 2]` |
 | `diaboromon.png` | 디아블로몬 | `ultimate` | `[3, 4]` |
-| `armagemon.png` | 아머게몬 | `superultimate` | `[3, 4]` |
+| `armagemon.png` | 아마게몬 | `superultimate` | `[3, 4]` |
 
 **팔코몬 팩** — 초궁극체는 크로노몬 홀리 모드(DWDS 최종 보스, 게임 안에서 Super Ultimate로 불린다).
 
 | 파일명 | 형태 | 단계 | 고른 프레임 |
 |---|---|---|---|
-| `puttimon.png` | 푸치몬 | `baby` | `[3, 4]` |
+| `tokomon.png` | 토코몬 | `baby` | `[3, 4]` |
 | `falcomon.png` | 팔코몬 | `child`, `idle` | `[3, 4]` |
-| `peckmon.png` | 펙몬 | `adult` | `[0, 1]` |
+| `peckmon.png` | 펙크몬 | `adult` | `[0, 1]` |
 | `yatagaramon.png` | 야타가라몬 | `perfect` | `[0, 1]` |
-| `varodurumon.png` | 바로두르몬 | `ultimate` | `[0, 1]` |
+| `varodurumon.png` | 발두르몬 | `ultimate` | `[0, 1]` |
 | `chronomon_hm.png` | 크로노몬 홀리 모드 | `superultimate` | `[6, 7]` |
 
-유년기 푸치몬은 대역이다 — 팔코몬의 캐논 유년기(피나몬)가 DWDS에 없어 같은 날개 달린 유년기로 대신했다. 펙몬·야타가라몬·바로두르몬 시트는 필드 프레임 행이 3칸뿐이라 고를 수 있는 쌍이 `[0, 1]` 하나다.
+유년기는 게임 진화표대로 토코몬이다(캐논 유년기 피나몬은 DWDS에 없다). 펙크몬·야타가라몬·발두르몬 시트는 필드 프레임 행이 3칸뿐이라 고를 수 있는 쌍이 `[0, 1]` 하나다.
 
-`idle`은 스테이지 이름이 그대로 파일 prefix라서 `PICKS`에 한 줄 적으면 나온다 — 관례대로 성장기와 같은 프레임을 쓴다. 원본이 32px보다 큰 프레임(디아블로몬·아머게몬·크로노몬 등)은 축소되므로 픽셀이 1:1로 유지되지 않는다(실행 시 목록이 출력된다).
+`idle`은 스테이지 이름이 그대로 파일 prefix라서 `PICKS`에 한 줄 적으면 나온다 — 관례대로 성장기와 같은 프레임을 쓴다. 원본이 32px보다 큰 프레임(디아블로몬·아마게몬·크로노몬 등)은 축소되므로 픽셀이 1:1로 유지되지 않는다(실행 시 목록이 출력된다).
 
 로테이션 후보는 이로써 아구몬·팔코몬·파피몬·길몬·케라몬·브이몬 6개다.
+
+한글 이름은 [Wikimon](https://wikimon.net)의 한국어(한국어) 표기를 따른다 — 직역과 다른 것들이 있다: GeoGreymon = **지오**그레이몬, Peckmon = **펙크몬**, Varodurumon = **발두르몬**, Armagemon = **아마게몬**, Flamedramon = **화염드라몬**, Magnamon = **매그너몬**, Imperialdramon = **황제드라몬**.
+
+#### 분기 도트 시트
+
+랜덤 진화의 대체 노드용 시트다. 파일명은 `PICKS`/`pack.json`의 `sprite` 값과 짝을 이룬다.
+
+| 파일명 | 형태 | 쓰는 노드 | 고른 프레임 |
+|---|---|---|---|
+| `geogreymon.png` | 지오그레이몬 | 아구몬 `adult-geogreymon` | `[0, 1]` |
+| `rizegreymon.png` | 라이즈그레이몬 | 아구몬 `perfect-rizegreymon` | `[0, 1]` |
+| `blackwargreymon.png` | 블랙워그레이몬 | 아구몬 `ultimate-blackwargreymon` | `[0, 1]` |
+| `darkdramon.png` | 다크드라몬 | 파피몬 `ultimate-darkdramon` | `[5, 6]` |
+| `blackwargrowlmon.png` | 블랙메가로그라우몬 | 길몬 `perfect-blackmegalogrowlmon` | `[4, 5]` |
+| `flamedramon.png` | 화염드라몬 | 브이몬 `perfect-flamedramon` | `[3, 4]` |
+| `magnamon.png` | 매그너몬 | 브이몬 `perfect-magnamon` | `[4, 5]` |
+| `imperialdramon_dm.png` | 황제드라몬 드래곤 모드 | 브이몬 `ultimate-imperialdramon_dm` | `[4, 5]` |
+| `beelzemon.png` | 베르제브몬 | 케라몬 `ultimate-beelzebumon` | `[4, 5]` |
+
+분기는 전부 [DWDS 진화표](https://digimon.neoseeker.com/wiki/Digimon_World_DS_Digivolution_Guide)에 있는 실제 진화 경로다 — 임의로 붙인 조합이 아니다. 게임 표에서 확인한 것 둘: 베르제브몬은 임프몬이 아니라 **인퍼몬(케라몬 라인)** 분기이고, 팔코몬의 유년기는 **토코몬**이다.
+
+블랙워그레이몬 시트는 필드 프레임 행이 3칸뿐이고 감지된 행이 뒷모습이라 도트가 등을 보인다 — 다른 행이 잡히면 교체 여지가 있다.
 
 프레임 인덱스는 눈으로 고른다. 추측하지 않도록 대조용 스트립을 뽑는 모드가 있다 — 새 팩·새 단계를 채울 때도 같은 절차를 쓴다:
 

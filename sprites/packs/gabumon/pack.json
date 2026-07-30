@@ -8,5 +8,90 @@
     "perfect": "워가루몬",
     "ultimate": "메탈가루몬",
     "superultimate": "오메가몬"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "tsunomon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "tsunomon",
+        "name": "뿔몬",
+        "sprite": "baby",
+        "next": [
+          "gabumon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "gabumon",
+        "name": "파피몬",
+        "sprite": "child",
+        "next": [
+          "garurumon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "garurumon",
+        "name": "가루몬",
+        "sprite": "adult",
+        "next": [
+          "weregarurumon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "weregarurumon",
+        "name": "워가루몬",
+        "sprite": "perfect",
+        "next": [
+          "metalgarurumon",
+          "darkdramon"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "metalgarurumon",
+        "name": "메탈가루몬",
+        "sprite": "ultimate",
+        "next": [
+          "omegamon"
+        ],
+        "traits": [
+          "focus"
+        ]
+      },
+      {
+        "id": "darkdramon",
+        "name": "다크드라몬",
+        "sprite": "ultimate-darkdramon",
+        "next": [
+          "omegamon"
+        ],
+        "traits": [
+          "dark"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "omegamon",
+        "name": "오메가몬",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
   }
 }
