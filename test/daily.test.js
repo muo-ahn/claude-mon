@@ -18,7 +18,9 @@ const {
   listValidPacks,
   hashString,
   selectMon,
-  computeDailyTokens
+  computeDailyTokens,
+  listJsonlFiles,
+  transcriptKey
 } = require('../lib/daily');
 
 // --- helpers ---------------------------------------------------------
@@ -274,4 +276,98 @@ test('computeDailyTokens survives a corrupt daily.json', (t) => {
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.prevMon, null);
   assert.ok(result.mon);
+});
+
+// --- computeDailyTokens: what counts as one transcript ----------------
+//
+// Two counting bugs met here, pulling in opposite directions: subagent
+// transcripts live one level deeper than the scan used to look, so their
+// tokens were never counted at all, while a session recorded under two
+// project directories at once (same repo reached through a worktree or
+// symlink path) had every one of its messages counted twice.
+
+const SESSION = '11111111-2222-3333-4444-555555555555';
+
+// Same shape as a real Claude Code transcript line, minus the fields the
+// scan ignores.
+function assistantLine(id, outputTokens) {
+  return JSON.stringify({
+    timestamp: '2026-07-29T02:00:00.000Z', // inside the KST day of dateAt(0)
+    message: { role: 'assistant', id, usage: { output_tokens: outputTokens } }
+  });
+}
+
+function writeTranscript(projectsDir, relPath, lines) {
+  const file = path.join(projectsDir, relPath);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, lines.map((l) => `${l}\n`).join(''));
+  return file;
+}
+
+test('listJsonlFiles finds subagent transcripts nested under a session', (t) => {
+  const dirs = setupDaily(t);
+  const main = writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, []);
+  const sub = writeTranscript(
+    dirs.projectsDir,
+    `-Users-me-repo/${SESSION}/subagents/agent-abc123.jsonl`,
+    []
+  );
+
+  assert.deepStrictEqual(listJsonlFiles(dirs.projectsDir).sort(), [main, sub].sort());
+});
+
+test('transcriptKey ignores which project directory a transcript sits in', (t) => {
+  const dirs = setupDaily(t);
+  const real = transcriptKey(dirs.projectsDir, path.join(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`));
+  const linked = transcriptKey(dirs.projectsDir, path.join(dirs.projectsDir, `-Users-me-wt-repo/${SESSION}.jsonl`));
+
+  assert.strictEqual(real.key, linked.key);
+  assert.strictEqual(real.sessionId, SESSION);
+
+  // A subagent transcript keys separately but belongs to its session.
+  const sub = transcriptKey(
+    dirs.projectsDir,
+    path.join(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-abc123.jsonl`)
+  );
+  assert.notStrictEqual(sub.key, real.key);
+  assert.strictEqual(sub.sessionId, SESSION);
+});
+
+test('computeDailyTokens counts subagent tokens into the parent session', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_main', 100)]);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-abc123.jsonl`, [
+    assistantLine('msg_sub', 50)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 150);
+  assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 150 });
+});
+
+test('computeDailyTokens counts a session filed under two project dirs once', (t) => {
+  const dirs = setupDaily(t);
+  const lines = [assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
+  writeTranscript(dirs.projectsDir, `-Users-me-wt-repo/${SESSION}.jsonl`, lines);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 140);
+  assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 140 });
+});
+
+test('computeDailyTokens keeps one copy while the other catches up', (t) => {
+  const dirs = setupDaily(t);
+  const full = [assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, full);
+  // The second copy lags a turn behind; the incremental scan sees it
+  // grow between runs, which must not add its messages a second time.
+  const lagging = writeTranscript(dirs.projectsDir, `-Users-me-wt-repo/${SESSION}.jsonl`, [full[0]]);
+
+  assert.strictEqual(computeDailyTokens(dateAt(0), dirs).outputTokens, 140);
+
+  fs.appendFileSync(lagging, `${full[1]}\n`);
+  const caughtUp = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(caughtUp.outputTokens, 140);
+  assert.deepStrictEqual(caughtUp.sessionTokens, { [SESSION]: 140 });
 });

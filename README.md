@@ -132,7 +132,7 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 node daily-tokens.js
 ```
 
-- 소스: `~/.claude/projects/*/*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 각 줄은 JSON 오브젝트 하나이며, 다음 필드를 읽는다(그 외 필드는 무시, 파싱 실패 줄은 조용히 skip):
+- 소스: `~/.claude/projects/<프로젝트>/` 아래 **모든 깊이**의 `*.jsonl` (Claude Code 대화 transcript, `$CLAUDEMON_PROJECTS_DIR`로 오버라이드 가능). 메인 대화는 `<session>.jsonl`이고 서브에이전트는 `<session>/subagents/agent-<id>.jsonl`에 자기 턴만 따로 기록하므로, 한 단계만 훑으면 서브에이전트가 쓴 토큰이 전부 누락된다. 각 줄은 JSON 오브젝트 하나이며, 다음 필드를 읽는다(그 외 필드는 무시, 파싱 실패 줄은 조용히 skip):
   - 최상위 `timestamp` (ISO 8601, UTC)
   - `message.role === "assistant"` 인 줄만 대상
   - `message.usage.output_tokens` (숫자)
@@ -144,6 +144,8 @@ node daily-tokens.js
   ```
 - KST(UTC+9) 기준 **오늘 0시 이후** timestamp인 assistant 항목만 합산한다.
 - 같은 `message.id`가 여러 줄에 중복 등장할 수 있어(스트리밍/재기록) id별로 dedupe하고 그중 최댓값만 더한다.
+- **transcript 단위 dedupe**: 같은 세션이 프로젝트 디렉터리 두 곳에 동시에 기록될 수 있다 — 같은 레포를 실제 경로와 worktree/심볼릭 경로로 열면 `-Users-...` 디렉터리가 각각 생기고, 양쪽 파일이 같은 메시지를 그대로 반복한다. 그래서 프로젝트 디렉터리 아래 상대 경로(`<session>.jsonl` 또는 `<session>/subagents/agent-<id>.jsonl`)를 transcript의 신원으로 보고, 같은 신원의 사본이 여럿이면 **가장 큰 사본만** 센다(사본은 항상 가장 완전한 사본의 prefix이거나 같다). 일일 합계와 `sessionTokens`가 이 동일한 집계에서 함께 나오므로 둘이 어긋날 수 없다.
+- `sessionTokens`의 키는 세션 id이고, 서브에이전트 transcript는 자신을 띄운 세션에 합산된다(별도 세션으로 나타나지 않는다).
 - **증분 스캔**: 매 실행마다 전체 파일을 재파싱하지 않는다. `$CLAUDEMON_DIR/token-scan-cache.json`에 파일별 `{ offset, contribution, mtimeMs }`를 저장해 다음 실행에서 새로 추가된 바이트만 읽는다. `mtime`이 오늘 KST 0시 이전인 파일은 아예 열지 않고 skip.
 - 날짜가 바뀌면(`dateKST` 변경) 파일별 `contribution`을 0으로 리셋하되 `offset`은 그대로 유지한다(이전 내용을 다시 읽지 않기 위함).
 - 출력: `$CLAUDEMON_DIR/daily.json`
