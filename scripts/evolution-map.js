@@ -26,6 +26,7 @@ const {
   listRotationPacks,
   packTopStage,
   readTree,
+  minCeilingId,
   topStageId
 } = require('../lib/daily');
 const { TREE } = require('../lib/evolve');
@@ -80,9 +81,10 @@ function packSection(pack, packsDir, sharedDir, inRotation) {
       for (const next of node.next || []) {
         lines.push(`  ${safeId(pack, node.id)} --> ${safeId(pack, next)}`);
       }
-      // A node that stops before the ceiling is where the old spine-return
-      // used to invent an edge; show the dead end rather than hide it.
-      if ((node.next || []).length === 0 && stage !== ceiling) {
+      // A node that stops *below the minimum ceiling* is a dead end -- where
+      // the old spine-return used to invent an edge. Stopping at or past it is
+      // a legitimate short line, not a dead end, so it gets no marker.
+      if ((node.next || []).length === 0 && STAGES.indexOf(stage) < STAGES.indexOf(minCeilingId())) {
         const stop = `${safeId(pack, node.id)}_stop`;
         lines.push(`  ${stop}(("∅"))`);
         lines.push(`  ${safeId(pack, node.id)} --> ${stop}`);
@@ -106,9 +108,11 @@ function render() {
     `알(\`digitama\`)과 유년기(\`baby\`)는 어느 팩에서도 분기가 없어 생략했다. 성장기부터 팩의`,
     `천장까지 그린다. 점선/회색은 R2가 추첨에서 제외한 노드이며, \`∅\`는 후속이 없어 천장까지`,
     `이어지지 않는 막다른 분기다 — 예전에 spine 복귀가 가짜 엣지를 만들던 자리다.`,
+    `궁극체에서 끝나는 루트는 정상이다(초궁극체가 없는 라인은 2M을 넘겨도 더 진화하지 않는다).`,
     `기울임체는 그 분기를 끌어당기는 \`trait\`(§5)이다.`,
     '',
-    `최상위 스테이지는 \`${topStageId()}\`, 로테이션 ${rotation.size}팩 / 유효 ${packs.length}팩.`,
+    `최상위 스테이지는 \`${topStageId()}\`, 루트가 끝날 수 있는 최소 단계는 \`${minCeilingId()}\`. `+
+    `로테이션 ${rotation.size}팩 / 유효 ${packs.length}팩.`,
     ''
   ];
   for (const pack of packs) {

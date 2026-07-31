@@ -27,6 +27,7 @@ const {
   packTopStage,
   defaultPacksDir,
   defaultSharedDir,
+  minCeilingId,
   readTree
 } = require('../lib/daily');
 const { TREE } = require('../lib/evolve');
@@ -56,19 +57,29 @@ function readRawTree(pack) {
 // than multiplying branch factors keeps the number honest when a branch
 // rejoins the spine (오메가몬 is reached from two different 궁극체).
 function countRoutes(tree, stages) {
-  let paths = (tree[stages[0]] || []).map((n) => n.id);
-  for (let i = 1; i < stages.length; i++) {
-    const byId = new Map((tree[stages[i]] || []).map((n) => [n.id, n]));
-    const prev = new Map((tree[stages[i - 1]] || []).map((n) => [n.id, n]));
-    const next = [];
-    for (const id of paths) {
-      for (const to of (prev.get(id) || {}).next || []) {
-        if (byId.has(to)) next.push(to);
-      }
+  // A route ends wherever `next` runs out, which under the minimum-ceiling
+  // rule may be before the last stage the pack has. Counting only paths that
+  // reach the final stage would undercount every short line.
+  const minIdx = STAGES.indexOf(minCeilingId());
+  const stageOf = new Map();
+  const byId = new Map();
+  for (const stage of stages) {
+    for (const node of tree[stage] || []) {
+      stageOf.set(node.id, STAGES.indexOf(stage));
+      byId.set(node.id, node);
     }
-    paths = next;
   }
-  return paths.length;
+  let count = 0;
+  const walk = (id) => {
+    const next = (byId.get(id).next || []).filter((x) => byId.has(x));
+    if (next.length === 0) {
+      if (stageOf.get(id) >= minIdx) count += 1;
+      return;
+    }
+    for (const to of next) walk(to);
+  };
+  for (const node of tree[stages[0]] || []) walk(node.id);
+  return count;
 }
 
 // Why a node didn't make it: no dots of its own, or nothing left to become.

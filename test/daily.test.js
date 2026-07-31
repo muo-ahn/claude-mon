@@ -19,6 +19,7 @@ const {
   listRotationPacks,
   packTopStage,
   topStageId,
+  minCeilingId,
   pruneTree,
   readTree,
   selectRoute,
@@ -47,14 +48,14 @@ function makeRoot(t) {
 }
 
 // Writes a pack that is also a rotation candidate: pack.json names the
-// tree's top stage, which is what listRotationPacks requires. Pass
-// `{ topStage: false }` for a line that stops short of it.
+// minimum ceiling, which is what listRotationPacks requires. Pass
+// `{ topStage: false }` for a line that doesn't even reach 궁극체.
 function writePack(packsDir, name, files, { topStage = true } = {}) {
   const dir = path.join(packsDir, name);
   fs.mkdirSync(dir, { recursive: true });
   for (const f of files) fs.writeFileSync(path.join(dir, f), 'png');
   const stageNames = { child: name };
-  if (topStage) stageNames[topStageId()] = `${name}-최종체`;
+  if (topStage) stageNames[minCeilingId()] = `${name}-최종체`;
   fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({ name, stageNames }, null, 2));
 }
 
@@ -377,7 +378,7 @@ test('computeDailyTokens counts a session filed under two project dirs once', (t
 // reach. It stays a *valid* pack - explicit selection and the guilmon
 // fallback still render it.
 
-test('listRotationPacks drops a line that stops short of the top stage', (t) => {
+test('listRotationPacks drops a line that does not even reach the minimum ceiling', (t) => {
   const dirs = makeRoot(t);
   writePack(dirs.packsDir, 'reaches-top', FULL);
   writePack(dirs.packsDir, 'tops-out-early', FULL, { topStage: false });
@@ -526,8 +527,26 @@ test('pruneTree drops a node nothing arrives at any more', () => {
   assert.deepStrictEqual(pruned.adult.map((n) => n.id), ['spineA']);
 });
 
-test('pruneTree returns null when nothing reaches the ceiling', () => {
-  assert.strictEqual(pruneTree(TREE, (sprite) => sprite !== 'superultimate', 'superultimate'), null);
+test('pruneTree keeps a route that ends at the minimum ceiling', () => {
+  // 초궁극체 도트가 없어도 궁극체까지 가면 유효하다 — 2M을 넘겨도 더 진화하지
+  // 않을 뿐이다. 이게 최소천장 규칙의 핵심이고, 길몬 다크 분기를 열어준다.
+  const pruned = pruneTree(TREE, (sprite) => sprite !== 'superultimate', 'superultimate');
+  assert.ok(pruned, 'a line complete up to 궁극체 was rejected');
+  assert.strictEqual(pruned.superultimate, undefined, 'route ran past what it has dots for');
+  assert.deepStrictEqual(pruned.ultimate.map((n) => n.id), ['spineU']);
+});
+
+test('pruneTree returns null when nothing reaches the minimum ceiling', () => {
+  const dead = (sprite) => sprite !== 'superultimate' && sprite !== 'ultimate';
+  assert.strictEqual(pruneTree(TREE, dead, 'superultimate'), null);
+});
+
+test('selectRoute ends a route at the minimum ceiling instead of failing', () => {
+  const short = pruneTree(TREE, (sprite) => sprite !== 'superultimate', 'superultimate');
+  const route = selectRoute('2026-08-01', 'p', short, [], null);
+  assert.ok(route, 'selectRoute gave up on a valid short route');
+  assert.strictEqual(route.ultimate.id, 'spineU');
+  assert.ok(!('superultimate' in route), 'route invented a stage it has no dots for');
 });
 
 test('pruneTree stops at a pack ceiling below the tree top', () => {
