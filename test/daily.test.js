@@ -736,3 +736,22 @@ test('shipped pack trees only point at the next stage', () => {
     }
   }
 });
+
+// --- the generated node map ------------------------------------------
+//
+// docs/evolution-routes.md carries a mermaid map of every pack's tree. It is
+// generated from pack.json, so the only way it stays true is for staleness to
+// be a test failure rather than something you notice months later.
+//
+// This asserts the doc matches what the generator produces *right now*, which
+// also means the pruning shown in the map is the pruning the draw uses.
+
+test('the evolution map in the docs is not stale', () => {
+  const { render, splice, DOC } = require('../scripts/evolution-map');
+  const doc = fs.readFileSync(DOC, 'utf8');
+  assert.strictEqual(
+    doc,
+    splice(doc, render()),
+    'docs/evolution-routes.md map is stale -- run: node scripts/evolution-map.js --write'
+  );
+});
