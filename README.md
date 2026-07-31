@@ -65,8 +65,52 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 
 - 빌드 산출물(`menubar/claudemon-menubar`)은 `.gitignore`로 제외되어 있으므로 각자 빌드해야 한다.
 - 앱은 accessory(백그라운드 상주) 모드로 뜨며 Dock 아이콘 없이 메뉴바에만 나타난다. `active-session.sh`로 현재 포커스된 세션을 추적하고, 30초마다 `daily-tokens.js`를 호출해 토큰 집계를 갱신한다.
-- 로그인 시 자동 실행하려면 `launchd` LaunchAgent(`~/Library/LaunchAgents/`)로 등록하거나 시스템 설정 → 로그인 항목에 추가한다.
+- 로그인 시 자동 실행은 아래 [LaunchAgent 등록](#로그인-시-자동-실행-launchagent) 참고.
 - 스프라이트가 하나도 없으면 표시가 비거나 fallback되므로, 먼저 [스프라이트 팩](#스프라이트-팩-spritespacks)을 최소 하나 채운다.
+
+### 로그인 시 자동 실행 (LaunchAgent)
+
+`~/Library/LaunchAgents/com.muo.claudemon-menubar.plist` — 경로는 절대경로여야 하고 `<홈>`·`<레포>`를 각자 값으로 바꾼다.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.muo.claudemon-menubar</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string><레포>/menubar/claudemon-menubar</string>
+		<string><레포>/sprites</string>
+		<string>--no-cutin</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>StandardOutPath</key>
+	<string><홈>/Library/Logs/claudemon-menubar.log</string>
+	<key>StandardErrorPath</key>
+	<string><홈>/Library/Logs/claudemon-menubar.log</string>
+</dict>
+</plist>
+```
+
+```bash
+# 등록 + 즉시 기동. 이미 수동으로 띄운 인스턴스가 있으면 먼저 죽인다(아이콘이 두 개 생긴다)
+pkill -f "claudemon-menubar /Users"
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.muo.claudemon-menubar.plist
+
+launchctl print gui/$(id -u)/com.muo.claudemon-menubar   # 상태 확인
+launchctl kickstart -k gui/$(id -u)/com.muo.claudemon-menubar   # 재빌드 후 재기동
+launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
+```
+
+- `ProcessType`은 `Interactive`여야 한다. 기본값이면 launchd가 백그라운드 등급으로 강등해 메뉴바 UI 응답이 느려질 수 있다.
+- `KeepAlive`는 넣지 않는 게 좋다. 켜면 `pkill`로 죽인 순간 launchd가 **plist에 적힌 인자로** 즉시 되살리므로, `--demo-cutin`처럼 다른 플래그로 띄워 확인하는 절차와 계속 충돌한다.
+- `node`는 PATH가 아니라 `/opt/homebrew/bin` → `/usr/local/bin` → `/usr/bin` 순서로 절대경로 탐색하므로(`findNodeBinary()`), launchd의 빈약한 PATH에서도 토큰 집계가 동작한다. 단 nvm/mise로만 설치한 node는 이 목록에 없어 집계가 조용히 멈춘다 — 그 경우 심볼릭 링크를 걸어준다.
+- 실행 인자를 바꿨으면 `bootout` → `bootstrap`을 다시 해야 한다. `kickstart`는 기존 plist 그대로 재기동할 뿐이다.
 
 ### 상태 저장 위치
 
@@ -152,6 +196,20 @@ nohup /절대/경로/claude-mon/menubar/claudemon-menubar \
 ```
 
 스테이지 인자를 생략하면 `child ultimate`로 재생한다. 스프라이트 루트 경로는 **`--demo-cutin`보다 앞에** 와야 한다 — 이 플래그 뒤의 인자는 스테이지 이름으로 해석된다.
+
+### 컷인 끄기
+
+우상단 오버레이는 의도적으로 시선을 끌기 때문에 집중 중에는 방해가 된다. 둘 중 하나로 끈다. 메뉴바 아이콘의 디지볼브 플래시와 드롭다운 초상은 영향받지 않는다 — 그건 봐야 보이는 연출이라 몰입을 깨지 않는다.
+
+```bash
+# 플래그 (모든 것보다 우선)
+nohup .../claudemon-menubar .../sprites --no-cutin >/dev/null 2>&1 &
+
+# 환경변수 (플래그를 넘길 수 없는 로그인 항목·래퍼용). 0/false/off/no 인식
+CLAUDEMON_CUTIN=0 nohup .../claudemon-menubar .../sprites >/dev/null 2>&1 &
+```
+
+`--demo-cutin`은 환경변수를 무시하고 다시 켠다(미리보기가 조용히 실패하면 디버깅이 어렵다). 단 `--no-cutin`이 함께 있으면 그쪽이 이긴다.
 
 ## 일일 토큰 집계 (`daily-tokens.js`)
 

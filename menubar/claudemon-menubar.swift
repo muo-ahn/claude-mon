@@ -113,7 +113,7 @@ let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate"]
 // currentStageId is still at or before "child". From "adult" onward the
 // generic sprites would show the wrong species, so framesForLevel tints the
 // current stage frames instead of swapping in the generic sprite.
-let genericOverrideStages = ["digitama", "baby", "child"]
+let genericOverrideStages = ["child"]
 
 // Stages whose sprite is species-agnostic and therefore shared by every pack,
 // loaded from <spriteRoot>/shared instead of the pack directory -- a Digi-Egg
@@ -667,13 +667,41 @@ let demoCutIn: (from: String, to: String)? = {
     return (from, to)
 }()
 
+// Kill switch for the evolution cut-in overlay. The overlay is deliberately
+// attention-grabbing, which is exactly wrong when you're heads-down in
+// something else, so it has to be turnable off without a rebuild. Two ways,
+// checked in this order:
+//   --no-cutin              command line, wins over everything
+//   --demo-cutin            forces it back ON, so the demo flag still works
+//                           even if the env var below is set in your shell
+//   CLAUDEMON_CUTIN=0       env var, for launch-at-login wrappers that can't
+//                           pass flags (also accepts false/off/no)
+// Only the big overlay is affected. The menu bar icon's own digivolve flash
+// (startEvolutionBurst) and the dropdown portrait header stay as they are --
+// those are opt-in by looking, so they don't break focus.
+let cutInEnabled: Bool = {
+    if cliArgs.contains("--no-cutin") { return false }
+    if demoCutIn != nil { return true }
+    switch ProcessInfo.processInfo.environment["CLAUDEMON_CUTIN"]?.lowercased() {
+    case "0", "false", "off", "no": return false
+    default: return true
+    }
+}()
+
 // Draws `img` centered inside `box`, preserving aspect ratio (fit, never
 // stretched or cropped), with nearest-neighbor scaling so pixel art stays
 // crisp instead of the blur a plain NSImageView would produce.
 func drawAspectFit(_ img: NSImage, in box: NSRect) {
     let srcSize = img.size
     guard srcSize.width > 0, srcSize.height > 0 else { return }
-    let scale = min(box.width / srcSize.width, box.height / srcSize.height)
+    // Pixel art must be scaled by a whole number, otherwise nearest-neighbour
+    // stretches some source pixels wider than their neighbours and the outline
+    // visibly wobbles. Portrait assets are 66-181px of hand-drawn art dropped
+    // into a fixed 150/160px box, so the raw aspect-fit ratio is almost never
+    // integral -- floor it and accept the leftover margin. Downscaling (ratio
+    // below 1) is left alone: flooring there would collapse to zero.
+    let fitScale = min(box.width / srcSize.width, box.height / srcSize.height)
+    let scale = fitScale > 1 ? floor(fitScale) : fitScale
     let w = srcSize.width * scale
     let h = srcSize.height * scale
     let origin = NSPoint(x: box.minX + (box.width - w) / 2, y: box.minY + (box.height - h) / 2)
@@ -1205,6 +1233,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // 1.2s hold on the new form -> 0.4s fade out, then the window is
     // ordered out (not destroyed, so a later evolution can reuse it).
     func startEvolutionCutIn(fromStage: String, toStage: String, name: String) {
+        // Single choke point for the kill switch -- guarding here instead of
+        // at the call sites means a future caller can't accidentally leak an
+        // overlay past the setting.
+        guard cutInEnabled else { return }
         guard let oldPortrait = portraitImage(forStage: fromStage),
               let newPortrait = portraitImage(forStage: toStage)
         else { return }

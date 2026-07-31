@@ -87,6 +87,8 @@ PACK_SHEETS = {
     "renamon": {"adult": "kyubimon", "perfect": "taomon", "ultimate": "sakuyamon"},
     "terriermon": {"adult": "gargomon", "perfect": "rapidmon", "ultimate": "megagargomon"},
     "impmon": {"adult": "devimon", "perfect": "myotismon", "ultimate": "beelzemon"},
+    "keramon": {"adult": "kurisarimon", "perfect": "infermon", "ultimate": "diaboromon"},
+    "falcomon": {"adult": "peckmon", "perfect": "yatagaramon", "ultimate": "varodurumon"},
 }
 
 # Manual overrides for sheets where the size-ratio heuristic either picks a
