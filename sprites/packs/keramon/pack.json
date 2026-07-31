@@ -1,13 +1,13 @@
 {
-  "name": "파피몬",
+  "name": "케라몬",
   "stageNames": {
     "digitama": "알",
-    "baby": "뿔몬",
-    "child": "파피몬",
-    "adult": "가루몬",
-    "perfect": "워가루몬",
-    "ultimate": "메탈가루몬",
-    "superultimate": "오메가몬"
+    "baby": "쿠라몬",
+    "child": "케라몬",
+    "adult": "크리사리몬",
+    "perfect": "인퍼몬",
+    "ultimate": "디아블로몬",
+    "superultimate": "아마게몬"
   },
   "tree": {
     "digitama": [
@@ -16,69 +16,69 @@
         "name": "알",
         "sprite": "digitama",
         "next": [
-          "tsunomon"
+          "kuramon"
         ]
       }
     ],
     "baby": [
       {
-        "id": "tsunomon",
-        "name": "뿔몬",
+        "id": "kuramon",
+        "name": "쿠라몬",
         "sprite": "baby",
         "next": [
-          "gabumon"
+          "keramon"
         ]
       }
     ],
     "child": [
       {
-        "id": "gabumon",
-        "name": "파피몬",
+        "id": "keramon",
+        "name": "케라몬",
         "sprite": "child",
         "next": [
-          "garurumon"
+          "kurisarimon"
         ]
       }
     ],
     "adult": [
       {
-        "id": "garurumon",
-        "name": "가루몬",
+        "id": "kurisarimon",
+        "name": "크리사리몬",
         "sprite": "adult",
         "next": [
-          "weregarurumon"
+          "infermon"
         ]
       }
     ],
     "perfect": [
       {
-        "id": "weregarurumon",
-        "name": "워가루몬",
+        "id": "infermon",
+        "name": "인퍼몬",
         "sprite": "perfect",
         "next": [
-          "metalgarurumon",
-          "darkdramon"
+          "diablomon",
+          "beelzebumon"
         ]
       }
     ],
     "ultimate": [
       {
-        "id": "metalgarurumon",
-        "name": "메탈가루몬",
+        "id": "diablomon",
+        "name": "디아블로몬",
         "sprite": "ultimate",
         "next": [
-          "omegamon"
+          "armagemon"
         ],
         "traits": [
-          "focus"
+          "swarm"
         ]
       },
       {
-        "id": "darkdramon",
-        "name": "다크드라몬",
-        "sprite": "ultimate-darkdramon",
+        "id": "beelzebumon",
+        "name": "베르제브몬",
+        "sprite": "ultimate-beelzebumon",
         "next": [
-          "omegamon"
+          "armagemon"
         ],
         "traits": [
           "dark"
@@ -87,8 +87,8 @@
     ],
     "superultimate": [
       {
-        "id": "omegamon",
-        "name": "오메가몬",
+        "id": "armagemon",
+        "name": "아마게몬",
         "sprite": "superultimate",
         "next": []
       }

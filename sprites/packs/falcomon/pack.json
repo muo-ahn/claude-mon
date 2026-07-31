@@ -1,0 +1,82 @@
+{
+  "name": "팔코몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "토코몬",
+    "child": "팔코몬",
+    "adult": "펙크몬",
+    "perfect": "야타가라몬",
+    "ultimate": "발두르몬",
+    "superultimate": "크로노몬 홀리 모드"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "tokomon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "tokomon",
+        "name": "토코몬",
+        "sprite": "baby",
+        "next": [
+          "falcomon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "falcomon",
+        "name": "팔코몬",
+        "sprite": "child",
+        "next": [
+          "peckmon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "peckmon",
+        "name": "펙크몬",
+        "sprite": "adult",
+        "next": [
+          "yatagaramon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "yatagaramon",
+        "name": "야타가라몬",
+        "sprite": "perfect",
+        "next": [
+          "varodurumon"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "varodurumon",
+        "name": "발두르몬",
+        "sprite": "ultimate",
+        "next": [
+          "chronomon_hm"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "chronomon_hm",
+        "name": "크로노몬 홀리 모드",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
+  }
+}

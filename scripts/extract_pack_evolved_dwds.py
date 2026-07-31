@@ -23,6 +23,10 @@ stage in PICKS were chosen by eye -- they select the front-facing pose, whose
 position in the row differs per sheet.
 
 Usage: python3 scripts/extract_pack_evolved_dwds.py [pack ...]
+       python3 scripts/extract_pack_evolved_dwds.py --contact <sheet> [out.png]
+
+--contact renders every detected field frame of one sheet into a numbered strip,
+which is how the two indices per stage in PICKS get chosen without guessing.
 """
 
 import os
@@ -52,26 +56,52 @@ COLOR_TOL = 12
 # there are the same pose flipped, not two frames. For those, give explicit
 # (x0, y0, x1, y1) source boxes instead -- to_sprite() only reads box[0..3],
 # so a literal box works exactly like boxes[index] would.
+#
+# `PENDING` marks a stage whose sheet is known but whose frames haven't been
+# chosen yet: the two indices can only be read off the sheet itself, and sheets
+# are never committed. Such a stage is skipped with a note instead of failing
+# the run; drop the sheet in, run --contact <sheet> to get a numbered strip of
+# the detected field frames, then replace PENDING with the pair you picked.
+#
+# Every sheet here puts the back-facing walk first and the front-facing walk
+# last, so the picked pair is always near the end of the row.
+PENDING = None
+
 PICKS = {
     "agumon": {
         "adult": ("greymon", [6, 7]),
         "perfect": ("metalgreymon", [(291, 214, 319, 246), (292, 257, 320, 289)]),
         "ultimate": ("wargreymon", [0, 1]),
+        # 아구몬·파피몬의 초궁극체는 둘 다 합체체인 오메가몬이라 같은 시트를
+        # 공유한다 (계보상 사실이고, pack.json의 이름도 양쪽 다 오메가몬).
+        "superultimate": ("omegamon", [5, 6]),
+        # 분기 도트: 트리의 대체 노드(pack.json의 sprite 값이 그대로 prefix).
+        "adult-geogreymon": ("geogreymon", [0, 1]),
+        "perfect-rizegreymon": ("rizegreymon", [0, 1]),
+        "ultimate-blackwargreymon": ("blackwargreymon", [0, 1]),
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
         "perfect": ("wargrowlmon", [4, 5]),
         "ultimate": ("gallantmon", [6, 7]),
+        "superultimate": ("gallantmon_crimson", [3, 4]),
+        "perfect-blackmegalogrowlmon": ("blackwargrowlmon", [4, 5]),
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
         "perfect": ("weregarurumon", [6, 7]),
         "ultimate": ("metalgarurumon", [6, 7]),
+        "superultimate": ("omegamon", [5, 6]),
+        "ultimate-darkdramon": ("darkdramon", [5, 6]),
     },
     "veemon": {
         "adult": ("exveemon", [6, 7]),
         "perfect": ("paildramon", [5, 6]),
         "ultimate": ("imperialdramon_fm", [6, 7]),
+        "superultimate": ("imperialdramon_pm", [6, 7]),
+        "perfect-flamedramon": ("flamedramon", [3, 4]),
+        "perfect-magnamon": ("magnamon", [4, 5]),
+        "ultimate-imperialdramon_dm": ("imperialdramon_dm", [4, 5]),
     },
     "renamon": {
         "adult": ("kyubimon", [6, 7]),
@@ -83,15 +113,53 @@ PICKS = {
         "perfect": ("rapidmon", [0, 1]),
         "ultimate": ("megagargomon", [0, 1]),
     },
+    # 케라몬 라인은 Battle Spirit 시트가 없어 성장기·유년기까지 전부 DWDS에서
+    # 온다. `idle`은 팩 로드의 최소 조건이자 대기 프레임인데 관례상 성장기
+    # 도트와 같으므로 child와 같은 프레임을 쓴다 -- 스테이지 이름이 그대로
+    # 파일 prefix라서 별도 처리 없이 여기에 적으면 된다.
+    #
+    # 아머게몬은 원본 프레임이 32px보다 훨씬 커서 축소된다(픽셀 1:1 아님).
+    "keramon": {
+        "idle": ("keramon", [3, 4]),
+        "baby": ("kuramon", [3, 4]),
+        "child": ("keramon", [3, 4]),
+        "adult": ("kurisarimon", [1, 2]),
+        "perfect": ("infermon", [1, 2]),
+        "ultimate": ("diaboromon", [3, 4]),
+        "superultimate": ("armagemon", [3, 4]),
+        "ultimate-beelzebumon": ("beelzemon", [4, 5]),
+    },
+    # 팔코몬 라인도 전 단계를 DWDS에서 뽑는다. 초궁극체는 크로노몬 홀리 모드 --
+    # DWDS의 최종 보스이고 게임 안에서 Super Ultimate로 불린다. 유년기는 게임
+    # 진화표대로 토코몬이다(캐논 유년기 피나몬은 DWDS에 없다).
+    #
+    # 펙몬·야타가라몬·바로두르몬 시트는 필드 프레임 행이 3칸뿐이어서 고를 수
+    # 있는 쌍이 [0, 1] 하나다.
+    "falcomon": {
+        "idle": ("falcomon", [3, 4]),
+        "baby": ("tokomon", [3, 4]),
+        "child": ("falcomon", [3, 4]),
+        "adult": ("peckmon", [0, 1]),
+        "perfect": ("yatagaramon", [0, 1]),
+        "ultimate": ("varodurumon", [0, 1]),
+        "superultimate": ("chronomon_hm", [6, 7]),
+    },
     # Impmon has no canonical Champion/Ultimate; the pack already stood in
     # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses
-    # 뱀파이몬 (Myotismon) -- pack.json carries the matching name.
+    # 뱀파이몬 (Myotismon) -- pack.json carries the matching name. 베르제브몬
+    # 블래스트 모드는 캐논에는 있지만 DWDS 시트에 없다 (Dawn/Dusk
+    # 섹션에도 없음). 초궁극체 도트를 구할 수 없으므로 impmon도 superultimate
+    # 항목이 없고, 따라서 로테이션 후보에서 빠진다.
     "impmon": {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
     },
 }
+
+# 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)에도 superultimate 항목이 없다 --
+# 이쪽은 캐논상 초궁극체 자체가 없다. 세 팩 모두 pack.json에 이름이 비어 있어
+# lib/daily.js의 로테이션 후보에서 빠진다 (README "로테이션 후보 요건").
 
 
 def dominant_colors(im, min_share):
@@ -245,6 +313,13 @@ def main(packs):
             print(f"skip {pack}: {out_dir} does not exist")
             continue
         for stage, (sheet, picks) in PICKS[pack].items():
+            if picks is PENDING:
+                print(f"skip {pack}/{stage}: frames not chosen yet "
+                      f"-- run --contact {sheet} and fill in PICKS")
+                continue
+            if not os.path.exists(os.path.join(SHEET_DIR, sheet + ".png")):
+                print(f"skip {pack}/{stage}: {SHEET_DIR}/{sheet}.png not found")
+                continue
             if sheet not in cache:
                 cache[sheet] = field_frames(sheet)
             im, boxes = cache[sheet]
@@ -269,8 +344,38 @@ def main(packs):
               + ", ".join(scaled_frames))
 
 
+# Writes every detected field frame of `sheet` side by side, in index order,
+# each on its own 32x32 cell with a tick mark under the cell whose index is a
+# multiple of 5 (so counting stays honest past ~6 frames). This is what turns
+# "pick the front-facing pose by eye" into a two-step loop: render the strip,
+# look at it, write the two indices into PICKS.
+def contact_sheet(sheet, out_path):
+    im, boxes = field_frames(sheet)
+    if not boxes:
+        raise SystemExit(f"{sheet}: no field-frame row detected -- is the sheet a DWDS rip?")
+    cells = [to_sprite(im, b)[0] for b in boxes]
+    gap, tick = 2, 4
+    strip = Image.new("RGBA", (len(cells) * (CANVAS + gap), CANVAS + tick), (0, 0, 0, 0))
+    for i, cell in enumerate(cells):
+        x = i * (CANVAS + gap)
+        strip.paste(cell, (x, 0), cell)
+        if i % 5 == 0:
+            for ty in range(CANVAS, CANVAS + tick):
+                for tx in range(x, x + CANVAS):
+                    strip.putpixel((tx, ty), (255, 0, 0, 255))
+    strip.save(out_path)
+    print(f"{out_path}  <- {sheet}, {len(cells)} frames (indices 0..{len(cells) - 1}, "
+          f"red tick under 0, 5, 10, ...)")
+
+
 if __name__ == "__main__":
-    requested = sys.argv[1:] or list(PICKS)
+    args = sys.argv[1:]
+    if args and args[0] == "--contact":
+        if len(args) < 2:
+            raise SystemExit("usage: --contact <sheet> [out.png]")
+        contact_sheet(args[1], args[2] if len(args) > 2 else f"/tmp/{args[1]}-frames.png")
+        sys.exit(0)
+    requested = args or list(PICKS)
     unknown = [p for p in requested if p not in PICKS]
     if unknown:
         raise SystemExit(f"unknown pack(s): {', '.join(unknown)}; known: {', '.join(PICKS)}")
