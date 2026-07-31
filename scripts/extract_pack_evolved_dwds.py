@@ -191,6 +191,17 @@ PICKS = {
         "perfect": ("yatagaramon", [0, 1]),
         "ultimate": ("varodurumon", [0, 1]),
         "superultimate": ("chronomon_hm", [6, 7]),
+        # 레이브몬 계보 — 캐논상 팔코몬의 본계보다. row1은 두 방향이 한 행으로
+        # 묶여 있다(13프레임): idx0~5가 붉은 볏과 흰 가면이 보이는 정면,
+        # idx6~11이 볏이 없는 후면, idx12는 얼굴 아이콘.
+        "ultimate-ravemon": ("ravemon", [0, 1], 1),
+        # 버스트 모드는 행 판별이 어려웠다. IoU(레이브몬 정면/후면 상대비교)는
+        # 차이가 +0.02로 무의미했고, 눈은 32px에 렌더되지 않아 색으로도 못
+        # 가렸다. 최종 32px 도트를 레이브몬 정면 도트와 대조해 골랐다.
+        # row1을 골랐다: 살색 얼굴 패치(확정된 레이브몬 도트에도 있는 그것)가
+        # 두 프레임 모두에 보이는 대칭 정면이고, 날개 폭 차이가 자연스러운
+        # 퍼덕임이 된다. row0 idx0은 몸이 틀어져 있어 짝이 안 맞는다.
+        "superultimate-ravemon_bm": ("ravemon_bm", [0, 1], 1),
     },
     # Impmon has no canonical Champion/Ultimate; the pack already stood in
     # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses

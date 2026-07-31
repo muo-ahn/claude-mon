@@ -56,7 +56,8 @@
         "name": "야타가라몬",
         "sprite": "perfect",
         "next": [
-          "varodurumon"
+          "varodurumon",
+          "ravemon"
         ]
       }
     ],
@@ -67,6 +68,20 @@
         "sprite": "ultimate",
         "next": [
           "chronomon_hm"
+        ],
+        "traits": [
+          "focus"
+        ]
+      },
+      {
+        "id": "ravemon",
+        "name": "레이브몬",
+        "sprite": "ultimate-ravemon",
+        "next": [
+          "ravemon_bm"
+        ],
+        "traits": [
+          "dark"
         ]
       }
     ],
@@ -75,6 +90,12 @@
         "id": "chronomon_hm",
         "name": "크로노몬 홀리 모드",
         "sprite": "superultimate",
+        "next": []
+      },
+      {
+        "id": "ravemon_bm",
+        "name": "레이브몬 버스트 모드",
+        "sprite": "superultimate-ravemon_bm",
         "next": []
       }
     ]
