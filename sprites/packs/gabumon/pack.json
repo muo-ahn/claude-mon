@@ -46,7 +46,8 @@
         "name": "가루몬",
         "sprite": "adult",
         "next": [
-          "weregarurumon"
+          "weregarurumon",
+          "blackweregarurumon"
         ]
       }
     ],
@@ -56,8 +57,18 @@
         "name": "워가루몬",
         "sprite": "perfect",
         "next": [
-          "metalgarurumon",
+          "metalgarurumon"
+        ]
+      },
+      {
+        "id": "blackweregarurumon",
+        "name": "블랙워가루몬",
+        "sprite": "perfect-blackweregarurumon",
+        "next": [
           "darkdramon"
+        ],
+        "traits": [
+          "dark"
         ]
       }
     ],

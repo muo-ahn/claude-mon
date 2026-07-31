@@ -33,7 +33,7 @@ import os
 import sys
 from collections import Counter, deque
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 SHEET_DIR = "sprites/sheets/dwds"
 PACK_DIR = "sprites/packs"
@@ -79,6 +79,11 @@ PICKS = {
         "adult-geogreymon": ("geogreymon", [0, 1]),
         "perfect-rizegreymon": ("rizegreymon", [0, 1]),
         "ultimate-blackwargreymon": ("blackwargreymon", [0, 1]),
+        # 샤인그레이몬 라인이 지오그레이몬 분기를 천장까지 잇는다. 두 시트 모두
+        # withthewill의 격자 배치이고 row1이 정면 행이다 — 본체는 주황 볏과
+        # 얼굴이, 버스트 모드는 파란 눈이 보이는 행이다.
+        "ultimate-shinegreymon": ("shinegreymon", [2, 3], 1),
+        "superultimate-shinegreymon_burst": ("shinegreymon_burst", [1, 2], 1),
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
@@ -86,6 +91,16 @@ PICKS = {
         "ultimate": ("gallantmon", [6, 7]),
         "superultimate": ("gallantmon_crimson", [3, 4]),
         "perfect-blackmegalogrowlmon": ("blackwargrowlmon", [4, 5]),
+        # 카오스듀크몬: 듀크몬의 흑화체라 실루엣이 거의 같아 IoU가 행을 못
+        # 가린다(row0/row1 모두 0.72~0.79). 배색으로 갈랐다 — row0이 진한
+        # 청색 본색이고 row1은 창백한 대체 팔레트다. row0에서 idx1이 듀크몬
+        # 프레임0(0.757), idx0이 프레임1(0.655)에 가장 가깝다.
+        #
+        # 이 분기는 천장에 닿지 못해 R2가 제외한다: 카오스듀크몬 코어 시트
+        # (415_ChaosGallantmonCore)에 필드 스프라이트가 없고 대형 전투 포즈만
+        # 있어서, 32px로 축소하면 형태를 알아볼 수 없다. 코어의 필드 도트가
+        # 생기는 순간 길몬 다크 루트가 열린다.
+        "ultimate-chaosdukemon": ("chaosdukemon", [1, 0], 0),
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
@@ -93,6 +108,11 @@ PICKS = {
         "ultimate": ("metalgarurumon", [6, 7]),
         "superultimate": ("omegamon", [5, 6]),
         "ultimate-darkdramon": ("darkdramon", [5, 6]),
+        # D4: 다크드라몬 hangs off 블랙워가루몬 now, not 워가루몬. row1 is the
+        # front row (row0 is the back views -- the automatic band search picks
+        # row0 here, which is exactly the bug --rows exists to expose).
+        # idx1 matches the shipped 워가루몬 dot at IoU 0.828.
+        "perfect-blackweregarurumon": ("blackweregarurumon", [1, 2], 1),
     },
     "veemon": {
         "adult": ("exveemon", [6, 7]),
@@ -107,11 +127,23 @@ PICKS = {
         "adult": ("kyubimon", [6, 7]),
         "perfect": ("taomon", [3, 4]),
         "ultimate": ("sakuyamon", [3, 4]),
+        # withthewill sheets: 3-row grid, row1 is the front-facing row. Frames
+        # chosen by matching row1 against the already-shipped 사쿠야몬 dots
+        # (idx1 -> frame 0 at IoU 0.734, idx2 -> frame 1 at 0.597) rather than
+        # by eye -- at 28px these sprites all read the same.
+        "ultimate-kuzuhamon": ("kuzuhamon", [1, 2], 1),
     },
     "terriermon": {
         "adult": ("gargomon", [3, 4]),
         "perfect": ("rapidmon", [0, 1]),
         "ultimate": ("megagargomon", [0, 1]),
+        # 블랙라피드몬: row1 (front) matched against the shipped 라피드몬 dots,
+        # idx1 -> frame 0 (0.593), idx0 -> frame 1 (0.605).
+        "perfect-blackrapidmon": ("blackrapidmon", [1, 0], 1),
+        # 블랙세인트가르고몬 is a straight recolor, so row6 idx1 matches the
+        # shipped 세인트가르고몬 frame 0 exactly (IoU 1.000). This sheet has 8
+        # field rows rather than 3 -- the row index is per sheet, never assume.
+        "ultimate-blacksaintgalgomon": ("blackmegagargomon", [1, 0], 6),
     },
     # 케라몬 라인은 Battle Spirit 시트가 없어 성장기·유년기까지 전부 DWDS에서
     # 온다. `idle`은 팩 로드의 최소 조건이자 대기 프레임인데 관례상 성장기
@@ -154,6 +186,14 @@ PICKS = {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
+        # Q5: the 베르제브몬 블래스트 모드 sheet exists after all, so 임프몬
+        # rejoins the rotation without having to declare a lower ceiling.
+        #
+        # Lower confidence than the other new picks: Blast Mode's wings make
+        # its silhouette too unlike plain 베르제브몬 for the IoU match to
+        # decide the row (row1 0.431 vs row2 0.330). row1 wins on both that
+        # weak signal and on being the symmetric, front-looking one.
+        "superultimate": ("beelzemon_bm", [1, 2], 1),
     },
 }
 
@@ -253,7 +293,51 @@ def score_band(boxes):
     return len(keep) + regular, keep
 
 
-def field_frames(sheet):
+# Every field-sprite row on the sheet, top to bottom, each sorted
+# left-to-right.
+#
+# field_frames() below keeps only the best-scoring band, which is right for
+# the sheets whose field sprites sit in a single bottom row. The withthewill
+# rips lay them out as a 3-row grid where *each row is a facing direction*,
+# and there the best-scoring band is whichever direction happened to win --
+# on blackweregarurumon that was the row of back views. Nothing downstream
+# could express "the other row", so the sheet was unusable.
+#
+# Clustering by y-overlap (rather than banding) is what separates the rows:
+# a row's sprites all share a baseline, and two rows never overlap
+# vertically.
+def field_rows(sheet):
+    im = Image.open(os.path.join(SHEET_DIR, sheet + ".png")).convert("RGBA")
+    boxes = components(im, dominant_colors(im, 0.02))
+    for _ in range(4):
+        boxes = merge_touching(boxes)
+    boxes = [
+        b for b in boxes
+        if MIN_H <= b[3] - b[1] + 1 <= MAX_H
+        and MIN_W <= b[2] - b[0] + 1 <= MAX_W
+        and b[4] >= MIN_PX
+    ]
+    rows = []
+    for b in sorted(boxes, key=lambda b: b[1]):
+        for row in rows:
+            if any(not (b[3] < o[1] or b[1] > o[3]) for o in row):
+                row.append(b)
+                break
+        else:
+            rows.append([b])
+    for row in rows:
+        row.sort(key=lambda b: b[0])
+    return im, rows
+
+
+def field_frames(sheet, row=None):
+    if row is not None:
+        im, rows = field_rows(sheet)
+        if row >= len(rows):
+            raise SystemExit(
+                f"{sheet}: asked for row {row} but only {len(rows)} field rows "
+                f"were found -- run --rows {sheet} to see them")
+        return im, rows[row]
     im = Image.open(os.path.join(SHEET_DIR, sheet + ".png")).convert("RGBA")
     w, h = im.size
     best_score, best_top, best_boxes = 0, 0, []
@@ -312,17 +396,23 @@ def main(packs):
         if not os.path.isdir(out_dir):
             print(f"skip {pack}: {out_dir} does not exist")
             continue
-        for stage, (sheet, picks) in PICKS[pack].items():
+        for stage, entry in PICKS[pack].items():
+            # (sheet, picks) or (sheet, picks, row). The third element names
+            # which field-sprite row to index into, for sheets where the
+            # automatic band lands on the wrong facing direction.
+            sheet, picks = entry[0], entry[1]
+            row = entry[2] if len(entry) > 2 else None
             if picks is PENDING:
                 print(f"skip {pack}/{stage}: frames not chosen yet "
-                      f"-- run --contact {sheet} and fill in PICKS")
+                      f"-- run --rows {sheet} and fill in PICKS")
                 continue
             if not os.path.exists(os.path.join(SHEET_DIR, sheet + ".png")):
                 print(f"skip {pack}/{stage}: {SHEET_DIR}/{sheet}.png not found")
                 continue
-            if sheet not in cache:
-                cache[sheet] = field_frames(sheet)
-            im, boxes = cache[sheet]
+            key = (sheet, row)
+            if key not in cache:
+                cache[key] = field_frames(sheet, row)
+            im, boxes = cache[key]
             indices = [p for p in picks if isinstance(p, int)]
             if indices and len(boxes) <= max(indices):
                 raise SystemExit(
@@ -368,12 +458,49 @@ def contact_sheet(sheet, out_path):
           f"red tick under 0, 5, 10, ...)")
 
 
+# Every row, stacked and labelled, upscaled enough to actually read a 28px
+# sprite. Use this before --contact on an unfamiliar sheet: --contact only
+# ever shows the one row the band search picked, so on a grid-layout sheet it
+# can show you six back views and give no hint that a front row exists.
+#
+# Direction is legible from a stacked view in a way it isn't frame by frame --
+# the front row is the one where every sprite has visible eyes.
+def rows_sheet(sheet, out_path, scale=7):
+    im, rows = field_rows(sheet)
+    if not rows:
+        raise SystemExit(f"{sheet}: no field rows detected -- is the sheet a DWDS rip?")
+    cell, gap, label_w = CANVAS * scale, 8, 88
+    width = max(len(r) for r in rows) * (cell + gap) + gap + label_w
+    height = len(rows) * (cell + gap + 16) + gap
+    out = Image.new("RGBA", (width, height), (32, 32, 40, 255))
+    draw = ImageDraw.Draw(out)
+    y = gap
+    for ri, row in enumerate(rows):
+        draw.text((6, y + cell // 2), f"row{ri}", fill=(140, 220, 255, 255))
+        x = label_w
+        for ci, box in enumerate(row):
+            out.alpha_composite(to_sprite(im, box)[0].resize((cell, cell), Image.NEAREST),
+                                (x, y + 16))
+            draw.text((x + 2, y), str(ci), fill=(255, 230, 120, 255))
+            x += cell + gap
+        print(f"  row{ri}: {len(row)} frames at y={row[0][1]}..{row[0][3]}")
+        y += cell + gap + 16
+    out.save(out_path)
+    print(f"{out_path}  <- {sheet}, {len(rows)} rows. Front row = the one whose "
+          f"sprites have visible eyes; pass it as PICKS' third element.")
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0] == "--contact":
         if len(args) < 2:
             raise SystemExit("usage: --contact <sheet> [out.png]")
         contact_sheet(args[1], args[2] if len(args) > 2 else f"/tmp/{args[1]}-frames.png")
+        sys.exit(0)
+    if args and args[0] == "--rows":
+        if len(args) < 2:
+            raise SystemExit("usage: --rows <sheet> [out.png]")
+        rows_sheet(args[1], args[2] if len(args) > 2 else f"/tmp/{args[1]}-rows.png")
         sys.exit(0)
     requested = args or list(PICKS)
     unknown = [p for p in requested if p not in PICKS]
