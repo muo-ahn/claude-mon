@@ -5,8 +5,81 @@
     "digitama": "알",
     "baby": "포코몬",
     "child": "레나몬",
-    "adult": "미호몬",
+    "adult": "큐비몬",
     "perfect": "타오몬",
     "ultimate": "사쿠야몬"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "pokomon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "pokomon",
+        "name": "포코몬",
+        "sprite": "baby",
+        "next": [
+          "renamon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "renamon",
+        "name": "레나몬",
+        "sprite": "child",
+        "next": [
+          "kyubimon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "kyubimon",
+        "name": "큐비몬",
+        "sprite": "adult",
+        "next": [
+          "taomon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "taomon",
+        "name": "타오몬",
+        "sprite": "perfect",
+        "next": [
+          "sakuyamon",
+          "kuzuhamon"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "sakuyamon",
+        "name": "사쿠야몬",
+        "sprite": "ultimate",
+        "next": [],
+        "traits": [
+          "focus"
+        ]
+      },
+      {
+        "id": "kuzuhamon",
+        "name": "쿠즈하몬",
+        "sprite": "ultimate-kuzuhamon",
+        "next": [],
+        "traits": [
+          "dark"
+        ]
+      }
+    ]
   }
 }
