@@ -1,0 +1,12 @@
+{
+  "name": "가오몬",
+  "topStage": "ultimate",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "와냐몬",
+    "child": "가오몬",
+    "adult": "가오가몬",
+    "perfect": "마하가오가몬",
+    "ultimate": "미라지가오몬"
+  }
+}
