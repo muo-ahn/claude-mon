@@ -17,7 +17,10 @@ const path = require('node:path');
 const {
   listValidPacks,
   listRotationPacks,
+  packTopStage,
   topStageId,
+  pruneTree,
+  readTree,
   selectRoute,
   activeTraits,
   hashString,
@@ -471,35 +474,98 @@ const TREE = {
   superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
 };
 
+// selectRoute is always handed a pruned tree in production (readTree does
+// the pruning), so the route tests work off PRUNED rather than the raw
+// TREE - passing raw trees would test a state that can't occur.
+const PRUNED = pruneTree(TREE, () => true, 'superultimate');
+
 test('selectRoute is stable for a date and moves between dates', () => {
-  const a = selectRoute('2026-07-30', 'p', TREE, [], null);
-  const b = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const a = selectRoute('2026-07-30', 'p', PRUNED, [], null);
+  const b = selectRoute('2026-07-30', 'p', PRUNED, [], null);
   assert.deepStrictEqual(a, b);
 
   const ids = new Set();
   for (let d = 1; d <= 20; d++) {
-    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'p', TREE, [], null).adult.id);
+    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'p', PRUNED, [], null).adult.id);
   }
   assert.ok(ids.size > 1, `adult stage never varied across 20 days: ${[...ids]}`);
 });
 
-test('selectRoute always reaches the top stage, even through a dead end', () => {
+// A dead end used to be rescued by handing the next stage back to the
+// spine, which is how 라이즈그레이몬 ended up "evolving" into 워그레이몬 -
+// a different line entirely. Pruning removes the branch instead, so the
+// walk only ever follows edges the tree actually declares.
+
+test('pruneTree drops a branch that dead-ends short of the ceiling', () => {
+  assert.deepStrictEqual(
+    PRUNED.adult.map((n) => n.id),
+    ['spineA', 'darkA'],
+    'the dead-end branch survived pruning'
+  );
+  assert.deepStrictEqual(PRUNED.child[0].next, ['spineA', 'darkA'], 'edge to the dead end survived');
+});
+
+test('pruneTree drops a branch whose dots are missing', () => {
+  const pruned = pruneTree(TREE, (sprite) => sprite !== 'adult-dark', 'superultimate');
+  assert.deepStrictEqual(pruned.adult.map((n) => n.id), ['spineA']);
+  assert.deepStrictEqual(pruned.child[0].next, ['spineA']);
+});
+
+test('pruneTree drops a node nothing arrives at any more', () => {
+  // orphanA has dots and reaches the top, but no edge leads into it - the
+  // 인퍼몬 → 베르제브몬 removal leaves exactly this shape behind. An orphan
+  // is never drawable, yet left in place it would sit first in the stage
+  // array and become the spine.
+  const orphaned = JSON.parse(JSON.stringify(TREE));
+  orphaned.child[0].next = ['spineA'];
+  orphaned.adult = [
+    { id: 'orphanA', name: '고아', sprite: 'adult-dark', next: ['spineP'] },
+    { id: 'spineA', name: '정통', sprite: 'adult', next: ['spineP'] }
+  ];
+  const pruned = pruneTree(orphaned, () => true, 'superultimate');
+  assert.deepStrictEqual(pruned.adult.map((n) => n.id), ['spineA']);
+});
+
+test('pruneTree returns null when nothing reaches the ceiling', () => {
+  assert.strictEqual(pruneTree(TREE, (sprite) => sprite !== 'superultimate', 'superultimate'), null);
+});
+
+test('pruneTree stops at a pack ceiling below the tree top', () => {
+  // 사쿠야몬/세인트가르고몬 have no 초궁극체 in canon; such a pack declares
+  // its own ceiling and is judged against that, not against the full tree.
+  const short = pruneTree(TREE, (sprite) => sprite !== 'superultimate', 'ultimate');
+  assert.ok(short, 'a line complete up to its declared ceiling was rejected');
+  assert.strictEqual(short.superultimate, undefined, 'route ran past the declared ceiling');
+  assert.deepStrictEqual(short.ultimate.map((n) => n.id), ['spineU']);
+});
+
+test('selectRoute only follows edges the tree declares', () => {
   for (let d = 1; d <= 40; d++) {
-    const route = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, [], null);
+    const route = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', PRUNED, [], null);
     assert.strictEqual(route.superultimate.id, 'top', `day ${d} lost the top stage`);
-    assert.strictEqual(route.perfect.id, 'spineP');
+    assert.notStrictEqual(route.adult.id, 'deadA', `day ${d} drew a pruned branch`);
+    // Every hop must appear in the previous node's next list.
+    const stages = ['digitama', 'baby', 'child', 'adult', 'perfect', 'ultimate', 'superultimate'];
+    for (let i = 1; i < stages.length; i++) {
+      const from = PRUNED[stages[i - 1]].find((n) => n.id === route[stages[i - 1]].id);
+      assert.ok(
+        from.next.includes(route[stages[i]].id),
+        `day ${d}: ${from.id} -> ${route[stages[i]].id} is not an edge`
+      );
+    }
   }
-  // The dead-end branch does get drawn - the spine return is what saves it.
-  const seen = new Set();
-  for (let d = 1; d <= 40; d++) {
-    seen.add(selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, [], null).adult.id);
-  }
-  assert.ok(seen.has('deadA'), 'dead-end branch never appeared, test tree is not exercising it');
+});
+
+test('selectRoute walks only to the pack declared ceiling', () => {
+  const short = pruneTree(TREE, (sprite) => sprite !== 'superultimate', 'ultimate');
+  const route = selectRoute('2026-09-01', 'p', short, [], null);
+  assert.strictEqual(route.ultimate.id, 'spineU');
+  assert.ok(!('superultimate' in route), 'route invented a stage past the ceiling');
 });
 
 test('selectRoute prefers branches matching the day traits', () => {
   for (let d = 1; d <= 30; d++) {
-    const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'p', TREE, ['dark'], null);
+    const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'p', PRUNED, ['dark'], null);
     assert.strictEqual(route.adult.id, 'darkA', `day ${d} ignored the dark trait`);
   }
 });
@@ -507,14 +573,14 @@ test('selectRoute prefers branches matching the day traits', () => {
 test('selectRoute falls back to every candidate when no trait matches', () => {
   const ids = new Set();
   for (let d = 1; d <= 30; d++) {
-    ids.add(selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'p', TREE, ['nonexistent'], null).adult.id);
+    ids.add(selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'p', PRUNED, ['nonexistent'], null).adult.id);
   }
   assert.ok(ids.size > 1, `an unmatched trait narrowed the draw to ${[...ids]}`);
 });
 
 test('selectRoute steps away from yesterday route', () => {
-  const yesterday = selectRoute('2026-07-30', 'p', TREE, [], null);
-  const guarded = selectRoute('2026-07-30', 'p', TREE, [], yesterday);
+  const yesterday = selectRoute('2026-07-30', 'p', PRUNED, [], null);
+  const guarded = selectRoute('2026-07-30', 'p', PRUNED, [], yesterday);
   assert.notDeepStrictEqual(guarded, yesterday);
   assert.strictEqual(guarded.superultimate.id, 'top');
 });
@@ -526,4 +592,147 @@ test('activeTraits reads the day rather than luck', () => {
     activeTraits({ failureRatio: 0, sessionCount: 7, topShare: 0.9 }),
     ['swarm', 'focus']
   );
+});
+
+// --- pack ceilings (topStage) ----------------------------------------
+//
+// A line can be short on purpose. 사쿠야몬 and 세인트가르고몬 have no
+// 합체/모드체인지 form in canon, so those packs top out at 궁극체 and no
+// amount of sprite work will change that -- while 임프몬 is only waiting
+// for 베르제브몬 블래스트 모드 dots. Before topStage both looked like the
+// same "doesn't reach the top" case and both sat out the rotation.
+
+function writeTreePack(packsDir, name, { topStage, stageNames, tree }) {
+  const dir = path.join(packsDir, name);
+  fs.mkdirSync(dir, { recursive: true });
+  const body = { name };
+  if (topStage) body.topStage = topStage;
+  body.stageNames = stageNames;
+  if (tree) body.tree = tree;
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify(body, null, 2));
+  return dir;
+}
+
+test('packTopStage honours a declared ceiling', (t) => {
+  const { packsDir } = makeRoot(t);
+  writeTreePack(packsDir, 'short', { topStage: 'ultimate', stageNames: { ultimate: '사쿠야몬' } });
+  assert.strictEqual(packTopStage(packsDir, 'short'), 'ultimate');
+});
+
+test('packTopStage holds an undeclared pack to the full tree', (t) => {
+  const { packsDir } = makeRoot(t);
+  writeTreePack(packsDir, 'silent', { stageNames: { ultimate: '베르제브몬' } });
+  assert.strictEqual(packTopStage(packsDir, 'silent'), topStageId());
+});
+
+test('packTopStage ignores a ceiling that is not a real stage', (t) => {
+  const { packsDir } = makeRoot(t);
+  writeTreePack(packsDir, 'typo', { topStage: 'megaultimate', stageNames: {} });
+  assert.strictEqual(packTopStage(packsDir, 'typo'), topStageId());
+});
+
+test('packTopStage falls back to the full tree with no pack.json', (t) => {
+  const { packsDir } = makeRoot(t);
+  fs.mkdirSync(path.join(packsDir, 'bare'), { recursive: true });
+  assert.strictEqual(packTopStage(packsDir, 'bare'), topStageId());
+});
+
+test('listRotationPacks admits a line that reaches its own declared ceiling', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  writeSharedEgg(sharedDir);
+  for (const f of ['idle-0.png', 'digitama-0.png']) {
+    // renamon-shaped: complete through 궁극체, no 초궁극체 in canon.
+    const dir = writeTreePack(packsDir, 'short', {
+      topStage: 'ultimate',
+      stageNames: { child: '레나몬', ultimate: '사쿠야몬' }
+    });
+    fs.writeFileSync(path.join(dir, f), 'png');
+  }
+  // impmon-shaped: silent about its ceiling, so it is held to the full
+  // tree and stays out until 초궁극체 is actually named.
+  writePack(packsDir, 'unfinished', FULL, { topStage: false });
+
+  assert.deepStrictEqual(listRotationPacks(packsDir, sharedDir), ['short']);
+});
+
+// --- readTree: R7 fallback -------------------------------------------
+
+test('readTree returns null when the line has no walkable route', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const dir = writeTreePack(packsDir, 'half', {
+    stageNames: { child: '반쯤' },
+    tree: TREE
+  });
+  // Only the egg has dots: the rest of the line is named but not drawn yet,
+  // which is the normal state of a half-filled pack (dots are gitignored).
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'digitama-0.png'), 'png');
+  assert.strictEqual(readTree(packsDir, 'half', sharedDir), null);
+});
+
+test('readTree prunes to the routes whose dots exist', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const dir = writeTreePack(packsDir, 'partial', {
+    stageNames: { child: '일부' },
+    tree: TREE
+  });
+  for (const s of ['digitama', 'baby', 'child', 'adult', 'perfect', 'ultimate', 'superultimate']) {
+    fs.writeFileSync(path.join(dir, `${s}-0.png`), 'png');
+  }
+  // adult-dark and adult-dead deliberately absent.
+  const tree = readTree(packsDir, 'partial', sharedDir);
+  assert.deepStrictEqual(tree.adult.map((n) => n.id), ['spineA']);
+});
+
+// --- tree lint: the shipped pack.json files --------------------------
+//
+// R1 only holds if the adjacency lists are sound, and a typo'd `next` id
+// used to be invisible: the spine return quietly covered for it. These
+// run against the real pack.json files, which are tracked (unlike dots).
+
+const STAGE_ORDER = ['digitama', 'baby', 'child', 'adult', 'perfect', 'ultimate', 'superultimate'];
+
+test('shipped pack trees only point at the next stage', () => {
+  const packsDir = path.join(__dirname, '..', 'sprites', 'packs');
+  for (const pack of fs.readdirSync(packsDir)) {
+    if (pack.startsWith('.')) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(fs.readFileSync(path.join(packsDir, pack, 'pack.json'), 'utf8'));
+    } catch (e) {
+      continue; // no pack.json is a valid state; listRotationPacks handles it
+    }
+    if (!parsed.tree) continue;
+    const stageOf = new Map();
+    for (const stage of STAGE_ORDER) {
+      for (const node of parsed.tree[stage] || []) {
+        assert.ok(!stageOf.has(node.id), `${pack}: duplicate node id ${node.id}`);
+        stageOf.set(node.id, stage);
+        assert.ok(node.name && node.sprite, `${pack}: ${node.id} is missing name or sprite`);
+      }
+    }
+    const ceiling = parsed.topStage || STAGE_ORDER[STAGE_ORDER.length - 1];
+    for (const stage of STAGE_ORDER) {
+      const nodes = parsed.tree[stage] || [];
+      if (stage !== ceiling) {
+        assert.ok(nodes.length > 0, `${pack}: stage ${stage} has no spine`);
+      }
+      const expected = STAGE_ORDER[STAGE_ORDER.indexOf(stage) + 1];
+      for (const node of nodes) {
+        for (const id of node.next || []) {
+          assert.ok(stageOf.has(id), `${pack}: ${node.id} -> ${id} does not exist`);
+          // Pointing only one stage forward makes cycles impossible.
+          assert.strictEqual(
+            stageOf.get(id),
+            expected,
+            `${pack}: ${node.id} (${stage}) -> ${id} (${stageOf.get(id)}) skips or reverses a stage`
+          );
+        }
+        if (stage === ceiling) {
+          assert.deepStrictEqual(node.next || [], [], `${pack}: ${node.id} evolves past the ceiling`);
+        }
+      }
+      if (stage === ceiling) break;
+    }
+  }
 });

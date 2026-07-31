@@ -56,8 +56,7 @@
         "name": "인퍼몬",
         "sprite": "perfect",
         "next": [
-          "diablomon",
-          "beelzebumon"
+          "diablomon"
         ]
       }
     ],
@@ -71,17 +70,6 @@
         ],
         "traits": [
           "swarm"
-        ]
-      },
-      {
-        "id": "beelzebumon",
-        "name": "베르제브몬",
-        "sprite": "ultimate-beelzebumon",
-        "next": [
-          "armagemon"
-        ],
-        "traits": [
-          "dark"
         ]
       }
     ],
