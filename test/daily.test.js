@@ -16,6 +16,10 @@ const path = require('node:path');
 
 const {
   listValidPacks,
+  listRotationPacks,
+  topStageId,
+  selectRoute,
+  activeTraits,
   hashString,
   selectMon,
   computeDailyTokens,
@@ -39,10 +43,16 @@ function makeRoot(t) {
   };
 }
 
-function writePack(packsDir, name, files) {
+// Writes a pack that is also a rotation candidate: pack.json names the
+// tree's top stage, which is what listRotationPacks requires. Pass
+// `{ topStage: false }` for a line that stops short of it.
+function writePack(packsDir, name, files, { topStage = true } = {}) {
   const dir = path.join(packsDir, name);
   fs.mkdirSync(dir, { recursive: true });
   for (const f of files) fs.writeFileSync(path.join(dir, f), 'png');
+  const stageNames = { child: name };
+  if (topStage) stageNames[topStageId()] = `${name}-최종체`;
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({ name, stageNames }, null, 2));
 }
 
 function writeSharedEgg(sharedDir) {
@@ -356,6 +366,74 @@ test('computeDailyTokens counts a session filed under two project dirs once', (t
   assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 140 });
 });
 
+// --- rotation pool: only lines that reach the top stage ---------------
+//
+// A pack whose evolution line tops out early would sit one stage below
+// the ceiling on the heaviest days of the month, so it is held out of the
+// daily rotation entirely rather than shown with a stage it can never
+// reach. It stays a *valid* pack - explicit selection and the guilmon
+// fallback still render it.
+
+test('listRotationPacks drops a line that stops short of the top stage', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'reaches-top', FULL);
+  writePack(dirs.packsDir, 'tops-out-early', FULL, { topStage: false });
+
+  assert.deepStrictEqual(listRotationPacks(dirs.packsDir, dirs.sharedDir), ['reaches-top']);
+  // Still a perfectly loadable pack - just not a rotation candidate.
+  assert.deepStrictEqual(listValidPacks(dirs.packsDir, dirs.sharedDir), [
+    'reaches-top',
+    'tops-out-early'
+  ]);
+});
+
+test('listRotationPacks drops a pack with no pack.json at all', (t) => {
+  const dirs = makeRoot(t);
+  const dir = path.join(dirs.packsDir, 'nameless');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+
+  assert.deepStrictEqual(listValidPacks(dirs.packsDir, dirs.sharedDir), ['nameless']);
+  assert.deepStrictEqual(listRotationPacks(dirs.packsDir, dirs.sharedDir), []);
+});
+
+test('selectMon never lands on a pack outside the rotation pool', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'aaa-early', FULL, { topStage: false });
+  writePack(dirs.packsDir, 'zzz-early', FULL, { topStage: false });
+  for (const name of ['agumon', 'gabumon', 'guilmon']) writePack(dirs.packsDir, name, FULL);
+
+  for (const key of dateKeys(120)) {
+    const mon = selectMon(key, dirs.packsDir, dirs.sharedDir, null);
+    assert.ok(['agumon', 'gabumon', 'guilmon'].includes(mon), `picked ${mon} on ${key}`);
+  }
+});
+
+test('computeDailyTokens reaches the top stage past its threshold', (t) => {
+  const dirs = setupDaily(t);
+  // 2.1M output tokens in one KST day: past the top stage's gte.
+  writeTranscript(
+    dirs.projectsDir,
+    `-Users-me-repo/${SESSION}.jsonl`,
+    [assistantLine('msg_a', 1_100_000), assistantLine('msg_b', 1_000_000)]
+  );
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 2_100_000);
+  assert.strictEqual(result.stageId, topStageId());
+});
+
+test('computeDailyTokens stays one stage below just under the threshold', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    assistantLine('msg_a', 1_999_999)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.notStrictEqual(result.stageId, topStageId());
+  assert.strictEqual(result.stageId, 'ultimate');
+});
+
 test('computeDailyTokens keeps one copy while the other catches up', (t) => {
   const dirs = setupDaily(t);
   const full = [assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
@@ -370,4 +448,82 @@ test('computeDailyTokens keeps one copy while the other catches up', (t) => {
   const caughtUp = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(caughtUp.outputTokens, 140);
   assert.deepStrictEqual(caughtUp.sessionTokens, { [SESSION]: 140 });
+});
+
+// --- selectRoute: 랜덤 진화 (branching routes) -------------------------
+//
+// A pack's tree lets the same species end the day as a different form. The
+// draw has to stay boring in the ways that matter: pinned for the day,
+// always able to reach the top stage, and steerable by what the day looked
+// like rather than by luck alone.
+
+const TREE = {
+  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
+  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: ['kid'] }],
+  child: [{ id: 'kid', name: '성장', sprite: 'child', next: ['spineA', 'darkA', 'deadA'] }],
+  adult: [
+    { id: 'spineA', name: '정통', sprite: 'adult', next: ['spineP'] },
+    { id: 'darkA', name: '어둠', sprite: 'adult-dark', traits: ['dark'], next: ['spineP'] },
+    { id: 'deadA', name: '막다른', sprite: 'adult-dead', next: [] }
+  ],
+  perfect: [{ id: 'spineP', name: '완전', sprite: 'perfect', next: ['spineU'] }],
+  ultimate: [{ id: 'spineU', name: '궁극', sprite: 'ultimate', next: ['top'] }],
+  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
+};
+
+test('selectRoute is stable for a date and moves between dates', () => {
+  const a = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const b = selectRoute('2026-07-30', 'p', TREE, [], null);
+  assert.deepStrictEqual(a, b);
+
+  const ids = new Set();
+  for (let d = 1; d <= 20; d++) {
+    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'p', TREE, [], null).adult.id);
+  }
+  assert.ok(ids.size > 1, `adult stage never varied across 20 days: ${[...ids]}`);
+});
+
+test('selectRoute always reaches the top stage, even through a dead end', () => {
+  for (let d = 1; d <= 40; d++) {
+    const route = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, [], null);
+    assert.strictEqual(route.superultimate.id, 'top', `day ${d} lost the top stage`);
+    assert.strictEqual(route.perfect.id, 'spineP');
+  }
+  // The dead-end branch does get drawn - the spine return is what saves it.
+  const seen = new Set();
+  for (let d = 1; d <= 40; d++) {
+    seen.add(selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, [], null).adult.id);
+  }
+  assert.ok(seen.has('deadA'), 'dead-end branch never appeared, test tree is not exercising it');
+});
+
+test('selectRoute prefers branches matching the day traits', () => {
+  for (let d = 1; d <= 30; d++) {
+    const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'p', TREE, ['dark'], null);
+    assert.strictEqual(route.adult.id, 'darkA', `day ${d} ignored the dark trait`);
+  }
+});
+
+test('selectRoute falls back to every candidate when no trait matches', () => {
+  const ids = new Set();
+  for (let d = 1; d <= 30; d++) {
+    ids.add(selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'p', TREE, ['nonexistent'], null).adult.id);
+  }
+  assert.ok(ids.size > 1, `an unmatched trait narrowed the draw to ${[...ids]}`);
+});
+
+test('selectRoute steps away from yesterday route', () => {
+  const yesterday = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const guarded = selectRoute('2026-07-30', 'p', TREE, [], yesterday);
+  assert.notDeepStrictEqual(guarded, yesterday);
+  assert.strictEqual(guarded.superultimate.id, 'top');
+});
+
+test('activeTraits reads the day rather than luck', () => {
+  assert.deepStrictEqual(activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2 }), []);
+  assert.deepStrictEqual(activeTraits({ failureRatio: 0.2, sessionCount: 1, topShare: 0.1 }), ['dark']);
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 7, topShare: 0.9 }),
+    ['swarm', 'focus']
+  );
 });
