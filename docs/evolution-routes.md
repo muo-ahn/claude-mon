@@ -94,7 +94,7 @@ R2는 팩 로드 시점(`readTree`)에 한 번 계산하고, `selectRoute`에는
 | trait | 조건 | 데이터 출처 | 한계 |
 |---|---|---|---|
 | `dark` | 도구 호출 실패율 ≥ 5% | `global.json` 누적 카운터 | **일 단위가 아님.** 일일 실패 카운터를 `hook.js`에 추가해야 해결 (Q4) |
-| `swarm` | 그날 토큰을 쓴 세션 ≥ 5 | `daily.json` `sessionTokens` | 일 단위 ✅ |
+| `swarm` | 그날 토큰을 쓴 세션 ≥ 5 | `daily.json` `sessionTokens` | 일 단위 ✅. 지오그레이몬 라인 개통 전까지는 **가를 분기가 0개**였다(D11) |
 | `focus` | 한 세션이 그날 output의 60% 이상 | 동일 | 일 단위 ✅ |
 
 ## 6. 점진적 채우기 (주 ~15노드)
@@ -181,6 +181,7 @@ Imperialdramon = 황제드라몬. 한국 위키 사이트(나무위키·우만�
 | D7 | `pack.json`에 `topStage` 명시 선언 도입 (Q2 해결) | 벤치된 3팩이 서로 다른 이유로 벤치돼 있었다. 임프몬은 캐논 초궁극체(베르제브몬 블래스트 모드)가 있는데 **도트가 없는 미완성**, 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)은 **캐논상 초궁극체가 없는 짧은 완성**이다. 전자는 계속 제외(D2 유지), 후자는 천장을 선언해 복귀. 로테이션 6→8팩 |
 | D8 | 블랙워그레이몬 뒷모습 도트 유지 (Q3 보류) | 9개 루트 중 `dark` 편향일 때만 나온다. 추출기에 행 선택 옵션이 필요한 별건이고 진화 로직과 무관 |
 | D9 | `field_rows()` 도입, `PICKS`에 행 번호 (Q7 해결) | 밴드 탐색이 격자 시트에서 후면 행을 고르고 있었고, 아래 계층에서 다른 행을 지목할 방법이 없었다. 행은 y축 겹침으로 묶는다. **D8/Q3도 이 수단으로 해결 가능해졌다** — 블랙워그레이몬에 행 번호를 주면 된다 |
+| D11 | 지오그레이몬 라인을 `샤인그레이몬 → 샤인그레이몬 버스트 모드`로 천장까지 연결 | 문서가 `샤인그레이몬 ❌ DS 립 없음`으로 적어 둔 게 틀렸다. 근거였던 README 조사는 **초궁극체 등급**만 훑은 것이고 샤인그레이몬은 궁극체다. 실제로 withthewill zip에 본체(`374`)와 버스트 모드(`385`) 둘 다 있었다. 이걸로 `swarm` trait이 처음으로 실제 분기를 갖는다 — 그전까지 swarm 노드 5개 중 4개가 R2 제외였고, 남은 하나(디아블로몬)는 그 단계의 유일 후보여서 게이트가 무의미했다 |
 | D10 | 테리어몬의 블랙 라인을 `가르고몬 → 블랙라피드몬 → 블랙세인트가르고몬`으로 배치 | 아구몬(블랙워그레이몬)·길몬(블랙메가로그라우몬)이 이미 흑화체를 같은 단계의 형제 분기로 두는 선례다. 두 흑화체가 서로 이어지는 편이 계보 감각에 맞고, 세이버레오몬처럼 근거 없는 엣지를 만들지 않는다 |
 
 ## 9. 열린 질문
@@ -222,7 +223,7 @@ D7 이후 레나몬·테리어몬의 천장이 `ultimate`이므로, 두 팩의 �
 | 테리어몬 | 프레리몬 | ❌ withthewill 541개에 없음 | — |
 | (미정) | 세이버레오몬 | ✅ 보유, 정면 행 확인 | 붙일 자리 미정 (Q8) |
 | 길몬 | 카오스듀크몬 | ❌ 미보유 | +0 (듀크몬 크림슨 모드로 이어지지 않아 R2가 제외) |
-| 아구몬 | 샤인그레이몬 | ❌ DS 립 없음 | 지오그레이몬 라인 대기 (현재 R2로 제외) |
+| 아구몬 | 샤인그레이몬 + 버스트 모드 | ✅ **완료** | **+1 (지오그레이몬 라인 개통)** |
 
 ## 11. 현재 상태 (2026-07-31)
 
@@ -282,19 +283,19 @@ flowchart LR
   agumon_rizegreymon["라이즈그레이몬<br/><i>swarm</i>"]
   agumon_wargreymon["워그레이몬<br/><i>focus</i>"]
   agumon_blackwargreymon["블랙워그레이몬<br/><i>dark</i>"]
+  agumon_shinegreymon["샤인그레이몬<br/><i>swarm</i>"]
   agumon_omegamon["오메가몬"]
+  agumon_shinegreymon_burst["샤인그레이몬 버스트 모드"]
   agumon_agumon --> agumon_greymon
   agumon_agumon --> agumon_geogreymon
   agumon_greymon --> agumon_metalgreymon
   agumon_geogreymon --> agumon_rizegreymon
   agumon_metalgreymon --> agumon_wargreymon
   agumon_metalgreymon --> agumon_blackwargreymon
-  agumon_rizegreymon_stop(("∅"))
-  agumon_rizegreymon --> agumon_rizegreymon_stop
+  agumon_rizegreymon --> agumon_shinegreymon
   agumon_wargreymon --> agumon_omegamon
   agumon_blackwargreymon --> agumon_omegamon
-  classDef out stroke-dasharray:4 3,stroke:#999,color:#999
-  class agumon_geogreymon,agumon_rizegreymon,agumon_rizegreymon_stop out
+  agumon_shinegreymon --> agumon_shinegreymon_burst
 ```
 
 **팔코몬** (`falcomon`) — 천장 `superultimate`

@@ -79,6 +79,11 @@ PICKS = {
         "adult-geogreymon": ("geogreymon", [0, 1]),
         "perfect-rizegreymon": ("rizegreymon", [0, 1]),
         "ultimate-blackwargreymon": ("blackwargreymon", [0, 1]),
+        # 샤인그레이몬 라인이 지오그레이몬 분기를 천장까지 잇는다. 두 시트 모두
+        # withthewill의 격자 배치이고 row1이 정면 행이다 — 본체는 주황 볏과
+        # 얼굴이, 버스트 모드는 파란 눈이 보이는 행이다.
+        "ultimate-shinegreymon": ("shinegreymon", [2, 3], 1),
+        "superultimate-shinegreymon_burst": ("shinegreymon_burst", [1, 2], 1),
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
