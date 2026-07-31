@@ -269,6 +269,53 @@ D7 이후 레나몬·테리어몬의 천장이 `ultimate`이므로, 두 팩의 �
 - 메뉴바 재빌드 필요: `cd menubar && swiftc -O -o claudemon-menubar
   claudemon-menubar.swift` → `launchctl kickstart -k gui/$(id -u)/com.muo.claudemon-menubar`.
 
+## 13. 자산 풀 평가 (2026-07-31)
+
+무엇이 병목인지 실측했다. **디지몬 종 수는 병목이 아니다.**
+
+| | 수 |
+|---|---|
+| withthewill zip | 541 (로스터 420 + 부가 121) |
+| 로스터 등급대 | 유년기·성장기 84 · 성숙기 96 · 완전기 123 · 궁극기+ 117 |
+| 성장기 = 팩 후보 | **60종** (현재 팩 9개) |
+| 로컬 시트 보유 | 55 (PICKS 사용 52, 미사용 3: `saberleomon`·`chaosdukemon_core`·`puttimon`) |
+| 트리 노드 | 69 (분기로 늘어난 노드 15) |
+| 하루 루트 | 14 |
+
+병목은 **최상위(모드체인지·합체) 형태**다. 이 프로젝트의 `superultimate`는 게임에 없는
+7번째 단계라, 합체체나 버스트/모드체인지 형태만 자격이 있다. 로스터 420종 중 그런 형태는
+**19종**뿐이다:
+
+`Omegamon` `ImperialdramonPaladin` `DukemonCrimsonUpdate` `Armagemon` `ChronomonHoly`
+`ChronomonDM` `ShineGreymonBurst` `ShineGreymonRuin` `MirageGaogamonBurst` `RavemonBurst`
+`RosemonBurst` `BeelzebumonBlast` `ChaosGallantmonCore` `Chaosmon` `ZeedMilleniumon`
+`Susanoomon` `Alphamon` `ArgomonUltimate` `OrphanimonCore`
+
+즉 성장기가 60종이어도 **R2를 통과할 수 있는 팩은 10여 개가 상한**이다. 나머지 종은
+`topStage: "ultimate"`를 선언해야 로테이션에 들어올 수 있다(D7).
+
+### 아직 안 만든 팩 중 사슬이 성립하는 것
+
+zip 보유만으로 최상위까지 이어지는 라인이 **3개 더** 있다:
+
+| 라인 | 사슬 | 비고 |
+|---|---|---|
+| 가오몬 | 가오몬 → 가오가몬 → 마하가오가몬 → 미라지가오몬 → **미라지가오몬 버스트 모드** | 시트 전부 보유 |
+| 팔몬 | 팔몬 → … → 로제몬 → **로제몬 버스트 모드** | 시트 전부 보유 |
+| 팔코몬(2계보) | 팔코몬 → 펙크몬 → 야타가라몬 → 레이브몬 → **레이브몬 버스트 모드** | 캐논상 팔코몬의 본계보. 현재 팩은 크로노몬 홀리 모드로 끝난다 |
+
+세 번째가 특히 값싸다 — 팔코몬 팩이 이미 있으므로 `ultimate`/`superultimate`에 형제 분기
+2개만 추가하면 팔코몬이 1→2루트가 된다.
+
+### 확인된 하드 제약
+
+- **최상위 시트에 필드 스프라이트가 없는 경우가 있다.** `415_ChaosGallantmonCore`는 605x221에
+  대형 전투 포즈 3개뿐이고, 32px로 축소하면 형태를 알아볼 수 없다. 그래서 길몬 다크 분기가
+  카오스듀크몬까지만 가고 R2에 제외된다. 다른 `*Core`·보스 시트도 같은 위험이 있으니
+  트리에 넣기 전에 `--rows`로 필드 행 존재를 먼저 확인한다.
+- `swarm` 문제(D11)처럼, 분기가 있어도 **trait이 그것을 가리키지 않으면** 지표는 죽은 채로
+  남는다. 새 분기를 넣을 때 trait 배정을 함께 본다.
+
 ## 12. 진화 노드 맵 (생성물)
 
 `node scripts/evolution-map.js --write`로 갱신한다. 손으로 고치지 않는다 — `pack.json`이
@@ -353,16 +400,18 @@ flowchart LR
   guilmon_megalogrowlmon["메가로그라우몬<br/><i>focus</i>"]
   guilmon_blackmegalogrowlmon["블랙메가로그라우몬<br/><i>dark</i>"]
   guilmon_dukemon["듀크몬"]
+  guilmon_chaosdukemon["카오스듀크몬<br/><i>dark</i>"]
   guilmon_dukemon_crimson["듀크몬 크림슨 모드"]
   guilmon_guilmon --> guilmon_growlmon
   guilmon_growlmon --> guilmon_megalogrowlmon
   guilmon_growlmon --> guilmon_blackmegalogrowlmon
   guilmon_megalogrowlmon --> guilmon_dukemon
-  guilmon_blackmegalogrowlmon_stop(("∅"))
-  guilmon_blackmegalogrowlmon --> guilmon_blackmegalogrowlmon_stop
+  guilmon_blackmegalogrowlmon --> guilmon_chaosdukemon
   guilmon_dukemon --> guilmon_dukemon_crimson
+  guilmon_chaosdukemon_stop(("∅"))
+  guilmon_chaosdukemon --> guilmon_chaosdukemon_stop
   classDef out stroke-dasharray:4 3,stroke:#999,color:#999
-  class guilmon_blackmegalogrowlmon,guilmon_blackmegalogrowlmon_stop out
+  class guilmon_blackmegalogrowlmon,guilmon_chaosdukemon,guilmon_chaosdukemon_stop out
 ```
 
 **임프몬** (`impmon`) — 천장 `superultimate` · 트리 없음(`stageNames` 고정선)

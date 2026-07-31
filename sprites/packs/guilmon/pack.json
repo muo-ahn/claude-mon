@@ -67,7 +67,9 @@
         "id": "blackmegalogrowlmon",
         "name": "블랙메가로그라우몬",
         "sprite": "perfect-blackmegalogrowlmon",
-        "next": [],
+        "next": [
+          "chaosdukemon"
+        ],
         "traits": [
           "dark"
         ]
@@ -80,6 +82,15 @@
         "sprite": "ultimate",
         "next": [
           "dukemon_crimson"
+        ]
+      },
+      {
+        "id": "chaosdukemon",
+        "name": "카오스듀크몬",
+        "sprite": "ultimate-chaosdukemon",
+        "next": [],
+        "traits": [
+          "dark"
         ]
       }
     ],

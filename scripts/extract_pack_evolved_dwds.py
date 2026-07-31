@@ -91,6 +91,16 @@ PICKS = {
         "ultimate": ("gallantmon", [6, 7]),
         "superultimate": ("gallantmon_crimson", [3, 4]),
         "perfect-blackmegalogrowlmon": ("blackwargrowlmon", [4, 5]),
+        # 카오스듀크몬: 듀크몬의 흑화체라 실루엣이 거의 같아 IoU가 행을 못
+        # 가린다(row0/row1 모두 0.72~0.79). 배색으로 갈랐다 — row0이 진한
+        # 청색 본색이고 row1은 창백한 대체 팔레트다. row0에서 idx1이 듀크몬
+        # 프레임0(0.757), idx0이 프레임1(0.655)에 가장 가깝다.
+        #
+        # 이 분기는 천장에 닿지 못해 R2가 제외한다: 카오스듀크몬 코어 시트
+        # (415_ChaosGallantmonCore)에 필드 스프라이트가 없고 대형 전투 포즈만
+        # 있어서, 32px로 축소하면 형태를 알아볼 수 없다. 코어의 필드 도트가
+        # 생기는 순간 길몬 다크 루트가 열린다.
+        "ultimate-chaosdukemon": ("chaosdukemon", [1, 0], 0),
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
