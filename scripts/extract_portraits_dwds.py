@@ -79,16 +79,39 @@ SIZE_TOL = 0.15
 # pack -> stage -> DWDS sheet, reusing the same mapping as
 # extract_pack_evolved_dwds.PICKS (sheet names only; that script's frame
 # indices are for the *field*-frame row and don't apply here).
+#
+# 아구몬 and 파피몬 share omegamon: 오메가몬 is a 합체체 of 워그레이몬 and
+# 메탈가루몬, so both lines really do end on the same art. 레나몬·테리어몬 have
+# no superultimate at all (see pack.json "topStage"), and 임프몬's is still
+# waiting on a 베르제브몬 블래스트 모드 sheet.
 PACK_SHEETS = {
-    "agumon": {"adult": "greymon", "perfect": "metalgreymon", "ultimate": "wargreymon"},
-    "guilmon": {"adult": "growlmon", "perfect": "wargrowlmon", "ultimate": "gallantmon"},
-    "gabumon": {"adult": "garurumon", "perfect": "weregarurumon", "ultimate": "metalgarurumon"},
-    "veemon": {"adult": "exveemon", "perfect": "paildramon", "ultimate": "imperialdramon_fm"},
+    "agumon": {
+        "adult": "greymon", "perfect": "metalgreymon", "ultimate": "wargreymon",
+        "superultimate": "omegamon",
+    },
+    "guilmon": {
+        "adult": "growlmon", "perfect": "wargrowlmon", "ultimate": "gallantmon",
+        "superultimate": "gallantmon_crimson",
+    },
+    "gabumon": {
+        "adult": "garurumon", "perfect": "weregarurumon", "ultimate": "metalgarurumon",
+        "superultimate": "omegamon",
+    },
+    "veemon": {
+        "adult": "exveemon", "perfect": "paildramon", "ultimate": "imperialdramon_fm",
+        "superultimate": "imperialdramon_pm",
+    },
     "renamon": {"adult": "kyubimon", "perfect": "taomon", "ultimate": "sakuyamon"},
     "terriermon": {"adult": "gargomon", "perfect": "rapidmon", "ultimate": "megagargomon"},
     "impmon": {"adult": "devimon", "perfect": "myotismon", "ultimate": "beelzemon"},
-    "keramon": {"adult": "kurisarimon", "perfect": "infermon", "ultimate": "diaboromon"},
-    "falcomon": {"adult": "peckmon", "perfect": "yatagaramon", "ultimate": "varodurumon"},
+    "keramon": {
+        "adult": "kurisarimon", "perfect": "infermon", "ultimate": "diaboromon",
+        "superultimate": "armagemon",
+    },
+    "falcomon": {
+        "adult": "peckmon", "perfect": "yatagaramon", "ultimate": "varodurumon",
+        "superultimate": "chronomon_hm",
+    },
 }
 
 # Manual overrides for sheets where the size-ratio heuristic either picks a
@@ -113,6 +136,29 @@ POSE_OVERRIDES = {
     "taomon": (0, 4),            # crossed-arms side lunge over the back view
     "sakuyamon": (0, 3),         # full front staff-raised stance
     "beelzemon": (0, 3),         # wide crouch, cannons drawn
+    # 초궁극체 sheets. Both of these lay all their poses out in a single row,
+    # so the "prefer another row" rule has nothing to prefer and auto-pick
+    # takes the first size-match -- which on a one-row sheet is the adjacent
+    # idle-animation frame. Same failure the overrides above exist for, just
+    # reached a different way.
+    "omegamon": (0, 3),             # cape-swept sword stance over 1/2 (breathing dups)
+    "gallantmon_crimson": (0, 3),   # every pose is the same stance shimmering;
+                                    # 3 is simply the least similar of them
+    # 케라몬·팔코몬 lines: all three had auto-pick return no frame 1 at all,
+    # leaving a dead-still portrait in the cut-in.
+    "kurisarimon": (0, 4),  # scythe sweep; misses the size check by 3% on width
+    "peckmon": (0, 3),      # wings out (+25% width IS the wings) over a breathing dup
+    # yatagaramon's other row is +86%/+64% -- far past what padding can hide.
+    # Its own row's third pose is a wing shift at identical scale, and at
+    # meandiff 30.5 it is a bigger change than several overrides above.
+    "yatagaramon": (0, 2),
+    # armagemon is the one sheet where frame 0 must move too. Its row 0 is a
+    # side view and row 1 is front-facing, so auto-pick's (0, 3) pairs a side
+    # profile with a head-on pose and the thing appears to snap 90 degrees.
+    # Staying inside row 1 gives a real motion instead: mouth open, then
+    # reared up with the core lit. The +24% height between them *is* the
+    # rearing, not a scale glitch.
+    "armagemon": (3, 4),
 }
 
 
