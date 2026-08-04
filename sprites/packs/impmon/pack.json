@@ -6,6 +6,77 @@
     "child": "임프몬",
     "adult": "데블몬",
     "perfect": "뱀파이몬",
-    "ultimate": "베르제브몬"
+    "ultimate": "베르제브몬",
+    "superultimate": "베르제브몬 블래스트 모드"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "yaamon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "yaamon",
+        "name": "야몬",
+        "sprite": "baby",
+        "next": [
+          "impmon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "impmon",
+        "name": "임프몬",
+        "sprite": "child",
+        "next": [
+          "devimon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "devimon",
+        "name": "데블몬",
+        "sprite": "adult",
+        "next": [
+          "myotismon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "myotismon",
+        "name": "뱀파이몬",
+        "sprite": "perfect",
+        "next": [
+          "beelzebumon"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "beelzebumon",
+        "name": "베르제브몬",
+        "sprite": "ultimate",
+        "next": [
+          "beelzebumon-bm"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "beelzebumon-bm",
+        "name": "베르제브몬 블래스트 모드",
+        "sprite": "superultimate",
+        "next": []
+      }
+    ]
   }
 }

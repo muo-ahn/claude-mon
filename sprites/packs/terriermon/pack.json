@@ -5,7 +5,90 @@
     "baby": "구미몬",
     "child": "테리어몬",
     "adult": "가르고몬",
-    "perfect": "라피드몬",
-    "ultimate": "세인트가르고몬"
+    "perfect": "래피드몬",
+    "ultimate": "세인트가르고몬",
+    "superultimate": "블랙세인트가르고몬"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "gummymon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "gummymon",
+        "name": "구미몬",
+        "sprite": "baby",
+        "next": [
+          "terriermon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "terriermon",
+        "name": "테리어몬",
+        "sprite": "child",
+        "next": [
+          "gargomon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "gargomon",
+        "name": "가르고몬",
+        "sprite": "adult",
+        "next": [
+          "rapidmon",
+          "blackrapidmon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "rapidmon",
+        "name": "래피드몬",
+        "sprite": "perfect",
+        "next": [
+          "saintgalgomon"
+        ]
+      },
+      {
+        "id": "blackrapidmon",
+        "name": "블랙래피드몬",
+        "sprite": "perfect-blackrapidmon",
+        "next": [
+          "saintgalgomon"
+        ],
+        "traits": [
+          "dark"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "saintgalgomon",
+        "name": "세인트가르고몬",
+        "sprite": "ultimate",
+        "next": [
+          "blacksaintgalgomon"
+        ]
+      }
+    ],
+    "superultimate": [
+      {
+        "id": "blacksaintgalgomon",
+        "name": "블랙세인트가르고몬",
+        "sprite": "ultimate-blacksaintgalgomon",
+        "next": []
+      }
+    ]
   }
 }

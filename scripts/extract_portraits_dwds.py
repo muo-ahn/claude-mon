@@ -41,13 +41,18 @@ sheets's other poses don't have anything that close. Sheets where this
 heuristic lands on a bad choice get an explicit override in POSE_OVERRIDES.
 
 Usage: python3 scripts/extract_portraits_dwds.py [pack ...]
+       python3 scripts/extract_portraits_dwds.py --contact <sheet> [out.png]
+
+--contact renders every detected pose candidate in reading order with its flat
+index underneath -- the same index POSE_OVERRIDES takes, so picking an override
+is render-look-write instead of the throwaway print this used to need.
 """
 
 import os
 import sys
 from collections import Counter
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from extract_pack_evolved_dwds import (
     cell_backdrops,
@@ -76,41 +81,97 @@ ROW_GAP = 0
 # Frame-1 acceptance window relative to frame 0's tight crop size.
 SIZE_TOL = 0.15
 
+
+class NoPoses(Exception):
+    """The sheet has no candidate that reads as a battle pose. Not an error at
+    the top level -- the stage just keeps falling back to its 32px dot."""
+
 # pack -> stage -> DWDS sheet, reusing the same mapping as
 # extract_pack_evolved_dwds.PICKS (sheet names only; that script's frame
 # indices are for the *field*-frame row and don't apply here).
 #
+# The key is the frame *prefix*, not the stage id, so a branch node gets its
+# own entry exactly like it does in PICKS and pack.json (`sprite`), and lands
+# on portrait-<prefix>-N.png. Branches matter more here than anywhere else:
+# the route is redrawn daily, so a pack with three branch nodes spends most
+# days on art that isn't its spine, and a branch with no portrait is the one
+# case where the drop-down falls back to a blown-up 32px dot.
+#
 # 아구몬 and 파피몬 share omegamon: 오메가몬 is a 합체체 of 워그레이몬 and
 # 메탈가루몬, so both lines really do end on the same art. 레나몬·테리어몬 have
-# no superultimate at all (see pack.json "topStage"), and 임프몬's is still
-# waiting on a 베르제브몬 블래스트 모드 sheet.
+# no superultimate at all (see pack.json "topStage").
+#
+# 유아기(baby)·알(digitama) have no entries and can't get one: DWDS gives the
+# baby forms (kuramon/tokomon/wanyamon) nothing but their ~43x39 field
+# animation -- there is no battle pose to crop, so detect_pose_boxes() finds
+# zero candidates and main() skips them. 유년기(child) only works for the
+# three lines whose rookie has its own DWDS sheet; the other seven packs draw
+# their rookie from a Battle Spirit gif (scripts/extract_pack_<mon>.py), a
+# different sheet layout this script doesn't read.
 PACK_SHEETS = {
     "agumon": {
         "adult": "greymon", "perfect": "metalgreymon", "ultimate": "wargreymon",
         "superultimate": "omegamon",
+        "adult-geogreymon": "geogreymon",
+        "perfect-rizegreymon": "rizegreymon",
+        "ultimate-blackwargreymon": "blackwargreymon",
     },
     "guilmon": {
         "adult": "growlmon", "perfect": "wargrowlmon", "ultimate": "gallantmon",
         "superultimate": "gallantmon_crimson",
+        "perfect-blackmegalogrowlmon": "blackwargrowlmon",
     },
     "gabumon": {
         "adult": "garurumon", "perfect": "weregarurumon", "ultimate": "metalgarurumon",
         "superultimate": "omegamon",
+        "perfect-blackweregarurumon": "blackweregarurumon",
+        "ultimate-darkdramon": "darkdramon",
     },
     "veemon": {
         "adult": "exveemon", "perfect": "paildramon", "ultimate": "imperialdramon_fm",
         "superultimate": "imperialdramon_pm",
+        "perfect-flamedramon": "flamedramon",
+        "perfect-magnamon": "magnamon",
+        "ultimate-imperialdramon_dm": "imperialdramon_dm",
     },
-    "renamon": {"adult": "kyubimon", "perfect": "taomon", "ultimate": "sakuyamon"},
-    "terriermon": {"adult": "gargomon", "perfect": "rapidmon", "ultimate": "megagargomon"},
-    "impmon": {"adult": "devimon", "perfect": "myotismon", "ultimate": "beelzemon"},
+    "renamon": {
+        "adult": "kyubimon", "perfect": "taomon", "ultimate": "sakuyamon",
+        "ultimate-kuzuhamon": "kuzuhamon",
+    },
+    "terriermon": {
+        "adult": "gargomon", "perfect": "rapidmon", "ultimate": "megagargomon",
+        "perfect-blackrapidmon": "blackrapidmon",
+        # 블랙세인트가르고몬 rips as blackmegagargomon (Wikimon's Japanese name).
+        "ultimate-blacksaintgalgomon": "blackmegagargomon",
+    },
+    # 베르제브몬 블래스트 모드 시트를 뒤늦게 구해 초궁극체가 채워졌다 -- 32px
+    # 도트(impmon/superultimate-*.png)와 같은 시트라 형태가 어긋나지 않는다.
+    "impmon": {
+        "adult": "devimon", "perfect": "myotismon", "ultimate": "beelzemon",
+        "superultimate": "beelzemon_bm",
+    },
+    # 케라몬·팔코몬·가오몬 라인은 성장기 시트도 DWDS라 child 초상을 뽑을 수
+    # 있다. idle 은 관례상 성장기와 같은 프레임이지만 초상은 만들지 않는다 --
+    # 앱이 초상을 찾는 키는 진화 단계(stageIds)뿐이라 portrait-idle-*.png 는
+    # 아무도 읽지 않는다.
     "keramon": {
+        "child": "keramon",
         "adult": "kurisarimon", "perfect": "infermon", "ultimate": "diaboromon",
         "superultimate": "armagemon",
+        "ultimate-beelzebumon": "beelzemon",
     },
     "falcomon": {
+        "child": "falcomon",
         "adult": "peckmon", "perfect": "yatagaramon", "ultimate": "varodurumon",
         "superultimate": "chronomon_hm",
+    },
+    # miragegaogamon_bm(초궁극체) 시트는 photobucket 워터마크 박힌 저해상도
+    # 리핑이라 detect_pose_boxes()가 배틀 포즈 후보를 하나도 못 찾는다
+    # (수동 크롭으로 뽑아도 흐려서 컷인용으로 못 쓴다). 대체 시트를 구하기
+    # 전까지는 항목을 두지 않는다 -- pack.json도 궁극체를 최상위로 둔다.
+    "gaomon": {
+        "child": "gaomon",
+        "adult": "gaogamon", "perfect": "machgaogamon", "ultimate": "miragegaogamon",
     },
 }
 
@@ -159,6 +220,27 @@ POSE_OVERRIDES = {
     # reared up with the core lit. The +24% height between them *is* the
     # rearing, not a scale glitch.
     "armagemon": (3, 4),
+    # 분기 노드 시트. Same two failures as above, nothing new: auto-pick
+    # either found no size match at all (geogreymon/kuzuhamon/flamedramon) or,
+    # on a single-row sheet, settled for the adjacent breathing frame
+    # (darkdramon). Picked against --contact strips.
+    "geogreymon": (0, 4),   # head-up roar; row 1's other pose is a back view
+    "kuzuhamon": (0, 3),    # staff raised, arms wide (row 1's other is smaller/side)
+    "flamedramon": (0, 3),  # hunched charge, same facing as idx0 -- idx4 is a
+                            # diving pose turned ~45도, which reads as a snap
+    "darkdramon": (0, 2),   # wings blasted open. idx1 is an idle dup (d=23 but
+                            # visibly the same stance), idx3 is a flying lunge
+    # 케라몬 sheet is one row of 5, so "prefer another row" has nothing to
+    # prefer and auto-pick took idx1, a breathing dup. idx4 is the mouth-wide
+    # attack pose -- also what the child stage of the pack shows.
+    "keramon": (0, 4),
+    # miragegaogamon's row 1 (idx 3, 4) both clear the +/-15% size check on
+    # width but miss it on height by ~25% (the swept cape and claw-out lunge
+    # extend the bbox downward) -- auto-pick found nothing and left
+    # portrait-ultimate-1.png missing entirely. idx4 is the cleaner side-lunge
+    # silhouette (cape flared, claws extended) vs idx3's more compressed
+    # crouch, same reason kyubimon/taomon prefer the fuller-extension pose.
+    "miragegaogamon": (0, 4),
 }
 
 
@@ -256,7 +338,7 @@ def pick_frames(sheet):
     images."""
     im, rows, backdrops = detect_pose_boxes(sheet)
     if not rows:
-        raise SystemExit(f"{sheet}: no battle-pose candidates found")
+        raise NoPoses("no battle-pose candidates found")
     flat = [b for row in rows for b in row]
 
     override = POSE_OVERRIDES.get(sheet)
@@ -330,8 +412,44 @@ def save_pair(sprite0, sprite1, out_dir, stage):
     return paths
 
 
+# Renders every pose candidate of `sheet` side by side in reading order (row
+# by row, left to right -- the flat index POSE_OVERRIDES uses), each bottom-
+# aligned in its own cell with the index drawn underneath. Same two-step loop
+# as the field-frame contact strip in extract_pack_evolved_dwds.py: render it,
+# look at it, write the pair into POSE_OVERRIDES.
+def contact_sheet(sheet, out_path):
+    im, rows, backdrops = detect_pose_boxes(sheet)
+    poses = [crop_pose(im, b, backdrops) for row in rows for b in row]
+    if not poses:
+        raise SystemExit(f"{sheet}: no battle-pose candidates found")
+    pad, label_h = 10, 16
+    cell_w = max(p.width for p in poses) + pad
+    cell_h = max(p.height for p in poses)
+    # Dark backdrop, not transparent: these sprites are outlined in near-black
+    # and vanish against the default white image viewer background.
+    strip = Image.new("RGBA", (cell_w * len(poses), cell_h + label_h), (32, 32, 40, 255))
+    draw = ImageDraw.Draw(strip)
+    i = 0
+    for r, row in enumerate(rows):
+        for _ in row:
+            pose = poses[i]
+            x = i * cell_w + (cell_w - pose.width) // 2
+            strip.paste(pose, (x, cell_h - pose.height), pose)
+            # Alternating label colour marks the row boundary -- auto-pick
+            # prefers a frame 1 from a *different* row, so which row a
+            # candidate sits in is the first thing you need to see.
+            draw.text((i * cell_w + 4, cell_h + 3), str(i),
+                      fill=(255, 90, 90, 255) if r % 2 == 0 else (110, 200, 255, 255))
+            i += 1
+    strip.save(out_path)
+    counts = "+".join(str(len(r)) for r in rows)
+    print(f"{out_path}  <- {sheet}, {len(poses)} poses in {len(rows)} row(s) ({counts}); "
+          f"index under each, red = row 0, blue = row 1, alternating")
+
+
 def main(packs):
     cache = {}
+    skipped = []
     for pack in packs:
         out_dir = os.path.join(PACK_DIR, pack)
         if not os.path.isdir(out_dir):
@@ -339,15 +457,37 @@ def main(packs):
             continue
         for stage, sheet in PACK_SHEETS[pack].items():
             if sheet not in cache:
-                cache[sheet] = pick_frames(sheet)
-            sprite0, sprite1 = cache[sheet]
+                # A sheet that is missing or holds no battle poses at all
+                # (유아기 sheets are the known case -- see PACK_SHEETS) skips
+                # the stage instead of killing the run, so one gap can't cost
+                # every pack behind it in the loop.
+                if not os.path.exists(os.path.join(SHEET_DIR, sheet + ".png")):
+                    cache[sheet] = f"{SHEET_DIR}/{sheet}.png not found"
+                else:
+                    try:
+                        cache[sheet] = pick_frames(sheet)
+                    except NoPoses as e:
+                        cache[sheet] = str(e)
+            entry = cache[sheet]
+            if isinstance(entry, str):
+                skipped.append(f"{pack}/{stage} ({sheet}): {entry}")
+                continue
+            sprite0, sprite1 = entry
             paths = save_pair(sprite0, sprite1, out_dir, stage)
             note = " + ".join(f"{p} ({Image.open(p).size[0]}x{Image.open(p).size[1]})" for p in paths)
             print(f"{pack}/{stage} <- {sheet}: {note}")
+    if skipped:
+        print("\nskipped (32px 도트를 확대해 폴백한다):\n  " + "\n  ".join(skipped))
 
 
 if __name__ == "__main__":
-    requested = sys.argv[1:] or list(PACK_SHEETS)
+    args = sys.argv[1:]
+    if args and args[0] == "--contact":
+        if len(args) < 2:
+            raise SystemExit("usage: --contact <sheet> [out.png]")
+        contact_sheet(args[1], args[2] if len(args) > 2 else f"/tmp/{args[1]}-poses.png")
+        sys.exit(0)
+    requested = args or list(PACK_SHEETS)
     unknown = [p for p in requested if p not in PACK_SHEETS]
     if unknown:
         raise SystemExit(f"unknown pack(s): {', '.join(unknown)}; known: {', '.join(PACK_SHEETS)}")
