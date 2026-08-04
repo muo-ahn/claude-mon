@@ -1,0 +1,71 @@
+{
+  "name": "가오몬",
+  "stageNames": {
+    "digitama": "알",
+    "baby": "와냐몬",
+    "child": "가오몬",
+    "adult": "가오가몬",
+    "perfect": "마하가오가몬",
+    "ultimate": "미라지가오가몬"
+  },
+  "tree": {
+    "digitama": [
+      {
+        "id": "digitama",
+        "name": "알",
+        "sprite": "digitama",
+        "next": [
+          "wanyamon"
+        ]
+      }
+    ],
+    "baby": [
+      {
+        "id": "wanyamon",
+        "name": "와냐몬",
+        "sprite": "baby",
+        "next": [
+          "gaomon"
+        ]
+      }
+    ],
+    "child": [
+      {
+        "id": "gaomon",
+        "name": "가오몬",
+        "sprite": "child",
+        "next": [
+          "gaogamon"
+        ]
+      }
+    ],
+    "adult": [
+      {
+        "id": "gaogamon",
+        "name": "가오가몬",
+        "sprite": "adult",
+        "next": [
+          "machgaogamon"
+        ]
+      }
+    ],
+    "perfect": [
+      {
+        "id": "machgaogamon",
+        "name": "마하가오가몬",
+        "sprite": "perfect",
+        "next": [
+          "miragegaogamon"
+        ]
+      }
+    ],
+    "ultimate": [
+      {
+        "id": "miragegaogamon",
+        "name": "미라지가오가몬",
+        "sprite": "ultimate",
+        "next": []
+      }
+    ]
+  }
+}

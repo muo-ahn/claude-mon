@@ -5,7 +5,7 @@
     "baby": "쿠라몬",
     "child": "케라몬",
     "adult": "크리사리몬",
-    "perfect": "인퍼몬",
+    "perfect": "인펠몬",
     "ultimate": "디아블로몬",
     "superultimate": "아마게몬"
   },
@@ -53,7 +53,7 @@
     "perfect": [
       {
         "id": "infermon",
-        "name": "인퍼몬",
+        "name": "인펠몬",
         "sprite": "perfect",
         "next": [
           "diablomon",

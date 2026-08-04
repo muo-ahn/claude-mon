@@ -63,9 +63,12 @@ let executableDir: String = {
 }()
 
 // Picks the sprite-root positional argument out of argv, skipping over the
-// headless CLI flags (--dump-state, --dump-limits <path>) so both
-// `claudemon-menubar <root> --dump-state` and the flag-only
-// `claudemon-menubar --dump-state` (default root) work.
+// headless CLI flags (--dump-state, --dump-limits <path>, --demo-cutin
+// [fromStage] [toStage]) so `claudemon-menubar <root> --dump-state`, the
+// flag-only `claudemon-menubar --dump-state` (default root), and
+// `claudemon-menubar <root> --demo-cutin` all work. --demo-cutin's own
+// arguments are stage names, not a sprite root, so once it's seen the rest
+// of argv is skipped entirely rather than misread as a positional path.
 let spriteRoot: String = {
     let args = Array(CommandLine.arguments.dropFirst())
     var skipNext = false
@@ -73,6 +76,7 @@ let spriteRoot: String = {
         if skipNext { skipNext = false; continue }
         if arg == "--dump-limits" { skipNext = true; continue }
         if arg == "--dump-state" { continue }
+        if arg == "--demo-cutin" { break }
         return (arg as NSString).isAbsolutePath ? arg : URL(fileURLWithPath: arg).standardizedFileURL.path
     }
     return (executableDir as NSString).deletingLastPathComponent + "/sprites"
@@ -111,12 +115,13 @@ let stageIds = ["digitama", "baby", "child", "adult", "perfect", "ultimate", "su
 // currentStageId is still at or before "child". From "adult" onward the
 // generic sprites would show the wrong species, so framesForLevel tints the
 // current stage frames instead of swapping in the generic sprite.
-let genericOverrideStages = ["digitama", "baby", "child"]
+let genericOverrideStages = ["child"]
 
 // Stages whose sprite is species-agnostic and therefore shared by every pack,
 // loaded from <spriteRoot>/shared instead of the pack directory -- a Digi-Egg
-// looks the same whoever is inside it. The per-pack digitama-*.png files stay
-// as a fallback for a sprite root that has no shared/ directory.
+// looks the same whoever is inside it. The egg art lives only in shared/;
+// packs don't carry their own digitama-*.png (some used to, but those were
+// mislabeled Baby-stage dots, not eggs, and have since been removed).
 let sharedStages = ["digitama"]
 let sharedSpriteDir = spriteRoot + "/shared"
 
@@ -142,6 +147,7 @@ let monLabels: [String: String] = [
     "impmon": "임프몬",
     "keramon": "케라몬",
     "falcomon": "팔코몬",
+    "gaomon": "가오몬",
 ]
 
 func labelForMon(_ mon: String) -> String {
@@ -175,14 +181,24 @@ func evolvedName(pack: String, mon: String, stageId: String) -> String {
 
 // Returns true when the route actually changed, which is the signal to
 // reload frame sets (a new route can point a stage at different art).
-func applyRoute(_ route: [String: [String: String]]) -> Bool {
+//
+// `mon` belongs in the key, not just the sprite list: sprite keys alone
+// collide ACROSS packs. A stage that renders from its spine files has
+// sprite == stageId, so every pack whose route picked spine the whole way
+// down produces the same "digitama>baby>...>superultimate" string -- that is
+// 7 of the 10 default packs, and falcomon/impmon have no branches at all so
+// they hit it every single day. When the daily rotation moved impmon ->
+// falcomon the guard below saw an unchanged key and kept impmon's stage
+// NAMES, while the art still switched (switchMonIfNeeded compares mon
+// itself). Result: 팔코몬's dots labelled 임프몬.
+func applyRoute(_ route: [String: [String: String]], mon: String) -> Bool {
     var sprites: [String: String] = [:]
     var names: [String: String] = [:]
     for (stage, node) in route {
         if let s = node["sprite"], !s.isEmpty { sprites[stage] = s }
         if let n = node["name"], !n.isEmpty { names[stage] = n }
     }
-    let key = stageIds.map { sprites[$0] ?? $0 }.joined(separator: ">")
+    let key = ([mon] + stageIds.map { sprites[$0] ?? $0 }).joined(separator: ">")
     guard key != activeRouteKey else { return false }
     activeRouteSprites = sprites
     activeRouteNames = names
@@ -683,9 +699,96 @@ if cliArgs.contains("--dump-state") {
     exit(0)
 }
 
+// GUI-mode test hook: `--demo-cutin [fromStage] [toStage]` plays one
+// evolution cut-in right after launch, since a real one only fires up to 5
+// times/day and can't be reproduced by hand on demand. Defaults to
+// child -> ultimate when the stage args are omitted.
+let demoCutIn: (from: String, to: String)? = {
+    guard let idx = cliArgs.firstIndex(of: "--demo-cutin") else { return nil }
+    let rest = Array(cliArgs[(idx + 1)...])
+    let from = rest.count > 0 ? rest[0] : "child"
+    let to = rest.count > 1 ? rest[1] : "ultimate"
+    return (from, to)
+}()
+
+// Kill switch for the evolution cut-in overlay. The overlay is deliberately
+// attention-grabbing, which is exactly wrong when you're heads-down in
+// something else, so it has to be turnable off without a rebuild. Two ways,
+// checked in this order:
+//   --no-cutin              command line, wins over everything
+//   --demo-cutin            forces it back ON, so the demo flag still works
+//                           even if the env var below is set in your shell
+//   CLAUDEMON_CUTIN=0       env var, for launch-at-login wrappers that can't
+//                           pass flags (also accepts false/off/no)
+// Only the big overlay is affected. The menu bar icon's own digivolve flash
+// (startEvolutionBurst) and the dropdown portrait header stay as they are --
+// those are opt-in by looking, so they don't break focus.
+let cutInEnabled: Bool = {
+    if cliArgs.contains("--no-cutin") { return false }
+    if demoCutIn != nil { return true }
+    switch ProcessInfo.processInfo.environment["CLAUDEMON_CUTIN"]?.lowercased() {
+    case "0", "false", "off", "no": return false
+    default: return true
+    }
+}()
+
+// Draws `img` centered inside `box`, preserving aspect ratio (fit, never
+// stretched or cropped), with nearest-neighbor scaling so pixel art stays
+// crisp instead of the blur a plain NSImageView would produce.
+// Edge of the square box both portrait surfaces (menu header, evolution
+// cut-in) draw into. Sized to clear the largest portrait asset we ship at 1:1,
+// because drawAspectFit only snaps to whole numbers when *enlarging* -- a box
+// smaller than the art would shrink it by a fraction and bring back the wobbly
+// outline this is all meant to avoid. The slack also buys the smallest assets a
+// clean 2x: anything up to 104px on its long edge doubles instead of sitting
+// tiny in the middle (keramon/portrait-adult is 78x84, the one that motivated
+// this).
+//
+// Re-measure when adding portraits -- extending portraits to the branch nodes
+// already moved the governing asset twice: keramon/portrait-superultimate
+// (183x154) set the old 184, and agumon/portrait-perfect-rizegreymon (134x204)
+// sets this one. Widest is still armagemon at 183.
+let portraitBox: CGFloat = 208
+
+func drawAspectFit(_ img: NSImage, in box: NSRect) {
+    let srcSize = img.size
+    guard srcSize.width > 0, srcSize.height > 0 else { return }
+    // Pixel art must be scaled by a whole number, otherwise nearest-neighbour
+    // stretches some source pixels wider than their neighbours and the outline
+    // visibly wobbles. Portrait assets are 66-181px of hand-drawn art dropped
+    // into a fixed 150/160px box, so the raw aspect-fit ratio is almost never
+    // integral -- floor it and accept the leftover margin. Downscaling (ratio
+    // below 1) is left alone: flooring there would collapse to zero.
+    let fitScale = min(box.width / srcSize.width, box.height / srcSize.height)
+    let scale = fitScale > 1 ? floor(fitScale) : fitScale
+    let w = srcSize.width * scale
+    let h = srcSize.height * scale
+    let origin = NSPoint(x: box.minX + (box.width - w) / 2, y: box.minY + (box.height - h) / 2)
+    NSGraphicsContext.current?.imageInterpolation = .none
+    img.draw(in: NSRect(origin: origin, size: NSSize(width: w, height: h)), from: .zero, operation: .sourceOver, fraction: 1.0)
+}
+
+// NSView that draws a single NSImage aspect-fit via drawAspectFit(). Used by
+// both the evolution cut-in overlay (work item A) and the menu's portrait
+// header (work item B) so both share the same crisp pixel-art rendering.
+final class PixelArtView: NSView {
+    var image: NSImage? { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let image = image else { return }
+        drawAspectFit(image, in: bounds)
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var stageFrames: [String: [NSImage]] = [:]
+    // Large-format portraits for the evolution cut-in (A) and menu header
+    // (B). Loaded at native resolution -- see loadImageSequence(size:) --
+    // since the two callers fit them into differently-sized boxes.
+    // Populated only for stages that actually have portrait-<stage>-N.png
+    // assets in the pack; missing stages fall back via portraitImage(forStage:).
+    var portraitFrames: [String: [NSImage]] = [:]
     var limitFrameSets: [String: [NSImage]] = [:] // "limit80" / "limit95" -> frames
     var idleFrames: [NSImage] = []
     var currentFrames: [NSImage] = []
@@ -719,13 +822,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let daily = readDailyState()
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
-        _ = applyRoute(daily.route)
+        _ = applyRoute(daily.route, mon: daily.mon)
         switchMonIfNeeded(daily.mon)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
         runDailyTokensAggregator()
         refreshState()
         advanceFrame()
+
+        if let demo = demoCutIn {
+            startEvolutionCutIn(fromStage: demo.from, toStage: demo.to,
+                                 name: evolvedName(pack: currentPackPath, mon: currentMon, stageId: demo.to))
+        }
 
         Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
             self?.advanceFrame()
@@ -747,12 +855,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // Loads `<prefix>-0.png`, `<prefix>-1.png`, ... until one is missing.
-    func loadImageSequence(inDir dir: String, prefix: String) -> [NSImage] {
+    // `size` forces the NSImage's logical size (default: the menu bar's
+    // 32px-bitmap-at-16pt convention, unchanged from before); pass `nil` to
+    // keep each image's native size instead -- used for portraits, where
+    // stretching to a fixed square would distort non-square art and the
+    // target box differs by caller (cut-in vs. menu header).
+    func loadImageSequence(inDir dir: String, prefix: String, size: NSSize? = NSSize(width: 16, height: 16)) -> [NSImage] {
         var result: [NSImage] = []
         var i = 0
         while let img = NSImage(contentsOfFile: "\(dir)/\(prefix)-\(i).png") {
             // 32px bitmap shown at 16pt -> 1:1 physical pixels on retina
-            img.size = NSSize(width: 16, height: 16)
+            if let size = size {
+                img.size = size
+            }
             result.append(img)
             i += 1
         }
@@ -804,6 +919,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             newStageFrames[stage] = frames
         }
         stageFrames = newStageFrames
+
+        // Optional big-format portraits (portrait-<prefix>-0.png, -1.png).
+        // Native size (size: nil) since callers fit these into their own
+        // boxes; a stage with no portrait assets simply gets no entry here,
+        // and portraitImage(forStage:) falls back to an upscaled stage frame.
+        var newPortraitFrames: [String: [NSImage]] = [:]
+        for stage in stageIds {
+            // Route-aware, exactly like the stage frames above: on a branch
+            // day this must load portrait-adult-geogreymon-*, not the spine's.
+            // Deliberately WITHOUT their spine fallback though -- borrowing
+            // 그레이몬's portrait for 지오그레이몬 would put a different digimon
+            // in the drop-down than the one in the menu bar. With no entry,
+            // portraitImage(forStage:) upscales the dot that is actually on
+            // screen, which is always the right species.
+            let prefix = activeRouteSprites[stage] ?? stage
+            let frames = loadImageSequence(inDir: pack, prefix: "portrait-\(prefix)", size: nil)
+            if !frames.isEmpty {
+                newPortraitFrames[stage] = frames
+            }
+        }
+        portraitFrames = newPortraitFrames
+
         // Optional behavior-override sprite sets. If the corresponding
         // files don't exist yet, the array is simply empty and
         // framesForLevel() falls back to the stage frames.
@@ -838,6 +975,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         fputs("claudemon-menubar: no usable sprite pack found for mon '\(mon)' (tried \(resolved.path))\n", stderr)
         exit(1)
+    }
+
+    // Big-format portrait for `stage`: prefers a real portrait-<stage>-0.png
+    // from the current pack; falls back to a 4x nearest-neighbor upscale of
+    // the regular 32px stage sprite. The fallback matters right now because
+    // portrait assets only exist for adult/perfect/ultimate (and extraction
+    // may not have run yet for every pack) -- the cut-in (A) and menu header
+    // (B) both need to work regardless.
+    func portraitImage(forStage stage: String) -> NSImage? {
+        if let img = portraitFrames[stage]?.first {
+            return img
+        }
+        guard let base = stageFrames[stage]?.first ?? idleFrames.first else { return nil }
+        // Blow the 32px sprite up as far as portraitBox allows rather than by a
+        // fixed 4x: at 4x it landed at 128 in a 184 box, and drawAspectFit's
+        // integer snap would then leave it there, wasting the slack.
+        let longEdge = max(base.size.width, base.size.height)
+        let factor = longEdge > 0 ? max(1, floor(portraitBox / longEdge)) : 1
+        return upscaledNearestNeighbor(base, factor: factor)
+    }
+
+    // Nearest-neighbor integer upscale so pixel art doesn't blur.
+    // imageInterpolation = .none must be set on the *destination* context
+    // before drawing -- without it AppKit defaults to smooth resampling and
+    // the result comes out mushy instead of crisp.
+    func upscaledNearestNeighbor(_ img: NSImage, factor: CGFloat) -> NSImage {
+        let outSize = NSSize(width: img.size.width * factor, height: img.size.height * factor)
+        let out = NSImage(size: outSize)
+        out.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .none
+        img.draw(in: NSRect(origin: .zero, size: outSize), from: .zero, operation: .sourceOver, fraction: 1.0)
+        out.unlockFocus()
+        return out
     }
 
     // Picks the frames to display for a resolved override key (from
@@ -960,7 +1130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
-        switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route))
+        switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route, mon: daily.mon))
 
         // Evolution burst: same mon moved UP a stage -> flash old/new forms
         // for a few seconds, classic digivolve style. Mon switches (daily
@@ -972,6 +1142,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
            let oldFrames = stageFrames[previousStageId],
            let newFrames = stageFrames[daily.stageId] {
             startEvolutionBurst(from: oldFrames, to: newFrames)
+            startEvolutionCutIn(fromStage: previousStageId, toStage: daily.stageId,
+                                 name: evolvedName(pack: currentPackPath, mon: currentMon, stageId: daily.stageId))
         }
 
         // Global session-state judgment across all registered sessions.
@@ -1065,6 +1237,160 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Evolution cut-in overlay (work item A)
+    //
+    // Runs ALONGSIDE startEvolutionBurst's existing menu-bar digivolve
+    // animation (that stays exactly as-is) -- this shows the same style of
+    // digivolve morph at portrait size in the screen's top-right corner,
+    // since an elaborate adult/perfect/ultimate form is unreadable at the
+    // menu bar's 16pt icon size.
+    var cutInWindow: NSWindow?
+    var cutInImageView: PixelArtView?
+    var cutInLabel: NSTextField?
+    var cutInTickTimer: Timer? = nil
+    var cutInHoldTimer: Timer? = nil
+    // Bumped on every call to startEvolutionCutIn(); timer closures compare
+    // against the value they captured so a re-trigger mid-burst (a second
+    // evolution before the first cut-in finished) can't have its stale
+    // hold/fade-out timers stomp on the new run's window state.
+    var cutInGeneration = 0
+
+    func makeCutInWindow() -> NSWindow {
+        let size = NSSize(width: portraitBox + 40, height: portraitBox + 68)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                               styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let container = NSView(frame: NSRect(origin: .zero, size: size))
+
+        // Backdrop panel behind the sprite/label. Without this, the white
+        // digivolve silhouette phase vanishes over a white desktop/window
+        // and a dark sprite (e.g. impmon's line) vanishes over a dark one --
+        // confirmed by screen capture, contrast is otherwise a coin flip.
+        // Colors are fixed literals (not semantic/system colors), so the
+        // panel stays dark and legible regardless of the system's light/dark
+        // appearance or whatever happens to be behind the cut-in.
+        let backdrop = NSView(frame: NSRect(origin: .zero, size: size))
+        backdrop.wantsLayer = true
+        backdrop.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
+        backdrop.layer?.cornerRadius = 16
+        backdrop.layer?.borderWidth = 1
+        backdrop.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
+        container.addSubview(backdrop)
+
+        let imageView = PixelArtView(frame: NSRect(x: 20, y: 48, width: portraitBox, height: portraitBox))
+        container.addSubview(imageView)
+        cutInImageView = imageView
+
+        let label = NSTextField(labelWithString: "")
+        label.font = NSFont.boldSystemFont(ofSize: 15)
+        label.alignment = .center
+        label.textColor = .white
+        let shadow = NSShadow()
+        shadow.shadowColor = .black
+        shadow.shadowBlurRadius = 3
+        shadow.shadowOffset = NSSize(width: 0, height: -1)
+        label.shadow = shadow
+        label.frame = NSRect(x: 0, y: 16, width: size.width, height: 24)
+        container.addSubview(label)
+        cutInLabel = label
+
+        window.contentView = container
+        return window
+    }
+
+    // Top-right corner of the main screen's visibleFrame, just under the
+    // menu bar, 16pt margin from the top and right edges.
+    //
+    // Deliberately NOT NSScreen.main -- that resolves to whichever screen
+    // currently holds keyboard focus, which on a multi-monitor setup can be
+    // a secondary display with no menu bar at all (confirmed while testing:
+    // the cut-in silently rendered on an off-focus external monitor and
+    // never became visible on the laptop's own screen). The screen that
+    // actually owns the menu bar is always the one at origin (0,0), per
+    // AppKit's screen-ordering convention.
+    func positionCutInWindow(_ window: NSWindow) {
+        guard let screen = NSScreen.screens.first(where: { $0.frame.origin == .zero }) ?? NSScreen.main
+        else { return }
+        let visible = screen.visibleFrame
+        let size = window.frame.size
+        let origin = NSPoint(x: visible.maxX - size.width - 16,
+                              y: visible.maxY - size.height - 16)
+        window.setFrameOrigin(origin)
+    }
+
+    // ~3.5s total: fade in -> digivolve silhouette morph (reusing
+    // whiteSilhouette(of:), same visual language as startEvolutionBurst) ->
+    // 1.2s hold on the new form -> 0.4s fade out, then the window is
+    // ordered out (not destroyed, so a later evolution can reuse it).
+    func startEvolutionCutIn(fromStage: String, toStage: String, name: String) {
+        // Single choke point for the kill switch -- guarding here instead of
+        // at the call sites means a future caller can't accidentally leak an
+        // overlay past the setting.
+        guard cutInEnabled else { return }
+        guard let oldPortrait = portraitImage(forStage: fromStage),
+              let newPortrait = portraitImage(forStage: toStage)
+        else { return }
+
+        cutInTickTimer?.invalidate()
+        cutInTickTimer = nil
+        cutInHoldTimer?.invalidate()
+        cutInHoldTimer = nil
+        cutInGeneration += 1
+        let myGen = cutInGeneration
+
+        let window = cutInWindow ?? makeCutInWindow()
+        cutInWindow = window
+        positionCutInWindow(window)
+        cutInLabel?.stringValue = "\(name) 진화!"
+        cutInImageView?.image = oldPortrait
+
+        window.alphaValue = 0
+        window.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.3
+            window.animator().alphaValue = 1
+        }
+
+        let oldWhite = whiteSilhouette(of: oldPortrait)
+        let newWhite = whiteSilhouette(of: newPortrait)
+        var sequence: [NSImage] = []
+        // 1) ignition: color <-> white blink on the old form
+        for _ in 0..<2 { sequence += [oldPortrait, oldWhite] }
+        // 2) silhouette morph: white-only shape swap
+        sequence += [oldWhite, newWhite, oldWhite, newWhite, oldWhite, newWhite]
+        // 3) reveal: white <-> color pop on the new form
+        sequence += [newPortrait, newWhite, newPortrait]
+
+        var tick = 0
+        cutInTickTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] timer in
+            guard let self = self, self.cutInGeneration == myGen else { timer.invalidate(); return }
+            if tick >= sequence.count {
+                timer.invalidate()
+                self.cutInTickTimer = nil
+                self.cutInImageView?.image = newPortrait
+                self.cutInHoldTimer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: false) { [weak self] _ in
+                    guard let self = self, self.cutInGeneration == myGen, let win = self.cutInWindow else { return }
+                    NSAnimationContext.runAnimationGroup({ ctx in
+                        ctx.duration = 0.4
+                        win.animator().alphaValue = 0
+                    }, completionHandler: { [weak self] in
+                        guard let self = self, self.cutInGeneration == myGen else { return }
+                        win.orderOut(nil)
+                    })
+                }
+                return
+            }
+            self.cutInImageView?.image = sequence[tick]
+            tick += 1
+        }
+    }
+
     // Recomputes currentFrames from (currentStageId, currentLimitLevel,
     // currentSessionState) via overrideFrameLevel's priority order. Only
     // resets frameIdx when the selected set actually changes, so a running
@@ -1149,15 +1475,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return lines
     }
 
+    // Builds the menu's header item: a big portrait (readable, unlike the
+    // 16pt menu bar icon) + name + stage + today's token count. Replaces
+    // the old single-line text item -- everything below it (session rows,
+    // rate limits, quit) is unchanged.
+    func makeHeaderMenuItem(name: String, stageId: String, tokenLine: String) -> NSMenuItem {
+        let width: CGFloat = 260
+        let height: CGFloat = 58 + portraitBox + 4
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+
+        let portraitView = PixelArtView(frame: NSRect(x: (width - portraitBox) / 2, y: 58,
+                                                      width: portraitBox, height: portraitBox))
+        portraitView.image = portraitImage(forStage: stageId)
+        container.addSubview(portraitView)
+
+        let nameLabel = NSTextField(labelWithString: name)
+        nameLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        nameLabel.alignment = .center
+        nameLabel.textColor = NSColor.labelColor
+        nameLabel.frame = NSRect(x: 0, y: 38, width: width, height: 18)
+        container.addSubview(nameLabel)
+
+        let stageLabel = NSTextField(labelWithString: stageLabels[stageId] ?? stageId)
+        stageLabel.font = NSFont.systemFont(ofSize: 11)
+        stageLabel.alignment = .center
+        stageLabel.textColor = NSColor.secondaryLabelColor
+        stageLabel.frame = NSRect(x: 0, y: 22, width: width, height: 14)
+        container.addSubview(stageLabel)
+
+        let tokenLabel = NSTextField(labelWithString: tokenLine)
+        tokenLabel.font = NSFont.systemFont(ofSize: 11)
+        tokenLabel.alignment = .center
+        tokenLabel.textColor = NSColor.secondaryLabelColor
+        tokenLabel.frame = NSRect(x: 0, y: 6, width: width, height: 14)
+        container.addSubview(tokenLabel)
+
+        let item = NSMenuItem()
+        item.view = container
+        return item
+    }
+
     func rebuildMenu() {
         let menu = NSMenu()
 
-        let dailyLabel = stageLabels[currentStageId] ?? currentStageId
         let mon = currentMon.isEmpty ? defaultMon : currentMon
         let name = currentPackPath.isEmpty
             ? labelForMon(mon)
             : evolvedName(pack: currentPackPath, mon: mon, stageId: currentStageId)
-        menu.addItem(withTitle: "\(name) · \(dailyLabel) · 오늘 \(formatTokenCount(dailyOutputTokens)) tok", action: nil, keyEquivalent: "")
+        menu.addItem(makeHeaderMenuItem(name: name, stageId: currentStageId,
+                                        tokenLine: "오늘 \(formatTokenCount(dailyOutputTokens)) tok"))
 
         // Waiting-for-human sessions get called out first — they need
         // attention more urgently than a plain "still working" count.

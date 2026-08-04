@@ -65,8 +65,52 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 
 - 빌드 산출물(`menubar/claudemon-menubar`)은 `.gitignore`로 제외되어 있으므로 각자 빌드해야 한다.
 - 앱은 accessory(백그라운드 상주) 모드로 뜨며 Dock 아이콘 없이 메뉴바에만 나타난다. `active-session.sh`로 현재 포커스된 세션을 추적하고, 30초마다 `daily-tokens.js`를 호출해 토큰 집계를 갱신한다.
-- 로그인 시 자동 실행하려면 `launchd` LaunchAgent(`~/Library/LaunchAgents/`)로 등록하거나 시스템 설정 → 로그인 항목에 추가한다.
+- 로그인 시 자동 실행은 아래 [LaunchAgent 등록](#로그인-시-자동-실행-launchagent) 참고.
 - 스프라이트가 하나도 없으면 표시가 비거나 fallback되므로, 먼저 [스프라이트 팩](#스프라이트-팩-spritespacks)을 최소 하나 채운다.
+
+### 로그인 시 자동 실행 (LaunchAgent)
+
+`~/Library/LaunchAgents/com.muo.claudemon-menubar.plist` — 경로는 절대경로여야 하고 `<홈>`·`<레포>`를 각자 값으로 바꾼다.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.muo.claudemon-menubar</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string><레포>/menubar/claudemon-menubar</string>
+		<string><레포>/sprites</string>
+		<string>--no-cutin</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>StandardOutPath</key>
+	<string><홈>/Library/Logs/claudemon-menubar.log</string>
+	<key>StandardErrorPath</key>
+	<string><홈>/Library/Logs/claudemon-menubar.log</string>
+</dict>
+</plist>
+```
+
+```bash
+# 등록 + 즉시 기동. 이미 수동으로 띄운 인스턴스가 있으면 먼저 죽인다(아이콘이 두 개 생긴다)
+pkill -f "claudemon-menubar /Users"
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.muo.claudemon-menubar.plist
+
+launchctl print gui/$(id -u)/com.muo.claudemon-menubar   # 상태 확인
+launchctl kickstart -k gui/$(id -u)/com.muo.claudemon-menubar   # 재빌드 후 재기동
+launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
+```
+
+- `ProcessType`은 `Interactive`여야 한다. 기본값이면 launchd가 백그라운드 등급으로 강등해 메뉴바 UI 응답이 느려질 수 있다.
+- `KeepAlive`는 넣지 않는 게 좋다. 켜면 `pkill`로 죽인 순간 launchd가 **plist에 적힌 인자로** 즉시 되살리므로, `--demo-cutin`처럼 다른 플래그로 띄워 확인하는 절차와 계속 충돌한다.
+- `node`는 PATH가 아니라 `/opt/homebrew/bin` → `/usr/local/bin` → `/usr/bin` 순서로 절대경로 탐색하므로(`findNodeBinary()`), launchd의 빈약한 PATH에서도 토큰 집계가 동작한다. 단 nvm/mise로만 설치한 node는 이 목록에 없어 집계가 조용히 멈춘다 — 그 경우 심볼릭 링크를 걸어준다.
+- 실행 인자를 바꿨으면 `bootout` → `bootstrap`을 다시 해야 한다. `kickstart`는 기존 plist 그대로 재기동할 뿐이다.
 
 ### 상태 저장 위치
 
@@ -129,6 +173,47 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 - `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
 - `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
 
+## 진화 연출 (메뉴바 앱)
+
+단계가 오르는 순간은 하루 최대 5번뿐인데, 16pt 아이콘 안에서 조용히 바뀌면 사실상 관측되지 않는다. 그래서 메뉴바 앱은 두 곳에서 동시에 연출한다.
+
+| 위치 | 내용 |
+|---|---|
+| 메뉴바 아이콘 | 흰 실루엣이 old ↔ new 형태를 오가는 디지볼브 (~4.5초) |
+| 화면 우상단 코너 | borderless 오버레이 창에 [큰 화면용 도트](#큰-화면용-도트-3종) 208pt + "`<이름>` 진화!" 라벨 (~3.5초) |
+
+컷인 창은 클릭을 통과시키고(`ignoresMouseEvents`) 모든 스페이스·전체화면 위에 뜬다. macOS 알림은 쓰지 않는다.
+
+- **배경 패널은 장식이 아니다.** 모프 단계가 순백색 실루엣이라 패널이 없으면 뒤에 흰 창이 있을 때 통째로 사라진다. 검정 alpha 0.6 라운드 패널 + 흰 alpha 0.18 테두리를 깔았고, 색은 시스템 semantic color가 아닌 고정 리터럴이라 라이트/다크 모드와 무관하게 대비가 보장된다.
+- 창을 띄울 화면은 `NSScreen.main`으로 고르면 안 된다. 그건 키보드 포커스를 따라가므로 멀티모니터 환경에서 메뉴바가 없는 외부 디스플레이에 렌더링돼 영영 보이지 않는다. 메뉴바를 소유한 화면은 언제나 origin `(0,0)`이다.
+- 연출 중 또 진화하면 generation 카운터로 이전 타이머를 무효화한다.
+
+### 연출 미리보기
+
+진화는 손으로 재현할 수 없으므로 전용 플래그가 있다. 기동 직후 컷인을 1회 재생하고 이후 정상 상주한다.
+
+```bash
+pkill -f "claudemon-menubar /Users"
+nohup /절대/경로/claude-mon/menubar/claudemon-menubar \
+  /절대/경로/claude-mon/sprites --demo-cutin perfect ultimate >/dev/null 2>&1 &
+```
+
+스테이지 인자를 생략하면 `child ultimate`로 재생한다. 스프라이트 루트 경로는 **`--demo-cutin`보다 앞에** 와야 한다 — 이 플래그 뒤의 인자는 스테이지 이름으로 해석된다.
+
+### 컷인 끄기
+
+우상단 오버레이는 의도적으로 시선을 끌기 때문에 집중 중에는 방해가 된다. 둘 중 하나로 끈다. 메뉴바 아이콘의 디지볼브 플래시와 드롭다운 초상은 영향받지 않는다 — 그건 봐야 보이는 연출이라 몰입을 깨지 않는다.
+
+```bash
+# 플래그 (모든 것보다 우선)
+nohup .../claudemon-menubar .../sprites --no-cutin >/dev/null 2>&1 &
+
+# 환경변수 (플래그를 넘길 수 없는 로그인 항목·래퍼용). 0/false/off/no 인식
+CLAUDEMON_CUTIN=0 nohup .../claudemon-menubar .../sprites >/dev/null 2>&1 &
+```
+
+`--demo-cutin`은 환경변수를 무시하고 다시 켠다(미리보기가 조용히 실패하면 디버깅이 어렵다). 단 `--no-cutin`이 함께 있으면 그쪽이 이긴다.
+
 ## 일일 토큰 집계 (`daily-tokens.js`)
 
 ```bash
@@ -168,7 +253,7 @@ node daily-tokens.js
 | 항목 | 값 |
 |---|---|
 | 포맷 | PNG (RGBA, 투명 배경) |
-| 권장 크기 | 32×32 px (메뉴바에서 16pt = retina 1:1로 표시) |
+| 권장 크기 | 32×32 px (메뉴바에서 16pt = retina 1:1로 표시). 큰 화면용 `large-*`/`portrait-*`는 원본 해상도를 유지한다 — [큰 화면용 도트 3종](#큰-화면용-도트-3종) 참고 |
 | 프레임 명명 | `<prefix>-0.png`, `<prefix>-1.png`, … 0부터 연속 번호 |
 | 프레임 수 | prefix당 최소 1장. 여러 장을 넣으면 애니메이션으로 순환 재생된다 |
 
@@ -184,6 +269,8 @@ node daily-tokens.js
 | `baby` / `child` / `adult` / `perfect` / `ultimate` / `superultimate` | 진화 2~7단계 | 권장 |
 | `limit80` | 사용량 80% 이상일 때 오버라이드(지친 모습) | 선택 |
 | `limit95` | 사용량 95% 이상일 때 오버라이드(뻗은 모습) | 선택 |
+| `large-<stage>` | 큰 화면용 원본 해상도 필드 도트 | 선택 — 없으면 32px 도트를 정수배 확대해 폴백 |
+| `portrait-<stage>` | 큰 화면용 배틀 포즈 초상 | 권장 — 없으면 `large-<stage>`, 그것도 없으면 정수배 확대 |
 
 - **알(digitama)은 종족 무관이라 팩마다 따로 그릴 필요가 없다.** `sprites/shared/digitama-0.png`가 있으면 메뉴바 앱과 `lib/daily.js`의 로테이션 후보 판정 둘 다 그 공용 스프라이트를 우선 사용하고, 팩 자체의 `digitama-0.png`는 공용 파일이 없을 때만 쓰이는 폴백이다 (`scripts/make_shared_digitama.py` 참고).
 - `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). **로테이션 후보 등록**도 같은 조건을 요구한다 — `idle-0.png`가 없는 디렉터리를 후보로 뽑아봐야 화면은 어제 몬 그대로이므로, `lib/daily.js`의 `listValidPacks`는 `idle-0.png` + digitama(공용 또는 팩 자체)를 둘 다 확인한다.
@@ -197,7 +284,7 @@ node daily-tokens.js
 - 최상위 단계까지 진화하지 못하는 계보는 한 달 중 가장 무거운 날에 천장 한 칸 아래에 머무른다. 그런 팩은 도달할 수 없는 단계를 붙여 보여주는 대신 로테이션에서 빼둔다.
 - 후보에서 빠져도 팩 자체는 유효하다 — 명시적으로 지정하거나 `guilmon` 폴백으로 걸리면 그대로 렌더된다.
 - 기준값은 `evolution-tree.json`의 마지막 단계에서 읽으므로(`topStageId()`), 나중에 단계를 더 추가하면 기준도 함께 올라간다.
-- 현 기본 팩 9개 중 3개가 후보에서 빠져 있다. 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)은 캐논상 초궁극체가 없고, 임프몬은 캐논에는 있지만(베르제브몬 블래스트 모드) DWDS 시트에 없어 도트를 구할 수 없다. 셋 다 `pack.json`의 `superultimate` 이름이 비어 있다 — 나중에 대체 종족이나 시트를 확보하면 이름 한 줄을 넣는 것으로 다시 후보가 된다.
+- 현 기본 팩 10개 중 1개(가오몬)가 후보에서 빠져 있다. 초궁극체 미라지가오가몬 버스트 모드의 DWDS 시트는 로컬에 있지만 photobucket 워터마크 박힌 저해상도 리핑이라 도트를 구할 수 없다. `pack.json`의 `superultimate` 이름이 비어 있다 — 나중에 대체 시트를 확보하면 이름 한 줄을 넣는 것으로 다시 후보가 된다.
 - 후보가 줄어드는 만큼 반대 방향도 열려 있다: 초궁극체까지 이어지는 계보를 새로 추가하면 그대로 후보가 된다. 케라몬 팩(→ 아마게몬)과 팔코몬 팩(→ 크로노몬 홀리 모드)이 그렇게 들어왔다.
 
 ### 랜덤 진화 (분기 루트)
@@ -317,7 +404,7 @@ node daily-tokens.js
 
 유년기는 게임 진화표대로 토코몬이다(캐논 유년기 피나몬은 DWDS에 없다). 펙크몬·야타가라몬·발두르몬 시트는 필드 프레임 행이 3칸뿐이라 고를 수 있는 쌍이 `[0, 1]` 하나다.
 
-`idle`은 스테이지 이름이 그대로 파일 prefix라서 `PICKS`에 한 줄 적으면 나온다 — 관례대로 성장기와 같은 프레임을 쓴다. 원본이 32px보다 큰 프레임(디아블로몬·아마게몬·크로노몬 등)은 축소되므로 픽셀이 1:1로 유지되지 않는다(실행 시 목록이 출력된다).
+`idle`은 스테이지 이름이 그대로 파일 prefix라서 `PICKS`에 한 줄 적으면 나온다 — 관례대로 성장기와 같은 프레임을 쓴다. 원본이 32px보다 큰 프레임(디아블로몬·아마게몬·크로노몬 등)은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 출력되는 그 목록이 [`large-<stage>`](#큰-화면용-도트-3종)를 따로 떠야 할 대상이다.
 
 로테이션 후보는 이로써 아구몬·팔코몬·파피몬·길몬·케라몬·브이몬 6개다.
 
@@ -358,7 +445,73 @@ python3 scripts/extract_pack_evolved_dwds.py agumon gabumon
 
 `feat/portrait-cutin`의 `scripts/extract_portraits_dwds.py`에도 같은 시트 이름을 `PACK_SHEETS`에 추가해야 `portrait-superultimate-*.png`가 나온다.
 
-한계: 임프몬 라인의 스컬사탄몬은 DWDS에 없어 완전체를 뱀파이몬으로 대체했다(`sprites/packs/impmon/pack.json`의 이름도 그에 맞춰져 있다). 원본이 32px보다 큰 프레임은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 해당 파일 목록을 출력한다.
+한계: 임프몬 라인의 스컬사탄몬은 DWDS에 없어 완전체를 뱀파이몬으로 대체했다(`sprites/packs/impmon/pack.json`의 이름도 그에 맞춰져 있다). 원본이 32px보다 큰 프레임은 축소되므로 픽셀이 1:1로 유지되지 않는다 — 실행 시 해당 파일 목록을 출력하고, 그 목록이 [`large-<stage>`](#큰-화면용-도트-3종) 대상이다(108프레임 중 75개).
+
+### 큰 화면용 도트 3종
+
+**도트는 표시 크기별로 3벌을 따로 딴다.** 한 벌을 돌려쓰면 어느 한쪽이 반드시 망가진다 — 32px로 줄인 도트에는 되돌릴 픽셀이 남아 있지 않고, 원본 해상도 그림을 16pt에 밀어넣으면 실루엣만 남는다.
+
+| 종류 | 파일명 | 크기 | 쓰이는 곳 |
+|---|---|---|---|
+| ① 메뉴바 도트 | `<stage>-0/1.png` | 32×32 고정 | 메뉴바 아이콘 16pt (retina 1:1) |
+| ② 원본 필드 도트 | `large-<stage>-0/1.png` | 원본 crop 그대로 (~18×27 ~ 46×41) | ③이 없는 단계의 큰 화면 |
+| ③ 배틀 포즈 초상 | `portrait-<stage>-0/1.png` | 원본 crop 그대로 (56×92 ~ 134×204) | [드롭다운 헤더](#드롭다운)·[진화 컷인](#진화-연출-메뉴바-앱) |
+
+`<stage>`는 프레임 prefix와 1:1이므로 **분기 노드도 각자 필요하다** — `ultimate-beelzebumon`이면 `large-ultimate-beelzebumon-0.png` / `portrait-ultimate-beelzebumon-0.png`다. 앱도 같은 규칙으로 읽는다: 오늘 루트가 분기를 가리키면 `portrait-<분기 prefix>`를 찾고, **없어도 spine 초상으로 대체하지 않는다** — 메뉴바에는 블랙워그레이몬이 있는데 드롭다운에는 워그레이몬이 뜨는 것보다, 실제로 표시 중인 32px 도트를 확대하는 편이 낫다.
+
+큰 화면(208pt 정사각 박스)을 그릴 때 앱은 위에서부터 있는 것을 고른다: **`portrait-*` → `large-*` → ①의 정수배 확대(최후 폴백)**. 셋 중 ①만 필수이고, 하나도 없어도 컷인과 드롭다운 헤더는 동작한다.
+
+> 현재 구현 상태: ①과 ③만 있다. `large-*` 저장(`extract_pack_evolved_dwds.py`)과 폴백 순서의 가운데 칸(`portraitImage(forStage:)`)은 아직 없다 — ②는 후속 작업이고, 지금은 `portrait-*` → 정수배 확대 두 단계로 동작한다.
+
+#### 왜 3종인가
+
+메뉴바 두께는 macOS 제약이라 못 키우므로 ①은 32px에 묶여 있다. 성장기까지는 실루엣으로도 구분되지만 완전체·궁극체처럼 장식과 무기가 많은 형태는 16pt에서 뭉개져 어떤 몬인지 알 수 없다. 그래서 아이콘을 누르면 큰 그림을 보여주는데, 여기서 ①을 확대하면 두 가지 문제가 겹쳐 "깨져 보인다".
+
+1. **비정수 축소가 픽셀을 날린다.** DWDS 필드 프레임은 대체로 32px보다 조금 크다 — 현재 `PICKS`가 뽑는 108프레임 중 **75프레임**이 그렇고 긴 변 중앙값이 36px다. `to_sprite`는 이걸 `Image.NEAREST`로 32px에 맞춰 줄이므로 9번째 행 같은 것이 통째로 빠진다(윤곽선이 끊기고 눈이 비대칭이 된다). 그 결과를 5배로 키우면 빠진 줄이 5px 폭의 흠으로 확대된다. ②는 **줄이기 전 crop을 그대로 남겨** 이 부류를 없앤다.
+2. **해상도 자체가 모자라다.** ②를 남겨도 36px는 32px의 1.1배다. 208pt 박스에서 5배 확대라는 사실은 변하지 않는다. 형태를 실제로 읽히게 만드는 건 픽셀이 3~5배 많은 ③뿐이다 — **②는 ③이 없는 단계의 차선책이고, ③의 대체가 아니다.**
+
+#### ③의 커버리지
+
+`portrait-*`는 원래 spine 4단계(`adult`/`perfect`/`ultimate`/`superultimate`)에만 있었다. [랜덤 진화](#랜덤-진화-분기-루트)는 매일 루트를 다시 뽑으므로 분기가 3개인 팩은 대부분의 날을 spine이 아닌 형태로 보내는데, 그 형태들에는 초상이 하나도 없어 아이콘을 눌러도 뻥튀긴 32px가 나왔다 — 큰 화면이 "종종" 깨져 보이던 경로가 이것이다. 지금은 **`pack.json` 트리에 있는 모든 분기 노드**가 자기 초상을 갖는다 (53쌍 / 51시트).
+
+남은 폴백 구간과 그 이유:
+
+| 단계 | 상태 |
+|---|---|
+| `child` | 케라몬·팔코몬·가오몬만 있다. 나머지 7팩은 성장기를 Battle Spirit gif(`scripts/extract_pack_<mon>.py`)에서 뽑는데, 시트 배치가 달라 이 스크립트가 읽지 못한다 |
+| `baby` | **불가능.** DWDS의 유아기(쿠라몬·토코몬·와냐몬)에는 배틀 포즈가 없고 ~43×39 필드 애니메이션뿐이다. 원본이 이미 32px급이라 ② 대상이지 ③ 대상이 아니다 |
+| `digitama` | 종족 무관 공용 알이라 초상을 두지 않는다 |
+| `limit80` / `limit95` | 현재 형태의 기분 오버라이드다. 별도 종이 아니므로 초상을 따로 두지 않는다 |
+| 가오몬 `superultimate` | 미라지가오가몬 버스트 모드 시트가 워터마크 리핑이라 포즈 검출이 아예 실패한다 (도트도 같은 이유로 없다) |
+
+새 팩·새 분기를 넣을 때는 ①과 **같은 prefix까지 ③을 함께** 뽑는 것이 기본이고, 시트에 쓸 만한 배틀 포즈가 없을 때만 ②로 대신한다.
+
+#### 공통 규칙
+
+- **한 prefix의 두 프레임은 캔버스 크기가 반드시 같아야 한다.** 다르면 프레임이 교대될 때 스프라이트가 튄다. 추출 스크립트는 두 포즈의 union bbox로 패딩해 맞춘다.
+- ②·③은 **32px로 줄이지 않는다.** 표시 크기는 앱이 정하고, `-1` 프레임은 선택이다(없으면 정지 이미지).
+- ②는 원본이 32px 이하인 프레임에는 만들지 않는다 — ①과 내용이 같아 파일만 늘어난다. `extract_pack_evolved_dwds.py`가 실행 끝에 축소한 프레임 목록을 출력하므로, **그 목록이 곧 ② 대상 목록**이다.
+- `portraitBox`(현재 208pt)보다 큰 에셋을 추가하면 `menubar/claudemon-menubar.swift`의 상수를 다시 재야 한다. 박스가 그림보다 작으면 `drawAspectFit`이 **정수 배율을 못 쓰고 분수로 축소**해(축소 쪽은 `floor`하면 0이 되므로 그대로 둔다) 되살리려던 픽셀을 도로 뭉갠다. 분기 초상을 추가하면서 기준이 keramon `portrait-superultimate`(183×154) → agumon `portrait-perfect-rizegreymon`(134×204)으로 옮겨가 184 → 208이 됐다.
+- 앱은 확대·드로잉 전 구간에서 `imageInterpolation = .none`을 강제하고 확대 배율은 `floor`한 정수만 쓴다. 앞이 빠지면 픽셀아트가 뿌옇게 뭉개지고, 뒤가 빠지면 픽셀 폭이 들쭉날쭉해진다.
+
+#### 추출
+
+②는 ①과 같은 하단 필드 스프라이트에서, ③은 같은 시트의 **상단 배틀 포즈**에서 뽑는다. 시트 준비 방법은 위 절과 동일하고, 어떤 prefix가 어떤 시트에서 나오는지는 `PACK_SHEETS`에 있다(`PICKS`와 같은 시트 이름을 쓰되 프레임 인덱스는 공유하지 않는다 — 그쪽은 필드 행 기준이다).
+
+```bash
+python3 scripts/extract_portraits_dwds.py [팩이름 ...]
+
+# 프레임 후보를 눈으로 고를 때: 검출된 포즈를 인덱스와 함께 한 줄로 깐다
+python3 scripts/extract_portraits_dwds.py --contact greymon /tmp/greymon-poses.png
+```
+
+배경색은 시트 가장자리 샘플링으로 검출한다 — 전역 dominant color를 쓰면 캐릭터 외곽선 회색이 배경으로 오검출된다. 포즈 행은 y-range가 실제로 겹칠 때만 같은 행으로 묶는다(행간이 9~14px인 시트가 있어 gap을 허용하면 두 행이 병합된다). 크레딧 텍스트·로고는 "행당 포즈 2개 이상" 조건으로 걸러진다.
+
+2프레임 자동 선택은 51시트 중 **20시트**에서 손을 봐야 했고, 그 인덱스는 `POSE_OVERRIDES`에 육안 확인해 적어뒀다. 실패는 두 종류뿐이다 — ① ±15% 크기 검사를 넘겨 프레임 1을 아예 못 찾거나(어차피 union bbox로 패딩하므로 크기 차이는 실제로는 안 보인다), ② 포즈가 한 행에 다 깔린 시트에서 "다른 행 우선" 규칙이 무력해져 옆칸 호흡 프레임을 집는 경우. `--contact`가 뽑는 스트립에서 인덱스를 읽어 두 개를 적으면 된다(빨강/파랑 라벨이 행 경계다).
+
+시트가 없거나 배틀 포즈가 하나도 없는 단계는 실행을 멈추지 않고 건너뛴 뒤 끝에 목록을 출력한다 — 유아기가 늘 여기 걸린다.
+
+한계: 메가가르고몬은 원본 시트에 유사 포즈밖에 없어 두 프레임이 거의 같다.
 
 ## working 플래그
 
@@ -417,6 +570,8 @@ python3 scripts/extract_pack_evolved_dwds.py agumon gabumon
 `waiting_user`가 범용 `idle-N`을 쓰는 이유: `idle` 상태는 진화 단계 프레임의 *정지*로 이미 표시되므로, 범용 `idle` 프레임은 원래 쓰이지 않던 슬롯이었다. 그 슬롯을 재사용해 셋을 시각적으로 구분한다.
 
 ### 드롭다운
+
+첫 항목은 텍스트가 아니라 커스텀 뷰 헤더다 — [큰 화면용 도트](#큰-화면용-도트-3종) 208pt + 이름 + 단계 + 오늘 토큰. 진화 컷인을 놓쳐도 아이콘을 눌러 언제든 지금 형태를 크게 볼 수 있다.
 
 세션별 라벨: `● 작업 중` / `! 입력 대기` / `⏸ 멈춤` / `○ 대기` / `× 종료`
 

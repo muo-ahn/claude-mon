@@ -68,6 +68,14 @@
         "next": [
           "chronomon_hm"
         ]
+      },
+      {
+        "id": "ravemon",
+        "name": "레이브몬",
+        "sprite": "ultimate-ravemon",
+        "next": [
+          "ravemon-bm"
+        ]
       }
     ],
     "superultimate": [
@@ -75,6 +83,12 @@
         "id": "chronomon_hm",
         "name": "크로노몬 홀리 모드",
         "sprite": "superultimate",
+        "next": []
+      },
+      {
+        "id": "ravemon-bm",
+        "name": "레이브몬 버스트 모드",
+        "sprite": "superultimate-ravemon_bm",
         "next": []
       }
     ]

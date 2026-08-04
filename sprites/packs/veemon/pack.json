@@ -2,7 +2,7 @@
   "name": "브이몬",
   "stageNames": {
     "digitama": "알",
-    "baby": "치비몬",
+    "baby": "꼬마몬",
     "child": "브이몬",
     "adult": "엑스브이몬",
     "perfect": "파일드라몬",
@@ -23,7 +23,7 @@
     "baby": [
       {
         "id": "chibomon",
-        "name": "치비몬",
+        "name": "꼬마몬",
         "sprite": "baby",
         "next": [
           "veemon"

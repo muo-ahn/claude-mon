@@ -1,0 +1,88 @@
+# 도트 제작 계획 (수동 편집)
+#
+# 사람이 정하는 것만 여기 적는다. 파일이 실제로 있는지 없는지는 스캐너가 판단하므로
+# 여기에 쓰지 않는다. 적지 않은 종은 자동으로 아래처럼 취급된다.
+#   도트 있음 → status: done / 도트 없음 → status: todo, priority 없음
+#
+# 필드
+#   priority : P0 (다음에 만들 것) / P1 / P2. 없어도 된다.
+#   status   : todo | wip | done | wontfix
+#              done 이나 wontfix 로 적었는데 실제 파일과 어긋나면 스캐너가 경고한다.
+#   assignee : 누가/무엇으로 만들지. 보통 추출 스크립트 이름.
+#   note     : 자유 메모
+#   reason   : wontfix 사유 (wontfix 일 때 필수는 아니지만 적어두면 좋다)
+#
+# 갱신:  python3 scripts/sprite_status.py
+# 검사:  python3 scripts/sprite_status.py --check
+
+plan:
+  # ── P0: 파닥몬 라인 ────────────────────────────────────────────────
+  # 인기 랭킹 1위인데 라인 전체가 비어 있다. 성장기부터 채우는 게 최우선.
+  파닥몬:
+    priority: P0
+    status: todo
+    note: 인기 랭킹 1위. 성장기 도트가 없어 라인 전체가 막혀 있다.
+  # 토코몬은 이미 도트가 있다 (falcomon 팩이 baby 로 쓰고 있다).
+  # 다만 팔코몬의 정본 유아기II 는 피나몬이라 스캐너가 라인 불일치로 경고한다.
+  # 파닥몬 팩을 만들 때 이 스프라이트를 그대로 가져다 쓸 수 있다.
+  엔젤몬:
+    priority: P0
+    status: todo
+  홀리엔젤몬:
+    priority: P1
+    status: todo
+  세라피몬:
+    priority: P1
+    status: todo
+
+  # ── P1: 인기 상위 성장기 결손 ─────────────────────────────────────
+  쉬라몬:
+    priority: P1
+    status: todo
+    note: 인기 랭킹 5위
+  텐타몬:
+    priority: P1
+    status: todo
+    note: 인기 랭킹 6위
+  추추몬:
+    priority: P1
+    status: todo
+    note: 인기 랭킹 12위. 브이몬 조그레스(파일드라몬) 전제 조건.
+
+  # ── 보류 ──────────────────────────────────────────────────────────
+  # 베르제브몬은 impmon 팩과 keramon 팩(ultimate-beelzebumon) 양쪽에 이미 있다.
+  # 데블몬(임프몬 성숙기)도 impmon 팩이 이미 게임 루트대로 쓰고 있다.
+  스컬사탄몬:
+    status: wontfix
+    reason: impmon 팩이 완전체 자리에 뱀파이몬을 대신 쓰고 있어 만들 필요가 없다.
+  미라지가오가몬 버스트 모드:
+    status: todo
+    note: gaomon 라인 초궁극체. DWDS 시트(miragegaogamon_bm.png)는 로컬에 있지만
+      photobucket 워터마크 박힌 저해상도 리핑이라 도트·초상 모두 판별 불가.
+      팩은 지금 궁극체(미라지가오가몬)를 최상위로 두고 벤치. 쓸 만한 대체 시트를
+      구하면 pack.json 에 이름 한 줄만 넣어 로테이션에 복귀시킬 수 있다.
+
+# ── 스캐너가 잡을 수 없는 결손: 유아기 도트 7종 ──────────────────────
+#
+# 아래 7종은 파일이 존재해서 스캐너가 ready 로 집계하지만, 실제 그림은 그 종이
+# 아니라 **같은 팩 성장기의 다른 포즈**다 (코로몬 자리에 아구몬, 뿔몬 자리에
+# 파피몬 …). Battle Spirit 시트로 만든 팩들의 유산이다 — DWDS 로 교체한 것은
+# adult/perfect/ultimate 세 단계뿐이어서 유아기가 그대로 남았다.
+#
+#   코로몬(agumon) · 뿔몬(gabumon) · 기기몬(guilmon) · 야몬(impmon)
+#   포코몬(renamon) · 구미몬(terriermon) · 꼬마몬(veemon)
+#
+# 여기에 status: todo 로 올리지 않는 이유: 파일이 이미 있으므로 cross_check 가
+# "도트가 이미 완성됐는데 plan status=todo" 경고를 내며 --check 를 깨뜨린다.
+# duplicate_frame_sprites() 검사에도 걸리지 않는다 — 성장기 도트의 *복사본*이
+# 아니라 같은 시트에서 뽑은 다른 프레임이라 바이트가 다르다. 즉 이 부류는
+# 사람이 눈으로 봐야 안다 (docs/sprite-status.yaml 의 ready 수치는 그만큼 후하다).
+#
+# 고치려면 DWDS 에 없는 유아기 시트를 자작하거나 다른 소스를 확보해야 한다.
+# 스캐너가 이걸 추적하게 만들려면 "파일은 있으나 그림이 틀림" 상태를 별도로
+# 선언하는 필드가 필요하다 (예: dot_mismatch 목록). 아직 없다.
+
+# 확인 끝난 경고. 여기 적힌 문자열이 포함된 경고는 --check 를 실패시키지 않는다.
+# 문제를 실제로 고치면 이 줄도 지울 것.
+acknowledged_warnings:
+  - falcomon 팩의 본류 baby 가 "토코몬"

@@ -59,6 +59,18 @@
           "metalgarurumon",
           "darkdramon"
         ]
+      },
+      {
+        "id": "blackweregarurumon",
+        "name": "블랙워가루몬",
+        "sprite": "perfect-blackweregarurumon",
+        "next": [
+          "metalgarurumon",
+          "darkdramon"
+        ],
+        "traits": [
+          "dark"
+        ]
       }
     ],
     "ultimate": [

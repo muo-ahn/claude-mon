@@ -155,6 +155,24 @@ PICKS = {
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
     },
+    # 가오몬 라인도 전 단계를 DWDS에서 뽑는다. 분기 없는 spine이라 유년기부터
+    # 궁극체까지 시트가 하나씩만 있다.
+    #
+    # miragegaogamon_bm(미라지가오가몬 버스트 모드) 시트는 로컬에 있지만
+    # photobucket 워터마크가 덮인 저해상도 리핑이라 field_frames()의 균일 셀
+    # 행 탐지가 아예 실패하고(필드 프레임 행 자체가 없음), 수동 크롭으로
+    # 뽑아도 32px 도트로는 종을 판별할 수 없다. 프레임 선택으로 해결 가능한
+    # 문제가 아니라 대체 시트가 필요하므로 항목을 두지 않는다 -- pack.json도
+    # superultimate 없이 궁극체(미라지가오가몬)를 최상위로 둔다. 쓸 만한 BM
+    # 시트를 구하면 이 항목과 pack.json 양쪽에 한 줄씩 넣어 복귀시킨다.
+    "gaomon": {
+        "idle": ("gaomon", [1, 3]),
+        "baby": ("wanyamon", [0, 1]),
+        "child": ("gaomon", [1, 3]),
+        "adult": ("gaogamon", [0, 1]),
+        "perfect": ("machgaogamon", [2, 3]),
+        "ultimate": ("miragegaogamon", [2, 3]),
+    },
 }
 
 # 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)에도 superultimate 항목이 없다 --
