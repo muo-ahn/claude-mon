@@ -119,8 +119,9 @@ let genericOverrideStages = ["child"]
 
 // Stages whose sprite is species-agnostic and therefore shared by every pack,
 // loaded from <spriteRoot>/shared instead of the pack directory -- a Digi-Egg
-// looks the same whoever is inside it. The per-pack digitama-*.png files stay
-// as a fallback for a sprite root that has no shared/ directory.
+// looks the same whoever is inside it. The egg art lives only in shared/;
+// packs don't carry their own digitama-*.png (some used to, but those were
+// mislabeled Baby-stage dots, not eggs, and have since been removed).
 let sharedStages = ["digitama"]
 let sharedSpriteDir = spriteRoot + "/shared"
 
@@ -146,6 +147,7 @@ let monLabels: [String: String] = [
     "impmon": "임프몬",
     "keramon": "케라몬",
     "falcomon": "팔코몬",
+    "gaomon": "가오몬",
 ]
 
 func labelForMon(_ mon: String) -> String {
@@ -179,14 +181,24 @@ func evolvedName(pack: String, mon: String, stageId: String) -> String {
 
 // Returns true when the route actually changed, which is the signal to
 // reload frame sets (a new route can point a stage at different art).
-func applyRoute(_ route: [String: [String: String]]) -> Bool {
+//
+// `mon` belongs in the key, not just the sprite list: sprite keys alone
+// collide ACROSS packs. A stage that renders from its spine files has
+// sprite == stageId, so every pack whose route picked spine the whole way
+// down produces the same "digitama>baby>...>superultimate" string -- that is
+// 7 of the 10 default packs, and falcomon/impmon have no branches at all so
+// they hit it every single day. When the daily rotation moved impmon ->
+// falcomon the guard below saw an unchanged key and kept impmon's stage
+// NAMES, while the art still switched (switchMonIfNeeded compares mon
+// itself). Result: 팔코몬's dots labelled 임프몬.
+func applyRoute(_ route: [String: [String: String]], mon: String) -> Bool {
     var sprites: [String: String] = [:]
     var names: [String: String] = [:]
     for (stage, node) in route {
         if let s = node["sprite"], !s.isEmpty { sprites[stage] = s }
         if let n = node["name"], !n.isEmpty { names[stage] = n }
     }
-    let key = stageIds.map { sprites[$0] ?? $0 }.joined(separator: ">")
+    let key = ([mon] + stageIds.map { sprites[$0] ?? $0 }).joined(separator: ">")
     guard key != activeRouteKey else { return false }
     activeRouteSprites = sprites
     activeRouteNames = names
@@ -723,6 +735,21 @@ let cutInEnabled: Bool = {
 // Draws `img` centered inside `box`, preserving aspect ratio (fit, never
 // stretched or cropped), with nearest-neighbor scaling so pixel art stays
 // crisp instead of the blur a plain NSImageView would produce.
+// Edge of the square box both portrait surfaces (menu header, evolution
+// cut-in) draw into. Sized to clear the largest portrait asset we ship at 1:1,
+// because drawAspectFit only snaps to whole numbers when *enlarging* -- a box
+// smaller than the art would shrink it by a fraction and bring back the wobbly
+// outline this is all meant to avoid. The slack also buys the smallest assets a
+// clean 2x: anything up to 104px on its long edge doubles instead of sitting
+// tiny in the middle (keramon/portrait-adult is 78x84, the one that motivated
+// this).
+//
+// Re-measure when adding portraits -- extending portraits to the branch nodes
+// already moved the governing asset twice: keramon/portrait-superultimate
+// (183x154) set the old 184, and agumon/portrait-perfect-rizegreymon (134x204)
+// sets this one. Widest is still armagemon at 183.
+let portraitBox: CGFloat = 208
+
 func drawAspectFit(_ img: NSImage, in box: NSRect) {
     let srcSize = img.size
     guard srcSize.width > 0, srcSize.height > 0 else { return }
@@ -795,7 +822,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let daily = readDailyState()
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
-        _ = applyRoute(daily.route)
+        _ = applyRoute(daily.route, mon: daily.mon)
         switchMonIfNeeded(daily.mon)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
@@ -893,13 +920,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         stageFrames = newStageFrames
 
-        // Optional big-format portraits (portrait-<stage>-0.png, -1.png).
+        // Optional big-format portraits (portrait-<prefix>-0.png, -1.png).
         // Native size (size: nil) since callers fit these into their own
         // boxes; a stage with no portrait assets simply gets no entry here,
         // and portraitImage(forStage:) falls back to an upscaled stage frame.
         var newPortraitFrames: [String: [NSImage]] = [:]
         for stage in stageIds {
-            let frames = loadImageSequence(inDir: pack, prefix: "portrait-\(stage)", size: nil)
+            // Route-aware, exactly like the stage frames above: on a branch
+            // day this must load portrait-adult-geogreymon-*, not the spine's.
+            // Deliberately WITHOUT their spine fallback though -- borrowing
+            // 그레이몬's portrait for 지오그레이몬 would put a different digimon
+            // in the drop-down than the one in the menu bar. With no entry,
+            // portraitImage(forStage:) upscales the dot that is actually on
+            // screen, which is always the right species.
+            let prefix = activeRouteSprites[stage] ?? stage
+            let frames = loadImageSequence(inDir: pack, prefix: "portrait-\(prefix)", size: nil)
             if !frames.isEmpty {
                 newPortraitFrames[stage] = frames
             }
@@ -953,7 +988,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return img
         }
         guard let base = stageFrames[stage]?.first ?? idleFrames.first else { return nil }
-        return upscaledNearestNeighbor(base, factor: 4)
+        // Blow the 32px sprite up as far as portraitBox allows rather than by a
+        // fixed 4x: at 4x it landed at 128 in a 184 box, and drawAspectFit's
+        // integer snap would then leave it there, wasting the slack.
+        let longEdge = max(base.size.width, base.size.height)
+        let factor = longEdge > 0 ? max(1, floor(portraitBox / longEdge)) : 1
+        return upscaledNearestNeighbor(base, factor: factor)
     }
 
     // Nearest-neighbor integer upscale so pixel art doesn't blur.
@@ -1090,7 +1130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentStageId = daily.stageId
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
-        switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route))
+        switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route, mon: daily.mon))
 
         // Evolution burst: same mon moved UP a stage -> flash old/new forms
         // for a few seconds, classic digivolve style. Mon switches (daily
@@ -1216,7 +1256,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var cutInGeneration = 0
 
     func makeCutInWindow() -> NSWindow {
-        let size = NSSize(width: 200, height: 220)
+        let size = NSSize(width: portraitBox + 40, height: portraitBox + 68)
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                                styleMask: [.borderless], backing: .buffered, defer: false)
         window.isOpaque = false
@@ -1243,7 +1283,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         backdrop.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
         container.addSubview(backdrop)
 
-        let imageView = PixelArtView(frame: NSRect(x: 20, y: 48, width: 160, height: 160))
+        let imageView = PixelArtView(frame: NSRect(x: 20, y: 48, width: portraitBox, height: portraitBox))
         container.addSubview(imageView)
         cutInImageView = imageView
 
@@ -1441,10 +1481,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // rate limits, quit) is unchanged.
     func makeHeaderMenuItem(name: String, stageId: String, tokenLine: String) -> NSMenuItem {
         let width: CGFloat = 260
-        let height: CGFloat = 210
+        let height: CGFloat = 58 + portraitBox + 4
         let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
 
-        let portraitView = PixelArtView(frame: NSRect(x: (width - 150) / 2, y: 58, width: 150, height: 150))
+        let portraitView = PixelArtView(frame: NSRect(x: (width - portraitBox) / 2, y: 58,
+                                                      width: portraitBox, height: portraitBox))
         portraitView.image = portraitImage(forStage: stageId)
         container.addSubview(portraitView)
 
