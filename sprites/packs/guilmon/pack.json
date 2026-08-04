@@ -81,6 +81,12 @@
         "next": [
           "dukemon_crimson"
         ]
+      },
+      {
+        "id": "chaosdukemon",
+        "name": "카오스듀크몬",
+        "sprite": "ultimate-chaosdukemon",
+        "next": []
       }
     ],
     "superultimate": [
