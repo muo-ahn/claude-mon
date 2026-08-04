@@ -1,0 +1,408 @@
+# 상위 성장기 디지몬 진화 라인 (한글명 기준)
+#
+# 대상 선정: docs/popular-digimon-100.yaml 의 성장기(child) 상위권
+#   + sprites/packs/ 에 이미 존재하는 팩 전체 (케라몬 포함, 100위권 밖이라 rank: null)
+#
+# 출처: namu.wiki 각 디지몬 문서의 진화도 표 (문서별 URL은 항목의 source 필드)
+# 조회일: 2026-07-31
+#
+# 단계 키는 프로젝트 evolution-tree.json 의 stage id 와 맞췄다.
+#   baby1 / baby2  → evolution-tree.json 의 baby 한 단계로 합쳐진다 (원작은 유아기 2단계)
+#   child → adult → perfect → ultimate → superultimate
+#   armor  = 아머체. 정규 세대 진화가 아니라 디지멘탈을 쓰는 분기이므로 별도 필드.
+#   jogress = 다른 라인과의 합체 진화. 소속 라인이 모호해 별도 필드로 뺐다.
+#
+# 값이 null 인 단계 = 공식 설정이 존재하지 않거나 문서에 기재되지 않음 (추측으로 채우지 않았다).
+
+meta:
+  source: namu.wiki
+  fetched: 2026-07-31
+  line_count: 19
+  stage_note: baby1+baby2 는 evolution-tree.json 의 단일 baby 단계에 대응
+
+lines:
+  - id: agumon
+    ko: 아구몬
+    ja: アグモン
+    rank: 2
+    in_repo: true
+    series: 어드벤처
+    source: https://namu.wiki/w/아구몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [깜몬]
+      baby2: [코로몬]
+      child: [아구몬]
+      adult: [그레이몬]
+      perfect: [메탈그레이몬(백신종), 스컬그레이몬, 메탈그레이몬(바이러스종)]
+      ultimate: [워그레이몬, "아구몬 -용기의 유대-"]
+      superultimate: [오메가몬, 오메가몬 머시풀 모드]
+    note: 오메가몬은 파피몬 라인(메탈가루몬)과의 조그레스.
+
+  - id: gabumon
+    ko: 파피몬
+    ja: ガブモン
+    rank: 4
+    in_repo: true
+    series: 어드벤처
+    source: https://namu.wiki/w/파피몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [푸니몬]
+      baby2: [뿔몬]
+      child: [파피몬]
+      adult: [가루몬]
+      perfect: [워가루몬]
+      ultimate: [메탈가루몬, "파피몬 -우정의 유대-"]
+      superultimate: [오메가몬, 오메가몬 머시풀 모드]
+    note: 아구몬 라인과 완전한 대칭 구조. 컷인 연출 시 페어로 묶기 좋다.
+
+  - id: patamon
+    ko: 파닥몬
+    ja: パタモン
+    rank: 1
+    in_repo: false
+    series: 어드벤처
+    source: https://namu.wiki/w/파닥몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [포요몬]
+      baby2: [토코몬]
+      child: [파닥몬]
+      adult: [엔젤몬]
+      perfect: [홀리엔젤몬, 토우몬]
+      ultimate: [세라피몬]
+      superultimate: []
+    armor: [페가수스몬]
+    note: 토우몬은 엔젤몬 + 황금아르마몬 조그레스라 아르마몬 라인과 공유된다.
+
+  - id: gomamon
+    ko: 쉬라몬
+    ja: ゴマモン
+    rank: 5
+    in_repo: false
+    series: 어드벤처
+    source: https://namu.wiki/w/쉬라몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [피치몬]
+      baby2: [둥실몬]
+      child: [쉬라몬]
+      adult: [원뿔몬]
+      perfect: [쥬드몬]
+      ultimate: [바이킹몬]
+      superultimate: []
+
+  - id: tentomon
+    ko: 텐타몬
+    ja: テントモン
+    rank: 6
+    in_repo: false
+    series: 어드벤처
+    source: https://namu.wiki/w/텐타몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [뽀글몬]
+      baby2: [모티몬]
+      child: [텐타몬]
+      adult: [캅테리몬]
+      perfect: [아트라캅테리몬(적)]
+      ultimate: [헤라클레스캅테리몬]
+      superultimate: []
+
+  - id: piyomon
+    ko: 피요몬
+    ja: ピヨモン
+    rank: 33
+    in_repo: false
+    series: 어드벤처
+    source: https://namu.wiki/w/피요몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [새싹몬]
+      baby2: [어니몬]
+      child: [피요몬]
+      adult: [버드라몬]
+      perfect: [가루다몬]
+      ultimate: [페닉스몬]
+      superultimate: []
+    note: 페닉스몬은 애니 미출연. 게임 시리즈에서 확립된 궁극체.
+
+  - id: palmon
+    ko: 팔몬
+    ja: パルモン
+    rank: 24
+    in_repo: false
+    series: 어드벤처
+    source: https://namu.wiki/w/팔몬(디지몬 어드벤처 시리즈)
+    stages:
+      baby1: [유라몬]
+      baby2: [시드몬]
+      child: [팔몬]
+      adult: [니드몬]
+      perfect: [릴리몬]
+      ultimate: [로제몬]
+      superultimate: []
+
+  - id: v-mon
+    ko: 브이몬
+    ja: ブイモン
+    rank: 26
+    in_repo: true
+    series: 파워 디지몬(02)
+    source: https://namu.wiki/w/브이몬
+    stages:
+      baby1: [치코몬]
+      baby2: [꼬마몬]
+      child: [브이몬]
+      adult: [엑스브이몬, 브이드라몬]
+      perfect: [에어로브이드라몬, 파일드라몬]
+      ultimate: [알포스브이드라몬, 황제드라몬 드래곤 모드, 황제드라몬 파이터 모드, 황제드라몬 팔라딘 모드]
+      superultimate: []
+    armor: [화염드라몬, 번개드라몬, 세트몬, 하니몬, 야차몬, 마린몬, 사수몬, 고르고몬, 매그너몬, 캥거루몬, 골드브이드라몬]
+    jogress: [파일드라몬, 황제드라몬]
+    note: 파일드라몬·황제드라몬은 추추몬 라인과의 조그레스. 아머체 분기가 전 라인 중 가장 넓다.
+
+  - id: hawkmon
+    ko: 호크몬
+    ja: ホークモン
+    rank: 63
+    in_repo: false
+    series: 파워 디지몬(02)
+    source: https://namu.wiki/w/호크몬
+    stages:
+      baby1: [푸르르몬]
+      baby2: [포로몬]
+      child: [호크몬]
+      adult: [아큐라몬]
+      perfect: [실피드몬]
+      ultimate: [발키리몬]
+      superultimate: []
+    armor: [알로몬, 링크몬, 수리몬, 호루스몬, 플라몬, 돌고래몬, 무스몬, 하피몬, 토칸몬, 피콕몬]
+    jogress: [실피드몬]
+    note: 실피드몬은 아큐라몬 + 스팅몬 조그레스라 추추몬 라인과 공유된다.
+
+  - id: armadimon
+    ko: 아르마몬
+    ja: アルマジモン
+    rank: 42
+    in_repo: false
+    series: 파워 디지몬(02)
+    source: https://namu.wiki/w/아르마몬
+    stages:
+      baby1: [츠브몬]
+      baby2: [우파몬]
+      child: [아르마몬]
+      adult: [황금아르마몬]
+      perfect: [토우몬]
+      ultimate: []
+      superultimate: []
+    armor: [멧돼지몬, 세피몬, 프로그몬, 프테라몬, 디그몬, 잠수몬, 메리몬, 해마몬, 카멜레온몬, 코끼몬]
+    jogress: [토우몬]
+    note: >-
+      02까지의 파트너 디지몬 중 유일하게 궁극체가 확정되지 않았다.
+      진화 트리에 궁극체 도달을 요구한다면 이 라인은 pruning 대상.
+
+  - id: wormmon
+    ko: 추추몬
+    ja: ワームモン
+    rank: 12
+    in_repo: false
+    series: 파워 디지몬(02)
+    source: https://namu.wiki/w/추추몬
+    stages:
+      baby1: [잎새몬]
+      baby2: [데롱몬]
+      child: [추추몬]
+      adult: [스팅몬]
+      perfect: [주엘비몬]
+      ultimate: [반쵸스팅몬]
+      superultimate: []
+    armor: [샤드라몬, 토게모구몬, 노헤몬]
+    jogress: [파일드라몬, 실피드몬]
+
+  - id: guilmon
+    ko: 길몬
+    ja: ギルモン
+    rank: 16
+    in_repo: true
+    series: 테이머즈
+    source: https://namu.wiki/w/길몬
+    stages:
+      baby1: [쟈리몬]
+      baby2: [기기몬]
+      child: [길몬]
+      adult: [그라우몬]
+      perfect: [메가로그라우몬]
+      ultimate: [듀크몬]
+      superultimate: [듀크몬 크림슨 모드]
+
+  - id: renamon
+    ko: 레나몬
+    ja: レナモン
+    rank: 17
+    in_repo: true
+    series: 테이머즈
+    source: https://namu.wiki/w/레나몬
+    stages:
+      baby1: [레레몬]
+      baby2: [포코몬]
+      child: [레나몬]
+      adult: [구미호몬]
+      perfect: [도사몬]
+      ultimate: [샤크라몬]
+      superultimate: [쿠즈하몬]
+    note: 쿠즈하몬은 정규 진화가 아닌 특수 루트.
+
+  - id: terriermon
+    ko: 테리어몬
+    ja: テリアモン
+    rank: 3
+    in_repo: true
+    series: 테이머즈
+    source: https://namu.wiki/w/테리어몬
+    stages:
+      baby1: [제리몬]
+      baby2: [구미몬]
+      child: [테리어몬]
+      adult: [가르고몬]
+      perfect: [래피드몬]
+      ultimate: [세인트가르고몬]
+      superultimate: [블랙세인트가르고몬, 뇌신몬]
+    note: 초궁극체 분기가 둘인 것은 테리어몬만의 특징.
+
+  - id: lopmon
+    ko: 로프몬
+    ja: ロップモン
+    rank: 22
+    in_repo: false
+    series: 테이머즈
+    source: https://namu.wiki/w/로프몬
+    stages:
+      baby1: [코코몬]
+      baby2: [초코몬]
+      child: [로프몬]
+      adult: [토리에몬, 웬디몬]
+      perfect: [안티라몬(데바), 안티라몬]
+      ultimate: [케루비몬(선), 케루비몬(악)]
+      superultimate: []
+    note: >-
+      선/악 두 계열로 갈리는 유일한 라인. 토리에몬→안티라몬(데바)→케루비몬(선) 과
+      웬디몬→안티라몬→케루비몬(악) 이 각각 대응한다. 테리어몬의 쌍둥이 격.
+
+  - id: impmon
+    ko: 임프몬
+    ja: インプモン
+    rank: 30
+    in_repo: true
+    series: 테이머즈
+    source: https://namu.wiki/w/임프몬
+    stages:
+      baby1: [야몬]
+      baby2: []
+      child: [임프몬]
+      adult: [데블몬]
+      perfect: [스컬사탄몬]
+      ultimate: [베르제브몬]
+      superultimate: [베르제브몬 블래스트 모드]
+    note: >-
+      통일된 공식 루트가 없다. 성숙기·완전체 자리가 오래 공석이었고,
+      테이머즈에서는 성장기에서 궁극체 베르제브몬으로 워프 진화한다.
+      여기 적은 adult/perfect 는 게임(RPG·마스터즈) 루트이며 애니 설정이 아니다.
+
+  - id: dorumon
+    ko: 도루몬
+    ja: ドルモン
+    rank: 38
+    in_repo: false
+    series: 게임 오리지널
+    source: https://namu.wiki/w/도루몬
+    stages:
+      baby1: [도도몬]
+      baby2: [도리몬]
+      child: [도루몬]
+      adult: [도루가몬]
+      perfect: [도루그레몬]
+      ultimate: [도루고라몬]
+      superultimate: [알파몬]
+    variants: [데크스도루가몬, 데크스도루그레몬, 데크스몬]
+    note: 전 단계 이름이 접두어를 공유해 일관된 라인. 초궁극체 알파몬은 공식 투표 4위.
+
+  - id: falcomon
+    ko: 팔코몬
+    ja: ファルコモン
+    rank: 95
+    in_repo: true
+    series: 세이버즈 / 게임
+    source: https://namu.wiki/w/팔코몬
+    stages:
+      baby1: [푸와몬]
+      baby2: [피나몬]
+      child: [팔코몬, 팔코몬(S)]
+      adult: [디아트리몬, 펙크몬]
+      perfect: [야타가라몬, 야타가라몬(S)]
+      ultimate: [발두르몬, 스피노몬, 레이브몬]
+      superultimate: []
+    note: (S)는 2006년 애니메이션판 아종. 원종과 아종이 단계마다 병존한다.
+
+  - id: gaomon
+    ko: 가오몬
+    ja: ガオモン
+    rank: null
+    in_repo: true
+    series: 세이버즈
+    source: https://namu.wiki/w/가오몬
+    stages:
+      baby1: []
+      baby2: [와냐몬]
+      child: [가오몬]
+      adult: [가오가몬, 블랙가오가몬]
+      perfect: [마하가오가몬, 블랙마하가오가몬]
+      ultimate: [미라지가오가몬]
+      superultimate: [미라지가오가몬 버스트 모드]
+    note: 버스트 모드는 namu.wiki 진화도상 초궁극체지만 popular-digimon-100.yaml(공식
+      세대 표기) 96위 항목은 궁극체로 적어 두 출처가 어긋난다. 이 파일은 namu 진화도를
+      정본으로 삼아 초궁극체로 넣었다. 블랙가오가몬·블랙마하가오가몬은 DWDS 시트가 없어
+      도트를 만들 수 없다. BM은 DWDS 리핑 품질 문제로 도트 제작 불가 -- 팩은 궁극체를
+      최상위로 둔다.
+
+  - id: keramon
+    ko: 케라몬
+    ja: クラモン
+    rank: null
+    in_repo: true
+    series: 어드벤처 극장판 / 테이머즈
+    source: https://namu.wiki/w/케라몬
+    stages:
+      baby1: [쿠라몬]
+      baby2: [츠메몬]
+      child: [케라몬]
+      adult: [크리사리몬]
+      perfect: [인펠몬]
+      ultimate: [디아블로몬]
+      superultimate: [아마게몬]
+    note: 인기 랭킹 100위권 밖이지만 sprites/packs 에 존재해 포함.
+
+# 라인 간 공유 노드 — 스프라이트 재사용 및 진화 트리 병합 시 주의
+shared_nodes:
+  - node: 오메가몬
+    lines: [agumon, gabumon]
+    kind: jogress
+  - node: 토우몬
+    lines: [patamon, armadimon]
+    kind: jogress
+  - node: 파일드라몬
+    lines: [v-mon, wormmon]
+    kind: jogress
+  - node: 실피드몬
+    lines: [hawkmon, wormmon]
+    kind: jogress
+  - node: 황제드라몬
+    lines: [v-mon, wormmon]
+    kind: jogress
+
+# 궁극체까지 단절 없이 도달 가능한 라인 (진화 트리 편입 1순위)
+complete_lines: [agumon, gabumon, patamon, gomamon, tentomon, piyomon, palmon,
+                 v-mon, hawkmon, wormmon, guilmon, renamon, terriermon, dorumon,
+                 falcomon, keramon, gaomon]
+
+# 단계 공백이 있어 편입 시 보정이 필요한 라인
+incomplete_lines:
+  - id: armadimon
+    reason: 궁극체 없음
+  - id: impmon
+    reason: 성숙기·완전체가 애니 설정에 없음 (게임 루트로만 채워짐)

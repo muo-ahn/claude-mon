@@ -1,0 +1,128 @@
+# 이름 별칭 테이블 (수동 편집)
+#
+# docs/digimon-evolution-lines.yaml 의 카탈로그 한글명을 정본으로 두고,
+# 다른 표기를 쓰는 곳(pack.json, dwds 시트 파일명)을 여기서 정본으로 흡수한다.
+# scripts/sprite_status.py 가 조인할 때 사용한다.
+#
+# 정본을 바꾸고 싶으면 evolution-lines.yaml 쪽을 고치고 여기 별칭을 뒤집을 것.
+
+# pack.json 의 노드 name → 카탈로그 정본명
+#
+# 팩 표기는 카탈로그 한글명으로 통일했으므로 여기 남는 것은 하나뿐이다.
+# 카탈로그가 종을 구분하려고 붙인 괄호 접미사는 메뉴바에 그대로 노출되면
+# 곤란해서 팩 쪽 표시명을 짧게 유지한다. 접미사 없는 표기가 필요하면
+# 이 줄을 지우고 팩 이름을 카탈로그와 똑같이 맞추면 된다.
+pack_to_catalog:
+  메탈그레이몬: 메탈그레이몬(백신종)
+
+# pack.json 에 노드로 선언되지 않은 채 PNG 만 존재하는 스프라이트.
+# "<팩>:<스프라이트 키>" → 카탈로그 정본명.
+#
+# 기존 미선언 분기는 전부 각 팩의 tree 로 편입했다. 남은 것은 작업 중인 것뿐이다.
+# 스프라이트만 먼저 만들고 tree 편입을 미룰 때 여기에 등록해 둔다.
+pack_sprite_to_catalog:
+  # 2026-07-31 추가됨. 아직 agumon tree 에 노드로 넣지 않았다 —
+  # 편입하면 지오그레이몬 계열의 궁극체/초궁극체로 일일 로테이션에 바로 등장한다.
+  agumon:ultimate-shinegreymon: 샤인그레이몬
+  agumon:superultimate-shinegreymon_burst: 샤인그레이몬 버스트 모드
+
+# 팩 디렉터리명 → 카탈로그 라인 id.
+# 이름이 같으면 생략 가능. 팩 노드가 다른 라인의 종을 쓰고 있으면 경고한다.
+pack_to_line:
+  veemon: v-mon
+
+# dwds 원본 시트 파일명(확장자 제외) → 카탈로그 정본명
+# 정본에 없는 종(팩 확장 분기·아머체 등)은 catalog_only: false 로 처리되어
+# unmapped 경고 대신 extras 로 분류된다.
+sheet_to_catalog:
+  armagemon: 아마게몬
+  beelzemon: 베르제브몬
+  beelzemon_bm: 베르제브몬 블래스트 모드
+  blackmegagargomon: 블랙세인트가르고몬
+  devimon: 데블몬
+  diaboromon: 디아블로몬
+  exveemon: 엑스브이몬
+  falcomon: 팔코몬
+  gallantmon: 듀크몬
+  gallantmon_crimson: 듀크몬 크림슨 모드
+  gaogamon: 가오가몬
+  gaomon: 가오몬
+  gargomon: 가르고몬
+  garurumon: 가루몬
+  greymon: 그레이몬
+  growlmon: 그라우몬
+  imperialdramon_dm: 황제드라몬 드래곤 모드
+  imperialdramon_fm: 황제드라몬 파이터 모드
+  imperialdramon_pm: 황제드라몬 팔라딘 모드
+  infermon: 인펠몬
+  keramon: 케라몬
+  kuramon: 쿠라몬
+  kurisarimon: 크리사리몬
+  kuzuhamon: 쿠즈하몬
+  kyubimon: 구미호몬
+  machgaogamon: 마하가오가몬
+  megagargomon: 세인트가르고몬
+  metalgarurumon: 메탈가루몬
+  metalgreymon: 메탈그레이몬(백신종)
+  miragegaogamon: 미라지가오가몬
+  miragegaogamon_bm: 미라지가오가몬 버스트 모드
+  omegamon: 오메가몬
+  paildramon: 파일드라몬
+  peckmon: 펙크몬
+  rapidmon: 래피드몬
+  ravemon: 레이브몬
+  sakuyamon: 샤크라몬
+  taomon: 도사몬
+  tokomon: 토코몬
+  varodurumon: 발두르몬
+  wanyamon: 와냐몬
+  wargreymon: 워그레이몬
+  wargrowlmon: 메가로그라우몬
+  weregarurumon: 워가루몬
+  yatagaramon: 야타가라몬
+
+# 카탈로그(정규 138종) 밖이지만 에셋이 존재하는 종.
+# 팩 오리지널 분기·아머체·악역 등. 경고 대상이 아니라 extras 로 집계한다.
+out_of_catalog:
+  블랙워그레이몬: 팩 확장 분기 (아구몬 궁극체 분기)
+  다크드라몬: 팩 확장 분기 (파피몬 궁극체 분기)
+  라이즈그레이몬: 팩 확장 분기 (지오그레이몬 계열 완전체)
+  지오그레이몬: 팩 확장 분기 (아구몬 성숙기 분기)
+  블랙메가로그라우몬: 팩 확장 분기 (길몬 완전체 분기)
+  뱀파이몬: 팩 확장 분기 (임프몬 완전체 자리 대체)
+  크로노몬 홀리 모드: 팩 확장 분기 (팔코몬 초궁극체)
+  매그너몬: 아머체 (브이몬)
+  화염드라몬: 아머체 (브이몬)
+  블랙래피드몬: 팩 확장 분기 (테리어몬 완전체 분기)
+  블랙워가루몬: 팩 확장 분기 (파피몬 완전체 분기)
+  카오스듀크몬: 팩 확장 분기 (길몬 궁극체 분기)
+  레이브몬 버스트 모드: 팩 확장 분기 (팔코몬 초궁극체 분기)
+  세이버레오몬: 카탈로그 외 (인기 랭킹 69위)
+  푸치몬: 카탈로그 외 (천사형 유아기)
+  샤인그레이몬: 카탈로그 외 (세이버즈 아구몬(2006) 계열)
+  샤인그레이몬 버스트 모드: 카탈로그 외 (인기 랭킹 47위)
+  알: 디지타마 (라인 무관 공용)
+
+# dwds 시트 파일명 → out_of_catalog 종
+sheet_out_of_catalog:
+  blackrapidmon: 블랙래피드몬
+  blackwargreymon: 블랙워그레이몬
+  blackwargrowlmon: 블랙메가로그라우몬
+  blackweregarurumon: 블랙워가루몬
+  chaosdukemon: 카오스듀크몬
+  # chaosdukemon_core 는 605x221에 동일 배틀 포즈 3장만 있고 필드 프레임 행이
+  # 없는 포즈 전용 시트다(초상 추출용). chaosdukemon 과 같은 종이라 정본명이
+  # 겹친다 -- 둘 다 카오스듀크몬을 가리키는 게 의도된 동작이다.
+  chaosdukemon_core: 카오스듀크몬
+  chronomon_hm: 크로노몬 홀리 모드
+  darkdramon: 다크드라몬
+  flamedramon: 화염드라몬
+  geogreymon: 지오그레이몬
+  magnamon: 매그너몬
+  myotismon: 뱀파이몬
+  puttimon: 푸치몬
+  ravemon_bm: 레이브몬 버스트 모드
+  rizegreymon: 라이즈그레이몬
+  saberleomon: 세이버레오몬
+  shinegreymon: 샤인그레이몬
+  shinegreymon_burst: 샤인그레이몬 버스트 모드

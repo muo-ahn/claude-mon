@@ -1,0 +1,133 @@
+# 디지몬 인기 랭킹 TOP 100 (한글명 기준)
+#
+# 출처: ranking.net「デジモンキャラクターランキング」(팬 투표, 115위까지 집계)
+#   https://ranking.net/rankings/best-dejimon
+# 교차 검증: 디지몬 공식(digimon.net) 제18회 「デジモンベスト50 in デジモン図鑑」
+#   https://digimon.net/topic/detail.php?id=517
+# 조회일: 2026-07-31
+#
+# ko_source 의미
+#   dub      = KBS/대원방송 한국 더빙판에서 확인된 정식 개명 (일본 원명과 다름)
+#   translit = 공식 개명 기록이 없어 표준 음역을 사용 (한국 정발/자막에서 통용)
+#
+# 주의: 원본 랭킹에는 인간 캐릭터(신태일·매튜 등)가 섞여 있어 제외했다.
+#   제외된 순위 = 49, 53, 54, 55, 57, 58, 59, 62 (총 8명) → 디지몬 92종
+#
+# stage 는 반다이 공식 세대 표기(유아기/성장기/성숙기/완전체/궁극체/아머체/하이브리드체).
+#   null = 공식 세대 분류가 없거나 확인되지 않음.
+# in_repo = sprites/packs/ 에 이미 존재하는 팩 여부.
+
+meta:
+  source: ranking.net/rankings/best-dejimon
+  fetched: 2026-07-31
+  total_ranked: 100
+  digimon_count: 92
+  humans_excluded: [49, 53, 54, 55, 57, 58, 59, 62]
+
+digimon:
+  - {rank: 1,   ko: 파닥몬,                     ja: パタモン,                               en: Patamon,                        stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 2,   ko: 아구몬,                     ja: アグモン,                               en: Agumon,                         stage: 성장기,       ko_source: dub,      in_repo: true}
+  - {rank: 3,   ko: 테리어몬,                   ja: テリアモン,                             en: Terriermon,                     stage: 성장기,       ko_source: translit, in_repo: true}
+  - {rank: 4,   ko: 파피몬,                     ja: ガブモン,                               en: Gabumon,                        stage: 성장기,       ko_source: dub,      in_repo: true}
+  - {rank: 5,   ko: 쉬라몬,                     ja: ゴマモン,                               en: Gomamon,                        stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 6,   ko: 텐타몬,                     ja: テントモン,                             en: Tentomon,                       stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 7,   ko: 가트몬,                     ja: テイルモン,                             en: Tailmon,                        stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 8,   ko: 워그레이몬,                 ja: ウォーグレイモン,                       en: WarGreymon,                     stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 9,   ko: 오메가몬,                   ja: オメガモン,                             en: Omegamon,                       stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 10,  ko: 듀크몬 크림슨 모드,         ja: デュークモン：クリムゾンモード,         en: "Dukemon: Crimson Mode",        stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 11,  ko: 메탈그레이몬,               ja: メタルグレイモン,                       en: MetalGreymon,                   stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 12,  ko: 추추몬,                     ja: ワームモン,                             en: Wormmon,                        stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 13,  ko: 알파몬,                     ja: アルファモン,                           en: Alphamon,                       stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 14,  ko: 페닉스몬,                   ja: ホウオウモン,                           en: Hououmon,                       stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 15,  ko: 엔젤우몬,                   ja: エンジェウーモン,                       en: Angewomon,                      stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 16,  ko: 길몬,                       ja: ギルモン,                               en: Guilmon,                        stage: 성장기,       ko_source: translit, in_repo: true}
+  - {rank: 17,  ko: 레나몬,                     ja: レナモン,                               en: Renamon,                        stage: 성장기,       ko_source: translit, in_repo: true}
+  - {rank: 18,  ko: 메탈가루몬,                 ja: メタルガルルモン,                       en: MetalGarurumon,                 stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 19,  ko: 엔젤몬,                     ja: エンジェモン,                           en: Angemon,                        stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 20,  ko: 파일드라몬,                 ja: パイルドラモン,                         en: Paildramon,                     stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 21,  ko: 황제드라몬 파이터 모드,     ja: インペリアルドラモン：ファイターモード, en: "Imperialdramon: Fighter Mode", stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 22,  ko: 로프몬,                     ja: ロップモン,                             en: Lopmon,                         stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 23,  ko: 가루몬,                     ja: ガルルモン,                             en: Garurumon,                      stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 24,  ko: 팔몬,                       ja: パルモン,                               en: Palmon,                         stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 25,  ko: 베르제브몬 블래스트 모드,   ja: ベルゼブモン：ブラストモード,           en: "Beelzebumon: Blast Mode",      stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 26,  ko: 브이몬,                     ja: ブイモン,                               en: V-mon,                          stage: 성장기,       ko_source: dub,      in_repo: true}
+  - {rank: 27,  ko: 메탈시드라몬,               ja: メタルシードラモン,                     en: MetalSeadramon,                 stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 28,  ko: 황제드라몬 드래곤 모드,     ja: インペリアルドラモン：ドラゴンモード,   en: "Imperialdramon: Dragon Mode",  stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 29,  ko: 블랙워그레이몬,             ja: ブラックウォーグレイモン,               en: BlackWarGreymon,                stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 30,  ko: 임프몬,                     ja: インプモン,                             en: Impmon,                         stage: 성장기,       ko_source: translit, in_repo: true}
+  - {rank: 31,  ko: 스팅몬,                     ja: スティングモン,                         en: Stingmon,                       stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 32,  ko: 매그너몬,                   ja: マグナモン,                             en: Magnamon,                       stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 33,  ko: 피요몬,                     ja: ピヨモン,                               en: Piyomon,                        stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 34,  ko: 세라피몬,                   ja: セラフィモン,                           en: Seraphimon,                     stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 35,  ko: 엑스브이몬,                 ja: エクスブイモン,                         en: XV-mon,                         stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 36,  ko: 듀크몬,                     ja: デュークモン,                           en: Dukemon,                        stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 37,  ko: 황제드라몬 팔라딘 모드,     ja: インペリアルドラモン：パラディンモード, en: "Imperialdramon: Paladin Mode", stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 38,  ko: 도루몬,                     ja: ドルモン,                               en: Dorumon,                        stage: 성장기,       ko_source: translit, in_repo: false}
+  - {rank: 39,  ko: 위자몬,                     ja: ウィザーモン,                           en: Wizarmon,                       stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 40,  ko: 스컬그레이몬,               ja: スカルグレイモン,                       en: SkullGreymon,                   stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 41,  ko: 로제몬 버스트 모드,         ja: ロゼモン：バーストモード,               en: "Rosemon: Burst Mode",          stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 42,  ko: 아르마몬,                   ja: アルマジモン,                           en: Armadimon,                      stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 43,  ko: 레이브몬 버스트 모드,       ja: レイヴモン：バーストモード,             en: "Ravemon: Burst Mode",          stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 44,  ko: 페어리몬,                   ja: フェアリモン,                           en: Fairimon,                       stage: 하이브리드체, ko_source: translit, in_repo: false}
+  - {rank: 45,  ko: 데비몬,                     ja: デビモン,                               en: Devimon,                        stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 46,  ko: 릴리몬,                     ja: リリモン,                               en: Lillymon,                       stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 47,  ko: 샤인그레이몬 버스트 모드,   ja: シャイングレイモン：バーストモード,     en: "ShineGreymon: Burst Mode",     stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 48,  ko: 니드몬,                     ja: トゲモン,                               en: Togemon,                        stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 50,  ko: 메가로그라우몬,             ja: メガログラウモン,                       en: MegaloGrowmon,                  stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 51,  ko: 아폴로몬,                   ja: アポロモン,                             en: Apollomon,                      stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 52,  ko: 브이드라몬,                 ja: ブイドラモン,                           en: Veedramon,                      stage: 성숙기,       ko_source: translit, in_repo: false}
+  - {rank: 56,  ko: 꼬마몬,                     ja: チビモン,                               en: Chibimon,                       stage: 유아기II,     ko_source: dub,      in_repo: false}
+  - {rank: 60,  ko: 홀리드라몬,                 ja: ホーリードラモン,                       en: Holydramon,                     stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 61,  ko: 알포스브이드라몬,           ja: アルフォースブイドラモン,               en: UlforceVeedramon,               stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 63,  ko: 호크몬,                     ja: ホークモン,                             en: Hawkmon,                        stage: 성장기,       ko_source: dub,      in_repo: false}
+  - {rank: 64,  ko: 화염드라몬,                 ja: フレイドラモン,                         en: Fladramon,                      stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 65,  ko: 번개드라몬,                 ja: ライドラモン,                           en: Lighdramon,                     stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 66,  ko: 로제몬,                     ja: ロゼモン,                               en: Rosemon,                        stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 67,  ko: 베누스몬,                   ja: ウェヌスモン,                           en: Venusmon,                       stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 68,  ko: 샤크라몬 무녀 모드,         ja: サクヤモン：巫女モード,                 en: "Sakuyamon: Miko Mode",         stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 69,  ko: 세이버레오몬,               ja: サーベルレオモン,                       en: SaberLeomon,                    stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 70,  ko: 러스트티라노몬,             ja: ラストティラノモン,                     en: RustTyranomon,                  stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 71,  ko: 샤크라몬,                   ja: サクヤモン,                             en: Sakuyamon,                      stage: 궁극체,       ko_source: dub,      in_repo: false}
+  - {rank: 72,  ko: 아트라캅테리몬 (적),        ja: アトラーカブテリモン（赤）,             en: AtlurKabuterimon (Red),         stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 73,  ko: 래피드몬 (완전체),          ja: ラピッドモン（完全体）,                 en: Rapidmon (Perfect),             stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 74,  ko: 티라노몬,                   ja: ティラノモン,                           en: Tyranomon,                      stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 75,  ko: 로토스몬,                   ja: ロトスモン,                             en: Lotusmon,                       stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 76,  ko: 라프레시몬,                 ja: ラフレシモン,                           en: Rafflesimon,                    stage: 완전체,       ko_source: translit, in_repo: false}
+  - {rank: 77,  ko: 디그몬,                     ja: ディグモン,                             en: Digmon,                         stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 78,  ko: 가르고몬,                   ja: ガルゴモン,                             en: Galgomon,                       stage: 성숙기,       ko_source: translit, in_repo: false}
+  - {rank: 79,  ko: 바스테몬,                   ja: バステモン,                             en: Bastemon,                       stage: 완전체,       ko_source: translit, in_repo: false}
+  - {rank: 80,  ko: 쿠네몬,                     ja: クネモン,                               en: Kunemon,                        stage: 성장기,       ko_source: translit, in_repo: false}
+  - {rank: 81,  ko: 스패로우몬,                 ja: スパロウモン,                           en: Sparrowmon,                     stage: null,         ko_source: translit, in_repo: false}
+  - {rank: 82,  ko: 메르바몬,                   ja: メルヴァモン,                           en: Mervamon,                       stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 83,  ko: 에어로브이드라몬,           ja: エアロブイドラモン,                     en: AeroVeedramon,                  stage: 완전체,       ko_source: translit, in_repo: false}
+  - {rank: 84,  ko: 요우코몬,                   ja: ヨウコモン,                             en: Youkomon,                       stage: 성숙기,       ko_source: translit, in_repo: false}
+  - {rank: 85,  ko: 베르스타몬,                 ja: ベルスターモン,                         en: Beelstarmon,                    stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 86,  ko: 미네르바몬,                 ja: ミネルヴァモン,                         en: Minervamon,                     stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 87,  ko: 페가수스몬,                 ja: ペガスモン,                             en: Pegasmon,                       stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 88,  ko: 호루스몬,                   ja: ホルスモン,                             en: Holsmon,                        stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 89,  ko: 큐트몬,                     ja: キュートモン,                           en: Cutemon,                        stage: 성장기,       ko_source: translit, in_repo: false}
+  - {rank: 90,  ko: 볼프몬,                     ja: ヴォルフモン,                           en: Wolfmon,                        stage: 하이브리드체, ko_source: translit, in_repo: false}
+  - {rank: 91,  ko: 가루다몬,                   ja: ガルダモン,                             en: Garudamon,                      stage: 완전체,       ko_source: dub,      in_repo: false}
+  - {rank: 92,  ko: 팡몬,                       ja: ファングモン,                           en: Fangmon,                        stage: 성숙기,       ko_source: translit, in_repo: false}
+  - {rank: 93,  ko: 지지몬,                     ja: ジジモン,                               en: Jijimon,                        stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 94,  ko: 오오쿠와몬,                 ja: オオクワモン,                           en: Okuwamon,                       stage: 완전체,       ko_source: translit, in_repo: false}
+  - {rank: 95,  ko: 팔코몬,                     ja: ファルコモン,                           en: Falcomon,                       stage: 성장기,       ko_source: translit, in_repo: true}
+  - {rank: 96,  ko: 미라지가오가몬 버스트 모드, ja: ミラージュガオガモン：バーストモード,   en: "MirageGaogamon: Burst Mode",   stage: 궁극체,       ko_source: translit, in_repo: false}
+  - {rank: 97,  ko: 메라몬,                     ja: メラモン,                               en: Meramon,                        stage: 성숙기,       ko_source: dub,      in_repo: false}
+  - {rank: 98,  ko: 수리몬,                     ja: シュリモン,                             en: Shurimon,                       stage: 아머체,       ko_source: dub,      in_repo: false}
+  - {rank: 99,  ko: 드라쿠몬,                   ja: ドラクモン,                             en: Dracmon,                        stage: 성장기,       ko_source: translit, in_repo: false}
+  - {rank: 100, ko: 라나몬,                     ja: ラーナモン,                             en: Ranamon,                        stage: 하이브리드체, ko_source: translit, in_repo: false}
+
+# 공식(digimon.net) 「デジモンベスト50 in デジモン図鑑」 상위 — 팬 투표와 순위가 크게 다름.
+# 팬 투표 100위권 밖이지만 공식 투표 상위인 종은 스프라이트 후보로 별도 고려할 것.
+official_poll_top10:
+  - {rank: 1,  ko: 듀크몬,           ja: デュークモン}
+  - {rank: 2,  ko: 워그레이몬,       ja: ウォーグレイモン}
+  - {rank: 3,  ko: 오메가몬,         ja: オメガモン}
+  - {rank: 4,  ko: 알파몬,           ja: アルファモン}
+  - {rank: 5,  ko: 알포스브이드라몬, ja: アルフォースブイドラモン}
+  - {rank: 6,  ko: 베르제브몬,       ja: ベルゼブモン}
+  - {rank: 7,  ko: 무겐드라몬,       ja: ムゲンドラモン}
+  - {rank: 7,  ko: 매그너몬,         ja: マグナモン}
+  - {rank: 9,  ko: 릴리몬,           ja: リリモン}
+  - {rank: 9,  ko: 파피몬,           ja: ガブモン}
