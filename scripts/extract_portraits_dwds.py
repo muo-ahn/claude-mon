@@ -115,6 +115,11 @@ PACK_SHEETS = {
         "adult-geogreymon": "geogreymon",
         "perfect-rizegreymon": "rizegreymon",
         "ultimate-blackwargreymon": "blackwargreymon",
+        # 지오그레이몬 계열의 궁극체·초궁극체. swarm 이 붙은 날 트리가
+        # 지오그레이몬 -> 라이즈그레이몬 -> 샤인그레이몬으로 이어지므로 이
+        # 둘이 없으면 그 날 가장 위쪽 두 단계가 32px 확대 폴백을 탄다.
+        "ultimate-shinegreymon": "shinegreymon",
+        "superultimate-shinegreymon_burst": "shinegreymon_burst",
     },
     "guilmon": {
         "adult": "growlmon", "perfect": "wargrowlmon", "ultimate": "gallantmon",
