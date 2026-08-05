@@ -46,9 +46,7 @@
         "name": "엑스브이몬",
         "sprite": "adult",
         "next": [
-          "paildramon",
-          "flamedramon",
-          "magnamon"
+          "paildramon"
         ]
       }
     ],
@@ -60,24 +58,6 @@
         "next": [
           "imperialdramon_fm",
           "imperialdramon_dm"
-        ]
-      },
-      {
-        "id": "flamedramon",
-        "name": "화염드라몬",
-        "sprite": "perfect-flamedramon",
-        "next": [],
-        "traits": [
-          "swarm"
-        ]
-      },
-      {
-        "id": "magnamon",
-        "name": "매그너몬",
-        "sprite": "perfect-magnamon",
-        "next": [],
-        "traits": [
-          "swarm"
         ]
       }
     ],

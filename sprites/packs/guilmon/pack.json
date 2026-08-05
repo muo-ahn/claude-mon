@@ -46,8 +46,7 @@
         "name": "그라우몬",
         "sprite": "adult",
         "next": [
-          "megalogrowlmon",
-          "blackmegalogrowlmon"
+          "megalogrowlmon"
         ]
       }
     ],
@@ -62,15 +61,6 @@
         "traits": [
           "focus"
         ]
-      },
-      {
-        "id": "blackmegalogrowlmon",
-        "name": "블랙메가로그라우몬",
-        "sprite": "perfect-blackmegalogrowlmon",
-        "next": [],
-        "traits": [
-          "dark"
-        ]
       }
     ],
     "ultimate": [
@@ -81,12 +71,6 @@
         "next": [
           "dukemon_crimson"
         ]
-      },
-      {
-        "id": "chaosdukemon",
-        "name": "카오스듀크몬",
-        "sprite": "ultimate-chaosdukemon",
-        "next": []
       }
     ],
     "superultimate": [
