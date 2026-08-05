@@ -64,23 +64,26 @@ plan:
 
 # ── 스캐너가 잡을 수 없는 결손: 유아기 도트 7종 ──────────────────────
 #
-# 아래 7종은 파일이 존재해서 스캐너가 ready 로 집계하지만, 실제 그림은 그 종이
-# 아니라 **같은 팩 성장기의 다른 포즈**다 (코로몬 자리에 아구몬, 뿔몬 자리에
-# 파피몬 …). Battle Spirit 시트로 만든 팩들의 유산이다 — DWDS 로 교체한 것은
-# adult/perfect/ultimate 세 단계뿐이어서 유아기가 그대로 남았다.
+# 아래 7종은 파일이 존재하지만, 실제 그림은 그 종이 아니라 **같은 팩 성장기의
+# 다른 포즈**다 (코로몬 자리에 아구몬, 뿔몬 자리에 파피몬 …). Battle Spirit
+# 시트로 만든 팩들의 유산이다 — DWDS 로 교체한 것은 adult/perfect/ultimate 세
+# 단계뿐이어서 유아기가 그대로 남았다. duplicate_frame_sprites() 검사에도
+# 걸리지 않는다 — 성장기 도트의 *복사본*이 아니라 같은 시트에서 뽑은 다른
+# 프레임이라 바이트가 다르다. 즉 이 부류는 사람이 눈으로 봐야 안다.
 #
-#   코로몬(agumon) · 뿔몬(gabumon) · 기기몬(guilmon) · 야몬(impmon)
-#   포코몬(renamon) · 구미몬(terriermon) · 꼬마몬(veemon)
-#
-# 여기에 status: todo 로 올리지 않는 이유: 파일이 이미 있으므로 cross_check 가
-# "도트가 이미 완성됐는데 plan status=todo" 경고를 내며 --check 를 깨뜨린다.
-# duplicate_frame_sprites() 검사에도 걸리지 않는다 — 성장기 도트의 *복사본*이
-# 아니라 같은 시트에서 뽑은 다른 프레임이라 바이트가 다르다. 즉 이 부류는
-# 사람이 눈으로 봐야 안다 (docs/sprite-status.yaml 의 ready 수치는 그만큼 후하다).
+# 아래 dot_mismatch 에 선언하면 scripts/sprite_status.py 가 ready 대신
+# mismatch 상태로 집계한다 (docs/sprite-status.yaml 참고).
 #
 # 고치려면 DWDS 에 없는 유아기 시트를 자작하거나 다른 소스를 확보해야 한다.
-# 스캐너가 이걸 추적하게 만들려면 "파일은 있으나 그림이 틀림" 상태를 별도로
-# 선언하는 필드가 필요하다 (예: dot_mismatch 목록). 아직 없다.
+
+dot_mismatch:
+  코로몬: agumon 팩의 baby-{0,1}.png 가 코로몬이 아니라 아구몬(성장기)의 다른 포즈
+  뿔몬: gabumon 팩의 baby-{0,1}.png 가 뿔몬이 아니라 파피몬(성장기)의 다른 포즈
+  기기몬: guilmon 팩의 baby-{0,1}.png 가 기기몬이 아니라 길몬(성장기)의 다른 포즈
+  야몬: impmon 팩의 baby-{0,1}.png 가 야몬이 아니라 임프몬(성장기)의 다른 포즈
+  포코몬: renamon 팩의 baby-{0,1}.png 가 포코몬이 아니라 레나몬(성장기)의 다른 포즈
+  구미몬: terriermon 팩의 baby-{0,1}.png 가 구미몬이 아니라 테리어몬(성장기)의 다른 포즈
+  꼬마몬: veemon 팩의 baby-{0,1}.png 가 꼬마몬이 아니라 브이몬(성장기)의 다른 포즈
 
 # 확인 끝난 경고. 여기 적힌 문자열이 포함된 경고는 --check 를 실패시키지 않는다.
 # 문제를 실제로 고치면 이 줄도 지울 것.

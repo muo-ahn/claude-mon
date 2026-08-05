@@ -4,38 +4,43 @@
 # 이름 별칭     : docs/sprite-aliases.yaml
 # 수동 계획     : docs/sprite-plan.yaml  (우선순위·진행상태는 여기서 고칠 것)
 #
-# dot: ready(프레임 완비) / partial(프레임 일부) / source_only(dwds 시트만) / missing
+# dot: ready(프레임 완비) / mismatch(프레임은 있으나 알려진 결함) / partial(프레임 일부)
+#      / source_only(dwds 시트만) / missing
 
 generated_by: scripts/sprite_status.py
 summary:
   total: 146
-  ready: 58
+  ready: 51
+  mismatch: 7
   partial: 0
   source_only: 1
   missing: 87
-  coverage_pct: 40
+  coverage_pct: 35
   portrait_ready: 40
 by_line:
 - line: agumon
   ko: 아구몬
   total: 11
-  ready: 6
+  ready: 5
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 5
-  pct: 55
+  pct: 45
 - line: gabumon
   ko: 파피몬
   total: 9
-  ready: 6
+  ready: 5
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 3
-  pct: 67
+  pct: 56
 - line: patamon
   ko: 파닥몬
   total: 7
   ready: 1
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -44,6 +49,7 @@ by_line:
   ko: 아르마몬
   total: 5
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 5
@@ -52,6 +58,7 @@ by_line:
   ko: 쉬라몬
   total: 6
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -60,6 +67,7 @@ by_line:
   ko: 텐타몬
   total: 6
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -68,6 +76,7 @@ by_line:
   ko: 피요몬
   total: 6
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -76,6 +85,7 @@ by_line:
   ko: 팔몬
   total: 6
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -83,15 +93,17 @@ by_line:
 - line: v-mon
   ko: 브이몬
   total: 11
-  ready: 7
+  ready: 6
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 4
-  pct: 64
+  pct: 55
 - line: hawkmon
   ko: 호크몬
   total: 6
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -100,6 +112,7 @@ by_line:
   ko: 추추몬
   total: 6
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -107,31 +120,35 @@ by_line:
 - line: guilmon
   ko: 길몬
   total: 7
-  ready: 6
+  ready: 5
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 1
-  pct: 86
+  pct: 71
 - line: renamon
   ko: 레나몬
   total: 7
-  ready: 6
+  ready: 5
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 1
-  pct: 86
+  pct: 71
 - line: terriermon
   ko: 테리어몬
   total: 8
-  ready: 6
+  ready: 5
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 2
-  pct: 75
+  pct: 62
 - line: lopmon
   ko: 로프몬
   total: 9
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 9
@@ -139,15 +156,17 @@ by_line:
 - line: impmon
   ko: 임프몬
   total: 6
-  ready: 5
+  ready: 4
+  mismatch: 1
   partial: 0
   source_only: 0
   missing: 1
-  pct: 83
+  pct: 67
 - line: dorumon
   ko: 도루몬
   total: 7
   ready: 0
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 7
@@ -156,6 +175,7 @@ by_line:
   ko: 팔코몬
   total: 11
   ready: 5
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 6
@@ -164,6 +184,7 @@ by_line:
   ko: 가오몬
   total: 8
   ready: 5
+  mismatch: 0
   partial: 0
   source_only: 1
   missing: 2
@@ -172,6 +193,7 @@ by_line:
   ko: 케라몬
   total: 7
   ready: 6
+  mismatch: 0
   partial: 0
   source_only: 0
   missing: 1
@@ -190,13 +212,13 @@ species:
 - ko: 코로몬
   line: agumon
   stage: baby2
-  dot: ready
+  dot: mismatch
   pack: agumon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 아구몬
   line: agumon
   stage: child
@@ -304,13 +326,13 @@ species:
 - ko: 뿔몬
   line: gabumon
   stage: baby2
-  dot: ready
+  dot: mismatch
   pack: gabumon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 파피몬
   line: gabumon
   stage: child
@@ -689,13 +711,13 @@ species:
 - ko: 꼬마몬
   line: v-mon
   stage: baby2
-  dot: ready
+  dot: mismatch
   pack: veemon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 브이몬
   line: v-mon
   stage: child
@@ -960,13 +982,13 @@ species:
 - ko: 기기몬
   line: guilmon
   stage: baby2
-  dot: ready
+  dot: mismatch
   pack: guilmon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 길몬
   line: guilmon
   stage: child
@@ -1030,13 +1052,13 @@ species:
 - ko: 포코몬
   line: renamon
   stage: baby2
-  dot: ready
+  dot: mismatch
   pack: renamon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 레나몬
   line: renamon
   stage: child
@@ -1100,13 +1122,13 @@ species:
 - ko: 구미몬
   line: terriermon
   stage: baby2
-  dot: ready
+  dot: mismatch
   pack: terriermon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 테리어몬
   line: terriermon
   stage: child
@@ -1260,13 +1282,13 @@ species:
 - ko: 야몬
   line: impmon
   stage: baby1
-  dot: ready
+  dot: mismatch
   pack: impmon
   sprite: baby
   portrait: false
   sheet: null
   priority: null
-  status: done
+  status: todo
 - ko: 임프몬
   line: impmon
   stage: child
@@ -1667,13 +1689,13 @@ extras:
   pack: agumon
   stage: ultimate
   source: pack
-- ko: 샤인그레이몬 버스트 모드
-  pack: agumon
-  stage: null
-  source: pack
 - ko: 샤인그레이몬
   pack: agumon
-  stage: null
+  stage: ultimate
+  source: pack
+- ko: 샤인그레이몬 버스트 모드
+  pack: agumon
+  stage: superultimate
   source: pack
 - ko: 크로노몬 홀리 모드
   pack: falcomon

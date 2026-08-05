@@ -7,6 +7,8 @@
 
 판정 상태(dot):
   ready       팩에 노드가 있고 프레임 PNG(-0, -1)가 모두 존재
+  mismatch    프레임은 다 있으나 docs/sprite-plan.yaml 의 dot_mismatch 에 선언된
+              알려진 결함 (그림이 해당 종이 아님). ready 집계·커버리지에서 제외
   partial     팩에 노드는 있으나 프레임이 일부만 존재
   source_only 팩에는 없고 dwds 원본 시트만 존재 (추출하면 바로 쓸 수 있음)
   missing     아무 에셋도 없음
@@ -226,10 +228,12 @@ def scan_sheets(aliases, warnings):
     return found, out_of_catalog
 
 
-def classify(name, packs, sheets):
+def classify(name, packs, sheets, dot_mismatch=None):
     hit = packs.get(name)
     if hit:
         if hit['frames'] == hit['frames_total']:
+            if dot_mismatch and name in dot_mismatch:
+                return 'mismatch', hit
             return 'ready', hit
         if hit['frames'] > 0:
             return 'partial', hit
@@ -266,13 +270,13 @@ def cross_check(name, dot, item, warnings):
         warnings.append(f'{name}: wontfix 인데 도트가 존재함')
 
 
-def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnings):
+def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnings, dot_mismatch=None):
     species, by_line = [], OrderedDict()
     counts = Counter()
     portrait_ready = 0
 
     for name, occurrences in catalog.items():
-        dot, hit = classify(name, packs, sheets)
+        dot, hit = classify(name, packs, sheets, dot_mismatch)
         item = plan.get(name, {})
         if item:
             cross_check(name, dot, item, warnings)
@@ -304,7 +308,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
 
         for lid, lko, _stage in occurrences:
             bucket = by_line.setdefault(lid, {'line': lid, 'ko': lko, 'total': 0,
-                                              'ready': 0, 'partial': 0,
+                                              'ready': 0, 'mismatch': 0, 'partial': 0,
                                               'source_only': 0, 'missing': 0})
             bucket['total'] += 1
             bucket[dot] += 1
@@ -331,6 +335,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
     summary = OrderedDict([
         ('total', len(catalog)),
         ('ready', counts['ready']),
+        ('mismatch', counts['mismatch']),
         ('partial', counts['partial']),
         ('source_only', counts['source_only']),
         ('missing', counts['missing']),
@@ -355,7 +360,8 @@ HEADER = """\
 # 이름 별칭     : docs/sprite-aliases.yaml
 # 수동 계획     : docs/sprite-plan.yaml  (우선순위·진행상태는 여기서 고칠 것)
 #
-# dot: ready(프레임 완비) / partial(프레임 일부) / source_only(dwds 시트만) / missing
+# dot: ready(프레임 완비) / mismatch(프레임은 있으나 알려진 결함) / partial(프레임 일부)
+#      / source_only(dwds 시트만) / missing
 """
 
 
@@ -388,8 +394,9 @@ def write_report(summary, by_line, species, extras, warnings, acknowledged):
 
 def print_summary(summary, by_line, warnings, acknowledged, species):
     print(f"카탈로그 {summary['total']}종 | ready {summary['ready']} "
-          f"/ partial {summary['partial']} / source_only {summary['source_only']} "
-          f"/ missing {summary['missing']}  → 커버리지 {summary['coverage_pct']}%")
+          f"/ mismatch {summary['mismatch']} / partial {summary['partial']} "
+          f"/ source_only {summary['source_only']} / missing {summary['missing']}"
+          f"  → 커버리지 {summary['coverage_pct']}%")
     print(f"초상(portrait) 완비: {summary['portrait_ready']}종\n")
 
     print('라인별 커버리지')
@@ -397,12 +404,17 @@ def print_summary(summary, by_line, warnings, acknowledged, species):
         bar = '█' * round(b['pct'] / 10) + '·' * (10 - round(b['pct'] / 10))
         print(f"  {b['ko']:<8} {bar} {b['pct']:>3}%  "
               f"ready {b['ready']:>2}/{b['total']:<2} "
-              f"src {b['source_only']} miss {b['missing']}")
+              f"mismatch {b['mismatch']} src {b['source_only']} miss {b['missing']}")
 
     nxt = [s for s in species if s['dot'] == 'source_only' and s['status'] != 'wontfix']
     if nxt:
         print(f'\n추출만 하면 되는 종 ({len(nxt)}) — dwds 시트 보유')
         print('  ' + ', '.join(s['ko'] for s in nxt))
+
+    mismatched = [s for s in species if s['dot'] == 'mismatch']
+    if mismatched:
+        print(f'\n알려진 결함 - 파일은 있으나 그림이 다름 ({len(mismatched)}) — docs/sprite-plan.yaml dot_mismatch')
+        print('  ' + ', '.join(s['ko'] for s in mismatched))
 
     if warnings:
         print(f'\n경고 {len(warnings)}건')
@@ -433,9 +445,13 @@ def main():
     packs, pack_extras = scan_packs(aliases, catalog, warnings)
     sheets, sheet_extras = scan_sheets(aliases, warnings)
     plan = merge_plan(plan_doc.get('plan'), catalog, warnings)
+    dot_mismatch = plan_doc.get('dot_mismatch') or {}
+    for name in dot_mismatch:
+        if name not in catalog:
+            warnings.append(f'sprite-plan.yaml 의 dot_mismatch "{name}" 은 카탈로그 138종에 없음')
 
     summary, by_line, species, extras = build_report(
-        catalog, packs, sheets, sheet_extras, pack_extras, plan, warnings)
+        catalog, packs, sheets, sheet_extras, pack_extras, plan, warnings, dot_mismatch)
     warnings, acknowledged = split_acknowledged(
         warnings, plan_doc.get('acknowledged_warnings'))
 
