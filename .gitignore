@@ -10,5 +10,8 @@ menubar/claudemon-menubar
 *.png
 *.gif
 
+# 진화 맵 HTML은 도트를 base64로 인라인한 산출물이라 매번 재생성해서 본다
+docs/evolution-map.html
+
 # macOS
 .DS_Store

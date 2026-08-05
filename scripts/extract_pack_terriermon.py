@@ -4,10 +4,11 @@
 Source sheet: sprites/sheets/terriermon.gif (317x300 GIF-palette, uniform
 light-gray background). The sheet only contains Terriermon-stage frames (no
 Gargomon/other digivolve frames present), so this script only extracts
-digitama/baby/child + limit80/limit95 frames from it -- picked to loosely
-track each stage's expected energy (curled ball for digitama, calm stance
-for baby, reach/lunge for child, and the sheet's alternate-tinted big poses
-for the limit warnings). adult/perfect/ultimate are extracted separately by
+baby/child + limit80/limit95 frames from it -- picked to loosely track each
+stage's expected energy (calm stance for baby, reach/lunge for child, and
+the sheet's alternate-tinted big poses for the limit warnings). digitama
+is not extracted (the menubar always reads it from sprites/shared/);
+adult/perfect/ultimate are extracted separately by
 scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
 Extraction method: the sheet is not scanned in row bands (that approach
@@ -34,11 +35,12 @@ BG_COLOR = (224, 219, 220)
 # Windows are exact connected-component bounding boxes (one full character
 # each), verified visually against
 # sprites/packs/_debug/terriermon_candidates.png.
+#
+# digitama is intentionally not extracted here: the menubar always reads the
+# Digi-Egg sprite from sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png would be dead output the app never loads.
 STAGE_WINDOWS = {
-    "digitama": [
-        (106, 151, 73, 104),  # curled snail-shell coil, roundest pose
-        (260, 281, 109, 136), # small curled ball with face
-    ],
     "baby": [
         (133, 157, 36, 64),  # standing idle stance
         (5, 30, 37, 64),     # standing idle stance, mirrored

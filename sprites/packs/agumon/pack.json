@@ -76,7 +76,9 @@
         "id": "rizegreymon",
         "name": "라이즈그레이몬",
         "sprite": "perfect-rizegreymon",
-        "next": [],
+        "next": [
+          "shinegreymon"
+        ],
         "traits": [
           "swarm"
         ]
@@ -104,6 +106,17 @@
         "traits": [
           "dark"
         ]
+      },
+      {
+        "id": "shinegreymon",
+        "name": "샤인그레이몬",
+        "sprite": "ultimate-shinegreymon",
+        "next": [
+          "shinegreymon_burst"
+        ],
+        "traits": [
+          "swarm"
+        ]
       }
     ],
     "superultimate": [
@@ -112,6 +125,15 @@
         "name": "오메가몬",
         "sprite": "superultimate",
         "next": []
+      },
+      {
+        "id": "shinegreymon_burst",
+        "name": "샤인그레이몬 버스트 모드",
+        "sprite": "superultimate-shinegreymon_burst",
+        "next": [],
+        "traits": [
+          "swarm"
+        ]
       }
     ]
   }

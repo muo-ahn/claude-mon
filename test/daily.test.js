@@ -519,6 +519,72 @@ test('selectRoute steps away from yesterday route', () => {
   assert.strictEqual(guarded.superultimate.id, 'top');
 });
 
+// --- selectRoute: lazy binding (`locked`) -----------------------------
+//
+// A pinned route used to be frozen whole for the day, which meant traits
+// that can only become true partway through the day (swarm needs 5
+// sessions - impossible in the first seconds after midnight) could never
+// steer a branch. `locked` fixes that: stages already reached stay pinned,
+// stages still ahead redraw against whatever the day's traits are *right
+// now*.
+
+test('selectRoute preserves the locked prefix and re-walks the rest', () => {
+  const base = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const locked = {
+    route: { ...base, adult: { id: 'deadA', name: '막다른', sprite: 'adult-dead' } },
+    throughStage: 'adult'
+  };
+  const route = selectRoute('2026-07-30', 'p', TREE, [], null, locked);
+  assert.strictEqual(route.adult.id, 'deadA');
+  // deadA has no next - the spine return still has to carry the route to
+  // the top, exactly as it would from a non-locked walk.
+  assert.strictEqual(route.perfect.id, 'spineP');
+  assert.strictEqual(route.superultimate.id, 'top');
+});
+
+test('selectRoute locks the reached stage against trait changes but leaves the rest open', () => {
+  // 2026-07-30 draws deadA with no traits - not darkA - so this actually
+  // exercises the lock rather than coincidentally matching the trait draw.
+  const noTraits = selectRoute('2026-07-30', 'p', TREE, [], null);
+  assert.strictEqual(noTraits.adult.id, 'deadA');
+
+  // Locked through adult: re-running with a new trait must not move it.
+  const lockedAtAdult = { route: noTraits, throughStage: 'adult' };
+  const withDark = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, lockedAtAdult);
+  assert.strictEqual(withDark.adult.id, 'deadA');
+
+  // Locked only through child: adult hasn't been reached yet, so it must
+  // follow the trait like a normal draw would.
+  const lockedAtChild = { route: noTraits, throughStage: 'child' };
+  const withDarkFromChild = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, lockedAtChild);
+  assert.strictEqual(withDarkFromChild.adult.id, 'darkA');
+  assert.strictEqual(withDarkFromChild.child.id, noTraits.child.id); // still pinned below the lock line
+});
+
+test('selectRoute is idempotent with a locked prefix', () => {
+  const base = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const locked = { route: base, throughStage: 'adult' };
+  const a = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, locked);
+  const b = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, locked);
+  assert.deepStrictEqual(a, b);
+});
+
+test('selectRoute degrades to a normal draw when the locked route no longer matches the tree', () => {
+  const locked = {
+    route: {
+      digitama: { id: 'egg', name: '알', sprite: 'digitama' },
+      baby: { id: 'baby1', name: '유년', sprite: 'baby' },
+      child: { id: 'kid', name: '성장', sprite: 'child' },
+      adult: { id: 'no-longer-in-tree', name: '?', sprite: '?' } // tree moved under this route
+    },
+    throughStage: 'adult'
+  };
+  assert.doesNotThrow(() => selectRoute('2026-07-30', 'p', TREE, [], null, locked));
+  const route = selectRoute('2026-07-30', 'p', TREE, [], null, locked);
+  assert.strictEqual(route.child.id, 'kid'); // still-valid locked stages stay locked
+  assert.strictEqual(route.superultimate.id, 'top'); // degraded stages still reach the top
+});
+
 test('activeTraits reads the day rather than luck', () => {
   assert.deepStrictEqual(activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2 }), []);
   assert.deepStrictEqual(activeTraits({ failureRatio: 0.2, sessionCount: 1, topShare: 0.1 }), ['dark']);
@@ -526,4 +592,78 @@ test('activeTraits reads the day rather than luck', () => {
     activeTraits({ failureRatio: 0, sessionCount: 7, topShare: 0.9 }),
     ['swarm', 'focus']
   );
+});
+
+// --- computeDailyTokens: lazy binding end-to-end ----------------------
+//
+// selectRoute's `locked` prefix is only half the story - computeDailyTokens
+// has to actually pass it in on every rerun, keyed off the stage the mon
+// has reached *this run*, not off whatever daily.json remembers. This is
+// the regression the whole change exists for: swarm needs 5 concurrent
+// sessions, which cannot be true in the first run right after midnight, so
+// the only way it can ever steer a branch is if a later rerun the same day
+// redraws the stages still ahead of the mon.
+
+const LAZY_TREE = {
+  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
+  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: ['kid'] }],
+  child: [{ id: 'kid', name: '성장', sprite: 'child', next: ['ad1'] }],
+  adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', next: ['perfSpine', 'perfSwarm'] }],
+  perfect: [
+    { id: 'perfSpine', name: '완전-정통', sprite: 'perfect', next: ['ult1'] },
+    { id: 'perfSwarm', name: '완전-무리', sprite: 'perfect-swarm', traits: ['swarm'], next: ['ult1'] }
+  ],
+  ultimate: [{ id: 'ult1', name: '궁극', sprite: 'ultimate', next: ['top'] }],
+  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
+};
+
+// Only pack in the pool, so mon selection can't introduce randomness of
+// its own (see "selectMon repeats the only candidate rather than failing").
+function writeLazyPack(dirs) {
+  const dir = path.join(dirs.packsDir, 'lazymon');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+  fs.writeFileSync(
+    path.join(dir, 'pack.json'),
+    JSON.stringify({ name: 'lazymon', stageNames: { superultimate: '초궁극' }, tree: LAZY_TREE }, null, 2)
+  );
+}
+
+test('computeDailyTokens keeps the reached stage pinned and re-walks the rest as traits change', (t) => {
+  const dirs = makeRoot(t);
+  writeLazyPack(dirs);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  // 150,000 output tokens across 2 sessions: lands in adult (gte 100,000,
+  // below perfect's 300,000), well under focus's 0.6 topShare and swarm's
+  // 5 sessions.
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000001.jsonl', [
+    assistantLine('msg_1', 75_000)
+  ]);
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000002.jsonl', [
+    assistantLine('msg_2', 75_000)
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(first.stageId, 'adult');
+  assert.strictEqual(first.route.adult.id, 'ad1');
+  assert.deepStrictEqual(first.traits, []);
+
+  // Three more low-token sessions push sessionCount to 5 (swarm) without
+  // moving the total out of the adult range - the day "catches up" to a
+  // trait it couldn't have had on the first run.
+  for (let i = 3; i <= 5; i++) {
+    writeTranscript(
+      dirs.projectsDir,
+      `-Users-me-repo/aaaaaaaa-0000-0000-0000-00000000000${i}.jsonl`,
+      [assistantLine(`msg_${i}`, 1_000)]
+    );
+  }
+
+  const second = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(second.traits.includes('swarm'));
+  assert.strictEqual(second.stageId, 'adult'); // still the same stage today
+  assert.strictEqual(second.route.adult.id, 'ad1'); // reached stage: pinned despite the new trait
+  assert.strictEqual(second.route.child.id, first.route.child.id); // pinned prefix below it too
+  assert.strictEqual(second.route.perfect.id, 'perfSwarm'); // not yet reached: redrawn against today's trait
 });

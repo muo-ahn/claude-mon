@@ -651,6 +651,12 @@ func dumpLimits(path: String) {
 // scratch directory.
 func dumpState() {
     let daily = readDailyState()
+    // The GUI applies today's route before it ever renders a name; this dump
+    // has to do the same or `name:` silently reports the pack's spine instead
+    // of the branch actually on screen (perfect read 메탈그레이몬 while the
+    // route said 라이즈그레이몬). Only shows up once a route takes a branch,
+    // which is why it went unnoticed while every pack ran spine-only.
+    _ = applyRoute(daily.route, mon: daily.mon)
     let sessions = scanSessions(dir: sessionsDir)
     let (state, workingCount) = globalWorkingState(sessions: sessions, fallbackGlobalPath: globalStateFile)
     let animating = (state == .working || state == .waitingUser)

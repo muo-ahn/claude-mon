@@ -4,10 +4,11 @@
 Source sheet: sprites/sheets/renamon.gif (347x500 GIF-palette, uniform
 light-gray background). The sheet only contains Rookie-stage Renamon frames
 (no Sakuyamon digivolve frames present), so this script only extracts
-digitama/baby/child + limit80/limit95 frames from it -- picked to loosely
-track each stage's expected energy (calm stance for digitama/baby, more
-active poses for child, flinch-like poses for the limit warnings).
-adult/perfect/ultimate are extracted separately by
+baby/child + limit80/limit95 frames from it -- picked to loosely track each
+stage's expected energy (calm stance for baby, more active poses for
+child, flinch-like poses for the limit warnings). digitama is not
+extracted (the menubar always reads it from sprites/shared/); adult/
+perfect/ultimate are extracted separately by
 scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
 Extraction method: the sheet is not scanned in row bands (that approach
@@ -31,11 +32,12 @@ BG_COLOR = (224, 219, 220)
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are exact connected-component bounding boxes (one full character
 # each), verified visually against sprites/packs/_debug/renamon_candidates.png.
+#
+# digitama is intentionally not extracted here: the menubar always reads the
+# Digi-Egg sprite from sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png would be dead output the app never loads.
 STAGE_WINDOWS = {
-    "digitama": [
-        (7, 33, 68, 98),    # small idle stance, facing left
-        (71, 93, 68, 98),   # small idle stance, mirrored
-    ],
     "baby": [
         (39, 63, 68, 97),   # idle stance variant
         (101, 134, 72, 104),  # small surprised/alert pose
