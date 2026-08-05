@@ -20,12 +20,14 @@ const {
   topStageId,
   selectRoute,
   readTree,
+  validatePackTree,
   activeTraits,
   hashString,
   selectMon,
   computeDailyTokens,
   listJsonlFiles,
-  transcriptKey
+  transcriptKey,
+  defaultPacksDir
 } = require('../lib/daily');
 
 // --- helpers ---------------------------------------------------------
@@ -679,6 +681,119 @@ test('readTree still returns null for a partially declared pack', (t) => {
   });
 
   assert.strictEqual(readTree(dirs.packsDir, 'partialmon'), null);
+});
+
+// --- validatePackTree ----------------------------------------------------
+//
+// Runtime stays lenient (decision E) - readTree/selectRoute never throw on
+// a malformed tree. validatePackTree is where the data contract they lean
+// on actually gets enforced, for tests here and for
+// scripts/build-evolution-map.js's per-pack diagnostics.
+
+const MINIMAL_TREE = {
+  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby1', when: null }] }],
+  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid', when: null }] }],
+  child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'ad1', when: null }] }],
+  adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'top', when: null }] }],
+  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
+};
+
+test('validatePackTree accepts a tree whose every non-top node ends in a guaranteed edge', () => {
+  assert.deepStrictEqual(validatePackTree(MINIMAL_TREE), []);
+  assert.deepStrictEqual(validatePackTree(TREE), []); // the branching fixture used above
+});
+
+test('validatePackTree passes a top-stage node with no evolutions field at all', () => {
+  const tree = { ...MINIMAL_TREE, superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate' }] };
+  assert.deepStrictEqual(validatePackTree(tree), []);
+});
+
+test('validatePackTree catches a missing unconditional edge', () => {
+  const tree = {
+    ...MINIMAL_TREE,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'top', when: { type: 'sessionCount', gte: 5 } }] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'missing-unconditional-edge', stage: 'adult', node: 'ad1' }
+  ]);
+});
+
+test('validatePackTree catches a stage skip', () => {
+  // kid points straight at 'top' (superultimate), jumping over adult - the
+  // exact silent-mis-slot hazard byId spanning every stage creates (plan §9
+  // pitfall 2).
+  const tree = { ...MINIMAL_TREE, child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'top', when: null }] }] };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'stage-skip', stage: 'child', node: 'kid', to: 'top' }
+  ]);
+});
+
+test('validatePackTree catches a to that names no node at all', () => {
+  const tree = { ...MINIMAL_TREE, child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'ghost', when: null }] }] };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'unknown-target', stage: 'child', node: 'kid', to: 'ghost' }
+  ]);
+});
+
+test('validatePackTree catches an unknown condition type', () => {
+  const tree = {
+    ...MINIMAL_TREE,
+    child: [{
+      id: 'kid',
+      name: '성장',
+      sprite: 'child',
+      evolutions: [
+        { to: 'ad1', when: { type: 'typoType', gte: 1 } },
+        { to: 'ad1', when: null }
+      ]
+    }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'unknown-condition-type', stage: 'child', node: 'kid', condType: 'typoType' }
+  ]);
+});
+
+test('validatePackTree recurses into a nested all to catch an unknown condition type', () => {
+  // Regression for conditionMet's own `and` 1-level limitation (decision F)
+  // - the checker has to actually walk `all` recursively, not just its
+  // top level, or a typo two levels deep passes silently.
+  const tree = {
+    ...MINIMAL_TREE,
+    child: [{
+      id: 'kid',
+      name: '성장',
+      sprite: 'child',
+      evolutions: [
+        { to: 'ad1', when: { all: [{ type: 'sessionCount', gte: 1 }, { all: [{ type: 'bogus', gte: 1 }] }] } },
+        { to: 'ad1', when: null }
+      ]
+    }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'unknown-condition-type', stage: 'child', node: 'kid', condType: 'bogus' }
+  ]);
+});
+
+// Safety net for commits 5/6: every shipped pack.json must validate clean
+// before its data gets rewritten into evolutions/when. gaomon stops short
+// of the top stage on purpose (README §로테이션 후보 요건) and readTree
+// returns null for it - "every pack's tree reaches the top" is not an
+// assumption this test makes (plan §9 pitfall 6).
+test('validatePackTree finds zero violations across every shipped pack that has a tree', () => {
+  const packsDir = defaultPacksDir();
+  const names = fs
+    .readdirSync(packsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .map((e) => e.name);
+  let checked = 0;
+  for (const name of names) {
+    const tree = readTree(packsDir, name);
+    if (!tree) continue; // no tree, or a partial declaration - nothing to validate
+    checked += 1;
+    const violations = validatePackTree(tree);
+    assert.deepStrictEqual(violations, [], `${name}: ${JSON.stringify(violations)}`);
+  }
+  assert.ok(checked > 0, 'no shipped pack had a usable tree - this test is not exercising anything');
 });
 
 test('activeTraits reads the day rather than luck', () => {
