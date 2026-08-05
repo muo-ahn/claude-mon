@@ -79,6 +79,10 @@ PICKS = {
         "adult-geogreymon": ("geogreymon", [0, 1]),
         "perfect-rizegreymon": ("rizegreymon", [0, 1]),
         "ultimate-blackwargreymon": ("blackwargreymon", [0, 1]),
+        # ultimate-shinegreymon, superultimate-shinegreymon_burst 는 표 미등록
+        # = 재현 불가, 인덱스 추측 금지. 자동 검출 프레임과 바이트가 달라
+        # (수동 크롭으로 만들어짐) 원본 인덱스를 복원할 수 없다. 다음 실행에
+        # 다른 프레임으로 덮이지 않도록 여기 항목을 추가하지 말 것.
     },
     "guilmon": {
         "adult": ("growlmon", [0, 1]),
@@ -86,6 +90,8 @@ PICKS = {
         "ultimate": ("gallantmon", [6, 7]),
         "superultimate": ("gallantmon_crimson", [3, 4]),
         "perfect-blackmegalogrowlmon": ("blackwargrowlmon", [4, 5]),
+        # ultimate-chaosdukemon 은 표 미등록 = 재현 불가, 인덱스 추측 금지
+        # (수동 크롭으로 만들어져 원본 프레임 인덱스가 없음).
     },
     "gabumon": {
         "adult": ("garurumon", [6, 7]),
@@ -93,6 +99,8 @@ PICKS = {
         "ultimate": ("metalgarurumon", [6, 7]),
         "superultimate": ("omegamon", [5, 6]),
         "ultimate-darkdramon": ("darkdramon", [5, 6]),
+        # perfect-blackweregarurumon 은 표 미등록 = 재현 불가, 인덱스 추측 금지
+        # (수동 크롭으로 만들어져 원본 프레임 인덱스가 없음).
     },
     "veemon": {
         "adult": ("exveemon", [6, 7]),
@@ -107,11 +115,18 @@ PICKS = {
         "adult": ("kyubimon", [6, 7]),
         "perfect": ("taomon", [3, 4]),
         "ultimate": ("sakuyamon", [3, 4]),
+        # ultimate-kuzuhamon 은 표 미등록 = 재현 불가, 인덱스 추측 금지
+        # (수동 크롭으로 만들어져 원본 프레임 인덱스가 없음).
     },
     "terriermon": {
         "adult": ("gargomon", [3, 4]),
         "perfect": ("rapidmon", [0, 1]),
         "ultimate": ("megagargomon", [0, 1]),
+        # 프레임 순서 0<->1 반전이 맞다 (blackmegagargomon 시트, 현재 파일과
+        # 바이트 일치 확인됨).
+        "ultimate-blacksaintgalgomon": ("blackmegagargomon", [1, 0]),
+        # perfect-blackrapidmon 은 표 미등록 = 재현 불가, 인덱스 추측 금지
+        # (수동 크롭으로 만들어져 원본 프레임 인덱스가 없음).
     },
     # 케라몬 라인은 Battle Spirit 시트가 없어 성장기·유년기까지 전부 DWDS에서
     # 온다. `idle`은 팩 로드의 최소 조건이자 대기 프레임인데 관례상 성장기
@@ -143,17 +158,19 @@ PICKS = {
         "perfect": ("yatagaramon", [0, 1]),
         "ultimate": ("varodurumon", [0, 1]),
         "superultimate": ("chronomon_hm", [6, 7]),
+        # ultimate-ravemon, superultimate-ravemon_bm 은 표 미등록 = 재현 불가,
+        # 인덱스 추측 금지 (수동 크롭으로 만들어져 원본 프레임 인덱스가 없음).
     },
     # Impmon has no canonical Champion/Ultimate; the pack already stood in
     # 데블몬 for adult. 스컬사탄몬 is absent from DWDS, so perfect uses
     # 뱀파이몬 (Myotismon) -- pack.json carries the matching name. 베르제브몬
-    # 블래스트 모드는 캐논에는 있지만 DWDS 시트에 없다 (Dawn/Dusk
-    # 섹션에도 없음). 초궁극체 도트를 구할 수 없으므로 impmon도 superultimate
-    # 항목이 없고, 따라서 로테이션 후보에서 빠진다.
+    # 블래스트 모드 시트(beelzemon_bm)는 이제 확보되어 아래 superultimate
+    # 항목으로 들어간다.
     "impmon": {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
+        "superultimate": ("beelzemon_bm", [1, 2]),
     },
     # 가오몬 라인도 전 단계를 DWDS에서 뽑는다. 분기 없는 spine이라 유년기부터
     # 궁극체까지 시트가 하나씩만 있다.
@@ -175,9 +192,10 @@ PICKS = {
     },
 }
 
-# 레나몬(사쿠야몬)·테리어몬(세인트가르고몬)에도 superultimate 항목이 없다 --
-# 이쪽은 캐논상 초궁극체 자체가 없다. 세 팩 모두 pack.json에 이름이 비어 있어
-# lib/daily.js의 로테이션 후보에서 빠진다 (README "로테이션 후보 요건").
+# 레나몬(사쿠야몬)에는 PICKS상 "superultimate" 키가 없다 -- 캐논상 초궁극체
+# 자체가 없다. (임프몬은 beelzemon_bm 확보로 위에 superultimate 항목이 생겼고,
+# 테리어몬은 "ultimate-blacksaintgalgomon" 키로 위에 있다 -- 둘 다 superultimate
+# *스테이지*는 있으나 sprite 이름이 ultimate- 접두를 그대로 쓴다.)
 
 
 def dominant_colors(im, min_share):
