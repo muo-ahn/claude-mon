@@ -5,7 +5,8 @@ teal/green uniform background).
 
 The sheet contains only Agumon's own move set (idle, walk, run, claw
 combo, roar, Pepper Breath fireball throw), so this script only extracts
-digitama/baby/child + limit80/limit95 frames from it. adult/perfect/
+baby/child + limit80/limit95 frames from it. digitama is not extracted
+(the menubar always reads it from sprites/shared/); adult/perfect/
 ultimate (Greymon/WarGreymon) are extracted separately by
 scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 The sheet also has no explicit hit-reaction or knock-out/lying frame, so
@@ -23,11 +24,11 @@ BG_COLOR = (0, 156, 107)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
+# digitama is intentionally not extracted here: the menubar always reads the
+# Digi-Egg sprite from sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png would be dead output the app never loads.
 FRAME_WINDOWS = {
-    "digitama": [
-        (14, 44, 166, 196),   # Walk row, frame 1: compact standing stance
-        (117, 148, 166, 196),  # Walk row, frame 4: arms crossed, guard-like
-    ],
     "baby": [
         (17, 46, 44, 76),     # Idle row, frame 1
         (48, 75, 44, 76),     # Idle row, frame 2

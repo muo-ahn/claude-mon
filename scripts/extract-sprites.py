@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Extract menubar-sized stage sprites from the Guilmon Battle Spirit 1.5 sheet.
+"""Extract menubar-sized baby/child sprites from the Guilmon Battle Spirit 1.5
+sheet, plus the shared limit80/limit95 alert frames.
 
 Source sheet: sprites/guilmon15.png (1201x1918 RGB, uniform purple background).
-For each evolution stage this picks two (or more) frames from a specific
-motion row on the sheet, tight-crops them to their sprite content, makes the
-background transparent, and places them bottom-center on a 32x32 RGBA canvas.
-Frames larger than 32px in either dimension are downscaled with NEAREST to
-preserve the hard pixel-art edges.
+The sheet contains only Guilmon's own move set, so this script only extracts
+baby/child + limit80/limit95 frames from it. adult/perfect/ultimate
+(Growlmon/WarGrowlmon/Gallantmon) are extracted separately by
+scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet -- do
+not add those stages back here, since re-running this script would overwrite
+the DWDS-sourced dots with this sheet's Rookie-only frames (species mismatch;
+this happened once and had to be recovered from). For each stage this picks
+two (or more) frames from a specific motion row on the sheet, tight-crops
+them to their sprite content, makes the background transparent, and places
+them bottom-center on a 32x32 RGBA canvas. Frames larger than 32px in either
+dimension are downscaled with NEAREST to preserve the hard pixel-art edges.
 
 Usage: python3 scripts/extract-sprites.py
 """
@@ -20,11 +27,18 @@ BG_COLOR = (111, 49, 152)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
+#
+# adult/perfect/ultimate are deliberately absent: this sheet only has Guilmon
+# (Rookie) art, so those three stages come from extract_pack_evolved_dwds.py
+# instead, which pulls the correctly-evolved Growlmon/WarGrowlmon/Gallantmon
+# dots from a Digimon World DS sheet. Re-adding them here would overwrite
+# those DWDS dots with Guilmon-shaped frames under the evolved stages' names.
+#
+# digitama is also absent: the menubar always reads the Digi-Egg sprite from
+# sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png here would be dead output the app never loads.
 STAGE_WINDOWS = {
-    "digitama": [
-        (42, 66, 427, 456),   # Gaurd row, frame 2 (compact crouch)
-        (73, 98, 427, 456),   # Gaurd row, frame 3 (compact crouch, arms up)
-    ],
     "baby": [
         (8, 36, 10, 40),      # Idle row, frame 1
         (45, 73, 10, 40),     # Idle row, frame 2
@@ -32,18 +46,6 @@ STAGE_WINDOWS = {
     "child": [
         (11, 35, 291, 322),   # Walking row, frame 1
         (69, 93, 291, 322),   # Walking row, frame 3
-    ],
-    "adult": [
-        (5, 34, 337, 365),    # Running row, frame 1
-        (76, 104, 337, 365),  # Running row, frame 3
-    ],
-    "perfect": [
-        (70, 96, 470, 508),    # Power Up row, frame 3 (big roar, arms up)
-        (104, 131, 470, 508),  # Power Up row, frame 4 (bulked stance)
-    ],
-    "ultimate": [
-        (7, 47, 540, 583),    # Rock Breaker (Powered Up) row, frame 1 (flame trail)
-        (52, 90, 540, 583),   # Rock Breaker (Powered Up) row, frame 2 (flame trail)
     ],
 }
 

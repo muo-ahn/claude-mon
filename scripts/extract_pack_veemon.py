@@ -7,8 +7,9 @@ This sheet is labeled by section (STAND TYPES/DUCK, WALK(RUN)/SLIDE,
 JUMP/LAND, TAUNT, ATTACKS, AERIAL ATTACKS, DAMAGE/RECOVERY), which made
 mapping straightforward; the two large painterly renders at the very
 bottom of the sheet are cover/signature art for the "Trance" rip, not
-sprite frames, and were not used. This script only extracts digitama/
-baby/child + limit80/limit95 frames; adult/perfect/ultimate
+sprite frames, and were not used. This script only extracts baby/child +
+limit80/limit95 frames; digitama is not extracted (the menubar always
+reads it from sprites/shared/), and adult/perfect/ultimate
 (ExVeemon/Imperialdramon) are extracted separately by
 scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
@@ -24,11 +25,12 @@ BG_COLOR = (196, 225, 255)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
+#
+# digitama is intentionally not extracted here: the menubar always reads the
+# Digi-Egg sprite from sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png would be dead output the app never loads.
 FRAME_WINDOWS = {
-    "digitama": [
-        (175, 202, 84, 114),   # Duck row, frame 1
-        (202, 225, 84, 114),   # Duck row, frame 2
-    ],
     "baby": [
         (6, 33, 39, 71),       # Stand Types row, frame 1
         (32, 58, 39, 71),      # Stand Types row, frame 2

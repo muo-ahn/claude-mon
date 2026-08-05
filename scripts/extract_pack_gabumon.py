@@ -4,12 +4,12 @@ Spirit character sheet (sprites/sheets/gabumon.gif, 400x838 palette GIF,
 teal/green uniform background).
 
 Unlike Agumon's sheet, this one has richer state coverage: a full
-tumble/roll-onto-back animation (used for limit95), a red-face hit
-reaction row (used for limit80), and compact curled/seated poses (used
-for digitama). This script only extracts digitama/baby/child + limit80/
-limit95 frames; adult/perfect/ultimate (Garurumon/MetalGarurumon) are
-extracted separately by scripts/extract_pack_evolved_dwds.py from the
-Digimon World DS sheet.
+tumble/roll-onto-back animation (used for limit95) and a red-face hit
+reaction row (used for limit80). This script only extracts baby/child +
+limit80/limit95 frames; digitama is not extracted (the menubar always
+reads it from sprites/shared/), and adult/perfect/ultimate
+(Garurumon/MetalGarurumon) are extracted separately by
+scripts/extract_pack_evolved_dwds.py from the Digimon World DS sheet.
 
 Usage: python3 scripts/extract_pack_gabumon.py
 """
@@ -23,11 +23,12 @@ BG_COLOR = (2, 100, 76)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
+#
+# digitama is intentionally not extracted here: the menubar always reads the
+# Digi-Egg sprite from sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png would be dead output the app never loads.
 FRAME_WINDOWS = {
-    "digitama": [
-        (11, 49, 620, 652),   # Curled/seated row, frame 1
-        (98, 142, 620, 652),  # Curled/seated row, frame 3
-    ],
     "baby": [
         (7, 37, 8, 42),       # Idle row, frame 1
         (42, 72, 7, 42),      # Idle row, frame 2

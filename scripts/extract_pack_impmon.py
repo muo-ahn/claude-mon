@@ -6,8 +6,9 @@ green background). The sheet contains three palette-swapped copies of
 Rookie-stage Impmon only (labeled rows: idle, walking, walking plus, jump,
 land, fall, jump2, HAHA!, defend, shot1, shot2, shot miss, in-air variants,
 hit, hit2, on fire, shocked, win, lose) -- no Beelzemon digivolve frames are
-present anywhere on the sheet, so this script only extracts digitama/baby/
-child + limit80/limit95 frames from it. adult/perfect/ultimate are
+present anywhere on the sheet, so this script only extracts baby/child +
+limit80/limit95 frames from it. digitama is not extracted (the menubar
+always reads it from sprites/shared/); adult/perfect/ultimate are
 extracted separately by scripts/extract_pack_evolved_dwds.py from the
 Digimon World DS sheet. All windows below are taken from the first (vivid
 blue "real color") copy in the top-left corner.
@@ -24,11 +25,12 @@ BG_COLOR = (0, 128, 0)
 
 # Each entry: stageId -> list of source crop windows (x0, x1, y0, y1).
 # Windows are generous; the actual sprite is tight-cropped out of each window.
+#
+# digitama is intentionally not extracted here: the menubar always reads the
+# Digi-Egg sprite from sprites/shared/, never from a pack directory (see
+# menubar/claudemon-menubar.swift's `sharedStages = ["digitama"]`), so a
+# per-pack digitama-*.png would be dead output the app never loads.
 STAGE_WINDOWS = {
-    "digitama": [
-        (103, 136, 404, 437),  # Defend row, frame 1: calm guard stance
-        (336, 370, 412, 442),  # Defend row, frame 4: standing, arms out guard
-    ],
     "baby": [
         (17, 49, 10, 42),  # idle row, frame 1
         (48, 80, 9, 42),   # idle row, frame 2
