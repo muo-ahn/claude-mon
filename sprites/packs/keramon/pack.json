@@ -15,8 +15,8 @@
         "id": "digitama",
         "name": "알",
         "sprite": "digitama",
-        "next": [
-          "kuramon"
+        "evolutions": [
+          { "to": "kuramon", "when": null }
         ]
       }
     ],
@@ -25,8 +25,8 @@
         "id": "kuramon",
         "name": "쿠라몬",
         "sprite": "baby",
-        "next": [
-          "keramon"
+        "evolutions": [
+          { "to": "keramon", "when": null }
         ]
       }
     ],
@@ -35,8 +35,8 @@
         "id": "keramon",
         "name": "케라몬",
         "sprite": "child",
-        "next": [
-          "kurisarimon"
+        "evolutions": [
+          { "to": "kurisarimon", "when": null }
         ]
       }
     ],
@@ -45,8 +45,8 @@
         "id": "kurisarimon",
         "name": "크리사리몬",
         "sprite": "adult",
-        "next": [
-          "infermon"
+        "evolutions": [
+          { "to": "infermon", "when": null }
         ]
       }
     ],
@@ -55,9 +55,9 @@
         "id": "infermon",
         "name": "인펠몬",
         "sprite": "perfect",
-        "next": [
-          "diablomon",
-          "beelzebumon"
+        "evolutions": [
+          { "to": "diablomon", "when": { "type": "sessionCount", "gte": 5 } },
+          { "to": "beelzebumon", "when": null }
         ]
       }
     ],
@@ -66,22 +66,16 @@
         "id": "diablomon",
         "name": "디아블로몬",
         "sprite": "ultimate",
-        "next": [
-          "armagemon"
-        ],
-        "traits": [
-          "swarm"
+        "evolutions": [
+          { "to": "armagemon", "when": null }
         ]
       },
       {
         "id": "beelzebumon",
         "name": "베르제브몬",
         "sprite": "ultimate-beelzebumon",
-        "next": [
-          "armagemon"
-        ],
-        "traits": [
-          "dark"
+        "evolutions": [
+          { "to": "armagemon", "when": null }
         ]
       }
     ],
@@ -90,7 +84,7 @@
         "id": "armagemon",
         "name": "아마게몬",
         "sprite": "superultimate",
-        "next": []
+        "evolutions": []
       }
     ]
   }

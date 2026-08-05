@@ -881,6 +881,29 @@ test('computeDailyTokens keeps the reached stage pinned and re-walks the rest as
   assert.strictEqual(second.route.perfect.id, 'perfSwarm'); // not yet reached: redrawn against today's ctx
 });
 
+// Decision D's flip side: dropping "avoid yesterday's route" only pays off if
+// the same day's signals reliably produce the same route back. Without a
+// changed signal between reruns, every stage - reached or not - has to
+// redraw to the exact same node (the menubar polls every ~30s, so this runs
+// dozens of times a day for a stationary mon).
+test('computeDailyTokens produces the same route on a same-day rerun with unchanged signals', (t) => {
+  const dirs = makeRoot(t);
+  writeLazyPack(dirs);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000001.jsonl', [
+    assistantLine('msg_1', 75_000)
+  ]);
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000002.jsonl', [
+    assistantLine('msg_2', 75_000)
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  const second = computeDailyTokens(dateAt(0), dirs); // no new transcripts - same signals
+  assert.deepStrictEqual(second.route, first.route);
+  assert.strictEqual(second.stageId, first.stageId);
+});
+
 // --- computeDailyTokens: malformed tree data must never throw ----------
 //
 // readTree's own exception guard only catches JSON parse errors and
