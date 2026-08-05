@@ -15,8 +15,8 @@
         "id": "digitama",
         "name": "알",
         "sprite": "digitama",
-        "next": [
-          "koromon"
+        "evolutions": [
+          { "to": "koromon", "when": null }
         ]
       }
     ],
@@ -25,8 +25,8 @@
         "id": "koromon",
         "name": "코로몬",
         "sprite": "baby",
-        "next": [
-          "agumon"
+        "evolutions": [
+          { "to": "agumon", "when": null }
         ]
       }
     ],
@@ -35,9 +35,9 @@
         "id": "agumon",
         "name": "아구몬",
         "sprite": "child",
-        "next": [
-          "greymon",
-          "geogreymon"
+        "evolutions": [
+          { "to": "geogreymon", "when": { "type": "sessionCount", "gte": 5 } },
+          { "to": "greymon", "when": null }
         ]
       }
     ],
@@ -46,19 +46,17 @@
         "id": "greymon",
         "name": "그레이몬",
         "sprite": "adult",
-        "next": [
-          "metalgreymon"
+        "evolutions": [
+          { "to": "metalgreymon", "when": null }
         ]
       },
       {
         "id": "geogreymon",
         "name": "지오그레이몬",
         "sprite": "adult-geogreymon",
-        "next": [
-          "rizegreymon"
-        ],
-        "traits": [
-          "swarm"
+        "evolutions": [
+          { "to": "rizegreymon", "when": { "type": "sessionCount", "gte": 5 } },
+          { "to": "metalgreymon", "when": null }
         ]
       }
     ],
@@ -67,20 +65,17 @@
         "id": "metalgreymon",
         "name": "메탈그레이몬",
         "sprite": "perfect",
-        "next": [
-          "wargreymon",
-          "blackwargreymon"
+        "evolutions": [
+          { "to": "blackwargreymon", "when": { "type": "failureRatioPct", "gte": 5 } },
+          { "to": "wargreymon", "when": null }
         ]
       },
       {
         "id": "rizegreymon",
         "name": "라이즈그레이몬",
         "sprite": "perfect-rizegreymon",
-        "next": [
-          "shinegreymon"
-        ],
-        "traits": [
-          "swarm"
+        "evolutions": [
+          { "to": "shinegreymon", "when": null }
         ]
       }
     ],
@@ -89,33 +84,24 @@
         "id": "wargreymon",
         "name": "워그레이몬",
         "sprite": "ultimate",
-        "next": [
-          "omegamon"
-        ],
-        "traits": [
-          "focus"
+        "evolutions": [
+          { "to": "omegamon", "when": null }
         ]
       },
       {
         "id": "blackwargreymon",
         "name": "블랙워그레이몬",
         "sprite": "ultimate-blackwargreymon",
-        "next": [
-          "omegamon"
-        ],
-        "traits": [
-          "dark"
+        "evolutions": [
+          { "to": "omegamon", "when": null }
         ]
       },
       {
         "id": "shinegreymon",
         "name": "샤인그레이몬",
         "sprite": "ultimate-shinegreymon",
-        "next": [
-          "shinegreymon_burst"
-        ],
-        "traits": [
-          "swarm"
+        "evolutions": [
+          { "to": "shinegreymon_burst", "when": null }
         ]
       }
     ],
@@ -124,16 +110,13 @@
         "id": "omegamon",
         "name": "오메가몬",
         "sprite": "superultimate",
-        "next": []
+        "evolutions": []
       },
       {
         "id": "shinegreymon_burst",
         "name": "샤인그레이몬 버스트 모드",
         "sprite": "superultimate-shinegreymon_burst",
-        "next": [],
-        "traits": [
-          "swarm"
-        ]
+        "evolutions": []
       }
     ]
   }
