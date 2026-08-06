@@ -36,6 +36,8 @@
         "name": "브이몬",
         "sprite": "child",
         "evolutions": [
+          { "to": "magnamon", "when": { "type": "sessionCount", "gte": 5 } },
+          { "to": "flamedramon", "when": { "all": [ { "type": "topSharePct", "gte": 60 }, { "type": "sessionCount", "gte": 2 } ] } },
           { "to": "exveemon", "when": null }
         ]
       }
@@ -45,6 +47,22 @@
         "id": "exveemon",
         "name": "엑스브이몬",
         "sprite": "adult",
+        "evolutions": [
+          { "to": "paildramon", "when": null }
+        ]
+      },
+      {
+        "id": "flamedramon",
+        "name": "화염드라몬",
+        "sprite": "perfect-flamedramon",
+        "evolutions": [
+          { "to": "paildramon", "when": null }
+        ]
+      },
+      {
+        "id": "magnamon",
+        "name": "매그너몬",
+        "sprite": "perfect-magnamon",
         "evolutions": [
           { "to": "paildramon", "when": null }
         ]

@@ -46,6 +46,7 @@
         "name": "그라우몬",
         "sprite": "adult",
         "evolutions": [
+          { "to": "blackmegalogrowlmon", "when": { "type": "failureRatioPct", "gte": 5 } },
           { "to": "megalogrowlmon", "when": null }
         ]
       }
@@ -58,6 +59,14 @@
         "evolutions": [
           { "to": "dukemon", "when": null }
         ]
+      },
+      {
+        "id": "blackmegalogrowlmon",
+        "name": "블랙메가로그라우몬",
+        "sprite": "perfect-blackmegalogrowlmon",
+        "evolutions": [
+          { "to": "chaosdukemon", "when": null }
+        ]
       }
     ],
     "ultimate": [
@@ -65,6 +74,14 @@
         "id": "dukemon",
         "name": "듀크몬",
         "sprite": "ultimate",
+        "evolutions": [
+          { "to": "dukemon_crimson", "when": null }
+        ]
+      },
+      {
+        "id": "chaosdukemon",
+        "name": "카오스듀크몬",
+        "sprite": "ultimate-chaosdukemon",
         "evolutions": [
           { "to": "dukemon_crimson", "when": null }
         ]

@@ -125,6 +125,10 @@ PACK_SHEETS = {
         "adult": "growlmon", "perfect": "wargrowlmon", "ultimate": "gallantmon",
         "superultimate": "gallantmon_crimson",
         "perfect-blackmegalogrowlmon": "blackwargrowlmon",
+        # 카오스듀크몬 재편입(2026-08-06). chaosdukemon_core 시트는 포즈가
+        # 3장이지만 흰-청 발광 팔레트라 32px 도트(진청·보라)와 색이 어긋난다 --
+        # 본 시트의 포즈를 쓴다 (POSE_OVERRIDES 참고).
+        "ultimate-chaosdukemon": "chaosdukemon",
     },
     "gabumon": {
         "adult": "garurumon", "perfect": "weregarurumon", "ultimate": "metalgarurumon",
@@ -148,6 +152,7 @@ PACK_SHEETS = {
         "perfect-blackrapidmon": "blackrapidmon",
         # 블랙세인트가르고몬 rips as blackmegagargomon (Wikimon's Japanese name).
         "ultimate-blacksaintgalgomon": "blackmegagargomon",
+        "adult-prairiemon": "prairiemon",
     },
     # 베르제브몬 블래스트 모드 시트를 뒤늦게 구해 초궁극체가 채워졌다 -- 32px
     # 도트(impmon/superultimate-*.png)와 같은 시트라 형태가 어긋나지 않는다.
@@ -248,6 +253,15 @@ POSE_OVERRIDES = {
     # is known for), idx4 an arm-raised sweep. (0, 3) reads as an actual
     # attack instead of a shiver.
     "mummymon": (0, 3),
+    # chaosdukemon (보스 시트): idx0 은 랜스를 치켜든 액션 포즈지만 크롭 박스에
+    # 발치의 잡몹 스프라이트 2기가 같이 딸려 온다. idx1(정면 망토 펼침)만 쓰고
+    # frame 1 은 두지 않는다 -- 컷인이 정지 초상으로 뜨는 쪽이 잡몹 낀 것보다
+    # 낫다. chaosdukemon_core 는 팔레트 불일치로 부적합 (PACK_SHEETS 주석).
+    "chaosdukemon": (1, None),
+    # prairiemon: row 1 의 액션 2종이 idle 대비 크기 검사를 벗어나 auto-pick 이
+    # frame 1 을 못 찾았다. idx3(발톱 세우고 몸을 일으킨 포즈)이 얼굴·귀
+    # 실루엣을 유지해 idx4(채찍 휘두르기, 머리가 가려짐)보다 낫다.
+    "prairiemon": (0, 3),
     # miragegaogamon's row 1 (idx 3, 4) both clear the +/-15% size check on
     # width but miss it on height by ~25% (the swept cape and claw-out lunge
     # extend the bbox downward) -- auto-pick found nothing and left

@@ -36,6 +36,7 @@
         "name": "테리어몬",
         "sprite": "child",
         "evolutions": [
+          { "to": "prairiemon", "when": { "type": "topSharePct", "lte": 30 } },
           { "to": "gargomon", "when": null }
         ]
       }
@@ -48,6 +49,14 @@
         "evolutions": [
           { "to": "blackrapidmon", "when": { "type": "failureRatioPct", "gte": 5 } },
           { "to": "rapidmon", "when": null }
+        ]
+      },
+      {
+        "id": "prairiemon",
+        "name": "프라리몬",
+        "sprite": "adult-prairiemon",
+        "evolutions": [
+          { "to": "blackrapidmon", "when": null }
         ]
       }
     ],
