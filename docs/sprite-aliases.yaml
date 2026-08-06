@@ -25,6 +25,14 @@ pack_sprite_to_catalog:
   # 편입하면 지오그레이몬 계열의 궁극체/초궁극체로 일일 로테이션에 바로 등장한다.
   agumon:ultimate-shinegreymon: 샤인그레이몬
   agumon:superultimate-shinegreymon_burst: 샤인그레이몬 버스트 모드
+  # 2026-08-05 tree 에서 뺐다. 조건부 진화 전환(도달 보장 = 마지막 엣지 when: null
+  # 데이터 계약)에서 정사상 후속이 없는 막다른 가지는 걷는 트리에 남을 수 없다 —
+  # 가짜 엣지(블랙메가로그라우몬→듀크몬 류)를 되살리지 않는 한 도달 보장과 양립 불가.
+  # 카오스듀크몬 초궁극체 확보(evolution-routes.md Q2) 해결 시 재편입.
+  guilmon:perfect-blackmegalogrowlmon: 블랙메가로그라우몬
+  guilmon:ultimate-chaosdukemon: 카오스듀크몬
+  veemon:perfect-flamedramon: 화염드라몬
+  veemon:perfect-magnamon: 매그너몬
 
 # 팩 디렉터리명 → 카탈로그 라인 id.
 # 이름이 같으면 생략 가능. 팩 노드가 다른 라인의 종을 쓰고 있으면 경고한다.

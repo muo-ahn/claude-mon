@@ -15,8 +15,8 @@
         "id": "digitama",
         "name": "알",
         "sprite": "digitama",
-        "next": [
-          "gigimon"
+        "evolutions": [
+          { "to": "gigimon", "when": null }
         ]
       }
     ],
@@ -25,8 +25,8 @@
         "id": "gigimon",
         "name": "기기몬",
         "sprite": "baby",
-        "next": [
-          "guilmon"
+        "evolutions": [
+          { "to": "guilmon", "when": null }
         ]
       }
     ],
@@ -35,8 +35,8 @@
         "id": "guilmon",
         "name": "길몬",
         "sprite": "child",
-        "next": [
-          "growlmon"
+        "evolutions": [
+          { "to": "growlmon", "when": null }
         ]
       }
     ],
@@ -45,9 +45,8 @@
         "id": "growlmon",
         "name": "그라우몬",
         "sprite": "adult",
-        "next": [
-          "megalogrowlmon",
-          "blackmegalogrowlmon"
+        "evolutions": [
+          { "to": "megalogrowlmon", "when": null }
         ]
       }
     ],
@@ -56,20 +55,8 @@
         "id": "megalogrowlmon",
         "name": "메가로그라우몬",
         "sprite": "perfect",
-        "next": [
-          "dukemon"
-        ],
-        "traits": [
-          "focus"
-        ]
-      },
-      {
-        "id": "blackmegalogrowlmon",
-        "name": "블랙메가로그라우몬",
-        "sprite": "perfect-blackmegalogrowlmon",
-        "next": [],
-        "traits": [
-          "dark"
+        "evolutions": [
+          { "to": "dukemon", "when": null }
         ]
       }
     ],
@@ -78,15 +65,9 @@
         "id": "dukemon",
         "name": "듀크몬",
         "sprite": "ultimate",
-        "next": [
-          "dukemon_crimson"
+        "evolutions": [
+          { "to": "dukemon_crimson", "when": null }
         ]
-      },
-      {
-        "id": "chaosdukemon",
-        "name": "카오스듀크몬",
-        "sprite": "ultimate-chaosdukemon",
-        "next": []
       }
     ],
     "superultimate": [
@@ -94,7 +75,7 @@
         "id": "dukemon_crimson",
         "name": "듀크몬 크림슨 모드",
         "sprite": "superultimate",
-        "next": []
+        "evolutions": []
       }
     ]
   }

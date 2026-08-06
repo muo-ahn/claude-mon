@@ -150,11 +150,13 @@ launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
 node --test
 ```
 
-Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`), 분기 루트 추첨(`selectRoute` — 하루 고정·spine 복귀·trait 편향·어제 회피) — 과 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
+Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`), 분기 루트 추첨(`selectRoute` — 하루 고정·조건 게이트·lazy binding), 팩 트리 검증(`validatePackTree`) — 과 조건 엔진(`lib/evolve.js`의 `checkCondition`/`conditionMet` — 조건 타입 전체 + `all` 합성), 그리고 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
-진화 단계는 **그날(KST, 자정 리셋) 소모한 output 토큰 총량**으로만 결정된다. 세션/전역 tool-success 카운터(`hook.js`, `lib/state.js`)는 여전히 `working` 플래그 등 행동 상태 용도로 유지되지만 더 이상 진화 단계에 영향을 주지 않는다.
+진화 **단계**(digitama → ... → superultimate로 오르는 것)는 **그날(KST, 자정 리셋) 소모한 output 토큰 총량**으로만 결정된다. 세션/전역 tool-success 카운터(`hook.js`, `lib/state.js`)는 여전히 `working` 플래그 등 행동 상태 용도로 유지되고, 단계 자체를 밀어 올리는 데는 쓰이지 않는다.
+
+다만 같은 단계 안에서 **어느 분기**로 진화하는지는 이 카운터에서 파생된 지표(세션 수·집중도·도구 실패율)가 결정한다 — [랜덤 진화](#랜덤-진화-분기-루트) 참고. "단계"와 "분기"는 서로 다른 결정이다.
 
 단계는 7개(`digitama` → `baby` → `child` → `adult` → `perfect` → `ultimate` → `superultimate`)이며, 스프라이트 파일명도 이 stage id를 그대로 쓴다.
 
@@ -291,26 +293,31 @@ node daily-tokens.js
 
 디지몬은 같은 종족이라도 성장 배경에 따라 다른 형태로 진화한다. claudemon도 하루 단위로 **루트**를 뽑는다 — 오늘의 마스코트는 (팩, 루트) 쌍이다.
 
-**트리는 `pack.json`의 `tree`에 있다.** stage id → 노드 배열이고, 각 노드는 `{ id, name, sprite, next, traits? }`다. 각 단계 배열의 **첫 노드가 그 단계의 spine**(아무 것도 개입하지 않을 때의 형태)이다. `sprite`가 그대로 파일 prefix라서 분기 도트는 `adult-geogreymon-0.png`처럼 저장되고, spine은 기존 `adult-0.png`를 그대로 쓴다 — 기존 팩은 무수정 호환.
+**트리는 `pack.json`의 `tree`에 있다.** stage id → 노드 배열이고, 각 노드는 `{ id, name, sprite, evolutions }`다. 각 단계 배열의 **첫 노드가 그 단계의 spine**(아무 것도 개입하지 않을 때의 형태)이다. `sprite`가 그대로 파일 prefix라서 분기 도트는 `adult-geogreymon-0.png`처럼 저장되고, spine은 기존 `adult-0.png`를 그대로 쓴다.
 
-루트 선택 규칙 세 개:
+**`evolutions`는 우선순위가 있는 조건 목록이다.**
 
-1. **Lazy binding.** `hashString(dateKST|팩|단계)`로 뽑으므로 같은 날 몇 번 재실행해도 같은 값이 나오지만(`Math.random`은 여전히 쓰지 않는다), 고정되는 건 **이미 도달한 단계까지**뿐이다. 오늘 이미 성숙기에 올라섰다면 성숙기 이하는 그날 안에 절대 바뀌지 않지만(눈앞의 형태가 흔들리지 않는다), 아직 도달하지 않은 완전체 이상은 30초마다 도는 재계산 때마다 **그 시점의 trait**으로 다시 뽑는다 — 즉 아직 오르지 않은 단계라면, 거기 도달하기 전까지 조건을 채우기만 하면 그 분기가 반영된다. 재계산은 결정론적이라 trait이 그대로면 결과도 바이트 단위로 그대로다.
-   - 왜 통짜 고정이 아니라 이 방식인가: 예전에는 그날 첫 실행에 7단계 전부를 그 순간의 지표로 확정했다. 그런데 `swarm`(그날 세션 ≥5) 같은 조건은 자정 직후 몇 초 안에는 구조적으로 참이 될 수 없다 — 결국 분기는 거의 항상 날짜 해시가 정하고 trait 게이트는 죽은 기능이었다.
-2. **spine 복귀.** 중간에서 끊기는 분기(DWDS에는 지오그레이몬의 궁극체가 없고, 아머 진화체도 이어지지 않는다)를 뽑으면 다음 단계는 spine으로 돌아온다. 그래서 루트는 **항상 최상위 단계까지 도달**한다 — 2M을 찍은 날이 "이 계보는 초궁극체가 없다"로 낭비되지 않는다.
-3. **어제 회피.** `prevRoute`와 완전히 같은 루트가 나오면 마지막으로 선택지가 있던 단계를 한 칸 민다(`prevMon` 가드와 같은 방식).
+```json
+{
+  "id": "geogreymon",
+  "name": "지오그레이몬",
+  "sprite": "adult-geogreymon",
+  "evolutions": [
+    { "to": "rizegreymon",  "when": { "type": "sessionCount", "gte": 5 } },
+    { "to": "metalgreymon", "when": null }
+  ]
+}
+```
 
-**성장 배경 = 그날의 지표.** 노드의 `traits`와 그날 활성화된 trait이 겹치면 그 후보들만 추첨 대상이 된다. 겹치는 후보가 없으면 전체가 대상이므로, 조용한 날에도 모든 형태가 나올 수 있다.
+- **순서 = 우선순위, 첫 매칭 승리.** 위에서부터 조건을 검사해 처음 만족하는 엣지로 넘어간다.
+- **`when: null`(또는 필드 자체가 없음)은 무조건 엣지다.** 최상위 단계가 아닌 모든 노드는 **마지막 엣지가 반드시 `when: null`**이어야 한다 — 이게 도달 보장이다("2M 토큰을 찍으면 반드시 초궁극체에 닿는다"). `validatePackTree`(`lib/daily.js`, `node --test`에 포함)가 이 규칙과 함께 존재하지 않는 `to`, 단계 스킵, 알 수 없는 조건 `type`을 검사한다. 위반이 있어도 런타임은 죽지 않고 조용히 전체 후보로 폴백한다 — 검증은 여기서 잡는다.
+- **같은 우선순위에서 조건을 통과한 후보가 둘 이상이면** `hashString(dateKST|팩|단계)` tie-break로 결정적으로 하나를 고른다(둘 다 `when: null`이면 둘 다 동률로 참여한다) — 이것 때문에 재실행해도 그날은 같은 결과가 나온다.
+- **`when`이 지원하는 조건 타입** (`lib/evolve.js` `checkCondition`): `sessionCount`(그날 세션 수, `gte`), `topSharePct`(최다 세션이 그날 output에서 차지하는 %, `gte`/`lte`), `failureRatioPct`(`global.json`의 **누적** 도구 실패율 %, `gte`/`lte` — 일일 값이 아니다), `dailyOutputTokens`, `toolSuccessCount`, `globalToolSuccessCount`, `errorRatePct`, `consecutiveDaysActive`, `milestone`. 여러 조건을 한꺼번에 걸려면 `"when": { "all": [ {...}, {...} ] }`(중첩 가능) — 옛 2항 `and` 문법도 계속 동작한다.
+- **`next: ["id", ...]`도 계속 지원한다** — 하위 호환용이며, 각 항목이 `{ to: id, when: null }`로 정규화된다(무조건 엣지만 표현 가능). 기존 팩은 무수정으로 그대로 동작한다. 한 노드에 `evolutions`가 있으면 `next`는 무시된다.
 
-| trait | 조건 | 그쪽으로 기울는 형태 |
-|---|---|---|
-| `dark` | 도구 호출 실패율 ≥ 5% | 블랙워그레이몬, 다크드라몬, 블랙메가로그라우몬, 베르제브몬 |
-| `swarm` | 그날 토큰을 쓴 세션 ≥ 5개 | 지오그레이몬·라이즈그레이몬, 화염드라몬, 매그너몬, 디아블로몬 |
-| `focus` | 한 세션이 그날 output의 60% 이상 | 워그레이몬, 메탈가루몬, 메가로그라우몬, 황제드라몬 파이터 모드 |
+**Lazy binding.** 오늘 이미 도달한 단계는 그날 안에 절대 바뀌지 않는다(눈앞의 형태가 흔들리지 않는다). 아직 도달하지 않은 상위 단계는 30초마다 도는 재계산 때마다 **그 시점의 신호**로 다시 평가된다 — 아직 오르지 않은 단계라면, 거기 도달하기 전까지 조건을 채우기만 하면 그 분기가 반영된다. 재계산은 결정론적이라 신호가 그대로면 결과도 바이트 단위로 그대로다.
 
-한계: `dark`의 실패율은 `global.json`의 **누적** 카운터라 하루 단위가 아니라 천천히 움직인다. 일일 실패 카운터를 `hook.js`에 넣으면 해결되는데, 없는 값을 그럴듯하게 만들지 않기 위해 후속으로 남겼다.
-
-`daily.json`에 `route`(단계별 `{id, name, sprite}`), `prevRoute`, `traits`가 추가된다. 메뉴바 앱은 `route[단계].sprite`를 프레임 prefix로, `route[단계].name`을 표시 이름으로 쓰고, 루트가 바뀌면 프레임 세트를 다시 읽는다. 트리가 없는 팩은 `route: null`이라 기존 `stageNames` 경로로 그대로 동작한다.
+`daily.json`에 `route`(단계별 `{id, name, sprite}`)가 추가된다. 메뉴바 앱은 `route[단계].sprite`를 프레임 prefix로, `route[단계].name`을 표시 이름으로 쓰고, 루트가 바뀌면 프레임 세트를 다시 읽는다. 트리가 없는 팩은 `route: null`이라 기존 `stageNames` 경로로 그대로 동작한다.
 
 
 ### 팩 메타데이터 (`pack.json`, 선택)

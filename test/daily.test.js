@@ -19,12 +19,15 @@ const {
   listRotationPacks,
   topStageId,
   selectRoute,
+  readTree,
+  validatePackTree,
   activeTraits,
   hashString,
   selectMon,
   computeDailyTokens,
   listJsonlFiles,
-  transcriptKey
+  transcriptKey,
+  defaultPacksDir
 } = require('../lib/daily');
 
 // --- helpers ---------------------------------------------------------
@@ -450,122 +453,141 @@ test('computeDailyTokens keeps one copy while the other catches up', (t) => {
   assert.deepStrictEqual(caughtUp.sessionTokens, { [SESSION]: 140 });
 });
 
-// --- selectRoute: 랜덤 진화 (branching routes) -------------------------
+// --- selectRoute: 조건부 진화 (branching routes) -------------------------
 //
-// A pack's tree lets the same species end the day as a different form. The
-// draw has to stay boring in the ways that matter: pinned for the day,
-// always able to reach the top stage, and steerable by what the day looked
-// like rather than by luck alone.
+// A pack's tree lets the same species end the day as a different form. Each
+// node's `evolutions` is an ordered, first-match-wins list of { to, when }
+// edges; the branch is gated by today's ctx (see selectRoute's doc comment),
+// not by luck. The draw has to stay boring in the ways that matter: pinned
+// for the day, always able to reach the top stage, and steerable by what the
+// day actually looked like.
 
 const TREE = {
-  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
-  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: ['kid'] }],
-  child: [{ id: 'kid', name: '성장', sprite: 'child', next: ['spineA', 'darkA', 'deadA'] }],
+  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby1', when: null }] }],
+  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid', when: null }] }],
+  child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [
+    { to: 'darkA', when: { type: 'failureRatioPct', gte: 5 } },
+    { to: 'spineA', when: null },
+    { to: 'deadA', when: null }
+  ] }],
   adult: [
-    { id: 'spineA', name: '정통', sprite: 'adult', next: ['spineP'] },
-    { id: 'darkA', name: '어둠', sprite: 'adult-dark', traits: ['dark'], next: ['spineP'] },
-    { id: 'deadA', name: '막다른', sprite: 'adult-dead', next: [] }
+    { id: 'spineA', name: '정통', sprite: 'adult', evolutions: [{ to: 'spineP', when: null }] },
+    { id: 'darkA', name: '어둠', sprite: 'adult-dark', evolutions: [{ to: 'spineP', when: null }] },
+    // A dead end still needs its own guaranteed edge forward now (decision
+    // C) - there is no code-level spine return to fall back on.
+    { id: 'deadA', name: '막다른', sprite: 'adult-dead', evolutions: [{ to: 'spineP', when: null }] }
   ],
-  perfect: [{ id: 'spineP', name: '완전', sprite: 'perfect', next: ['spineU'] }],
-  ultimate: [{ id: 'spineU', name: '궁극', sprite: 'ultimate', next: ['top'] }],
-  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
+  perfect: [{ id: 'spineP', name: '완전', sprite: 'perfect', evolutions: [{ to: 'spineU', when: null }] }],
+  ultimate: [{ id: 'spineU', name: '궁극', sprite: 'ultimate', evolutions: [{ to: 'top', when: null }] }],
+  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
 };
 
 test('selectRoute is stable for a date and moves between dates', () => {
-  const a = selectRoute('2026-07-30', 'p', TREE, [], null);
-  const b = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const a = selectRoute('2026-07-30', 'p', TREE, {});
+  const b = selectRoute('2026-07-30', 'p', TREE, {});
   assert.deepStrictEqual(a, b);
 
+  // ctx={} never satisfies darkA's condition, so the tie pool is
+  // [spineA, deadA] - still enough candidates for the hash to vary by date.
   const ids = new Set();
   for (let d = 1; d <= 20; d++) {
-    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'p', TREE, [], null).adult.id);
+    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'p', TREE, {}).adult.id);
   }
   assert.ok(ids.size > 1, `adult stage never varied across 20 days: ${[...ids]}`);
 });
 
 test('selectRoute always reaches the top stage, even through a dead end', () => {
   for (let d = 1; d <= 40; d++) {
-    const route = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, [], null);
+    const route = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, {});
     assert.strictEqual(route.superultimate.id, 'top', `day ${d} lost the top stage`);
     assert.strictEqual(route.perfect.id, 'spineP');
   }
-  // The dead-end branch does get drawn - the spine return is what saves it.
+  // The dead-end branch does get drawn - its own guaranteed edge is what
+  // carries it to the top now, not a code-level spine return.
   const seen = new Set();
   for (let d = 1; d <= 40; d++) {
-    seen.add(selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, [], null).adult.id);
+    seen.add(selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'p', TREE, {}).adult.id);
   }
   assert.ok(seen.has('deadA'), 'dead-end branch never appeared, test tree is not exercising it');
 });
 
-test('selectRoute prefers branches matching the day traits', () => {
+test('selectRoute deterministically follows a satisfied condition edge', () => {
+  const ctx = { failureRatioPct: 10 };
   for (let d = 1; d <= 30; d++) {
-    const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'p', TREE, ['dark'], null);
-    assert.strictEqual(route.adult.id, 'darkA', `day ${d} ignored the dark trait`);
+    const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'p', TREE, ctx);
+    assert.strictEqual(route.adult.id, 'darkA', `day ${d} ignored the satisfied condition`);
   }
 });
 
-test('selectRoute falls back to every candidate when no trait matches', () => {
+test('selectRoute excludes edges whose condition fails, leaving only the rest', () => {
   const ids = new Set();
   for (let d = 1; d <= 30; d++) {
-    ids.add(selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'p', TREE, ['nonexistent'], null).adult.id);
+    const route = selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'p', TREE, {});
+    assert.notStrictEqual(route.adult.id, 'darkA', `day ${d} picked an edge whose condition never held`);
+    ids.add(route.adult.id);
   }
-  assert.ok(ids.size > 1, `an unmatched trait narrowed the draw to ${[...ids]}`);
+  assert.ok(ids.size > 1, `an unsatisfied condition should still leave room for the day's hash: ${[...ids]}`);
 });
 
-test('selectRoute steps away from yesterday route', () => {
-  const yesterday = selectRoute('2026-07-30', 'p', TREE, [], null);
-  const guarded = selectRoute('2026-07-30', 'p', TREE, [], yesterday);
-  assert.notDeepStrictEqual(guarded, yesterday);
-  assert.strictEqual(guarded.superultimate.id, 'top');
+test('selectRoute repeats the same route across consecutive days given the same conditions', () => {
+  // Decision D: no more "avoid yesterday's route" - working the same way two
+  // days running is allowed to produce the same form both days.
+  const ctx = { failureRatioPct: 10 }; // deterministic: only darkA's edge is ever satisfied
+  const day1 = selectRoute('2026-07-30', 'p', TREE, ctx);
+  const day2 = selectRoute('2026-07-31', 'p', TREE, ctx);
+  assert.deepStrictEqual(day1, day2);
+  assert.strictEqual(day1.adult.id, 'darkA');
 });
 
 // --- selectRoute: lazy binding (`locked`) -----------------------------
 //
-// A pinned route used to be frozen whole for the day, which meant traits
-// that can only become true partway through the day (swarm needs 5
+// A pinned route used to be frozen whole for the day, which meant signals
+// that can only become true partway through the day (sessionCount needs 5
 // sessions - impossible in the first seconds after midnight) could never
 // steer a branch. `locked` fixes that: stages already reached stay pinned,
-// stages still ahead redraw against whatever the day's traits are *right
-// now*.
+// stages still ahead redraw against whatever ctx is *right now*.
 
 test('selectRoute preserves the locked prefix and re-walks the rest', () => {
-  const base = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const base = selectRoute('2026-07-30', 'p', TREE, {});
   const locked = {
     route: { ...base, adult: { id: 'deadA', name: '막다른', sprite: 'adult-dead' } },
     throughStage: 'adult'
   };
-  const route = selectRoute('2026-07-30', 'p', TREE, [], null, locked);
+  const route = selectRoute('2026-07-30', 'p', TREE, {}, locked);
   assert.strictEqual(route.adult.id, 'deadA');
-  // deadA has no next - the spine return still has to carry the route to
-  // the top, exactly as it would from a non-locked walk.
+  // deadA's own guaranteed edge carries the route to the top, exactly as it
+  // would from a non-locked walk.
   assert.strictEqual(route.perfect.id, 'spineP');
   assert.strictEqual(route.superultimate.id, 'top');
 });
 
-test('selectRoute locks the reached stage against trait changes but leaves the rest open', () => {
-  // 2026-07-30 draws deadA with no traits - not darkA - so this actually
-  // exercises the lock rather than coincidentally matching the trait draw.
-  const noTraits = selectRoute('2026-07-30', 'p', TREE, [], null);
-  assert.strictEqual(noTraits.adult.id, 'deadA');
+test('selectRoute locks the reached stage against condition changes but leaves the rest open', () => {
+  // ctx={} structurally excludes darkA (its condition can never hold), so
+  // the no-condition draw is always spineA or deadA - never coincidentally
+  // the same node the satisfied-condition draw would pick.
+  const noCondition = selectRoute('2026-07-30', 'p', TREE, {});
+  const reachedAdult = noCondition.adult.id;
+  assert.ok(['spineA', 'deadA'].includes(reachedAdult));
 
-  // Locked through adult: re-running with a new trait must not move it.
-  const lockedAtAdult = { route: noTraits, throughStage: 'adult' };
-  const withDark = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, lockedAtAdult);
-  assert.strictEqual(withDark.adult.id, 'deadA');
+  // Locked through adult: re-running with a satisfied condition must not move it.
+  const lockedAtAdult = { route: noCondition, throughStage: 'adult' };
+  const withCondition = selectRoute('2026-07-30', 'p', TREE, { failureRatioPct: 10 }, lockedAtAdult);
+  assert.strictEqual(withCondition.adult.id, reachedAdult);
 
   // Locked only through child: adult hasn't been reached yet, so it must
-  // follow the trait like a normal draw would.
-  const lockedAtChild = { route: noTraits, throughStage: 'child' };
-  const withDarkFromChild = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, lockedAtChild);
-  assert.strictEqual(withDarkFromChild.adult.id, 'darkA');
-  assert.strictEqual(withDarkFromChild.child.id, noTraits.child.id); // still pinned below the lock line
+  // follow the condition like a normal draw would.
+  const lockedAtChild = { route: noCondition, throughStage: 'child' };
+  const withConditionFromChild = selectRoute('2026-07-30', 'p', TREE, { failureRatioPct: 10 }, lockedAtChild);
+  assert.strictEqual(withConditionFromChild.adult.id, 'darkA');
+  assert.strictEqual(withConditionFromChild.child.id, noCondition.child.id); // still pinned below the lock line
 });
 
 test('selectRoute is idempotent with a locked prefix', () => {
-  const base = selectRoute('2026-07-30', 'p', TREE, [], null);
+  const base = selectRoute('2026-07-30', 'p', TREE, {});
   const locked = { route: base, throughStage: 'adult' };
-  const a = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, locked);
-  const b = selectRoute('2026-07-30', 'p', TREE, ['dark'], null, locked);
+  const ctx = { failureRatioPct: 10 };
+  const a = selectRoute('2026-07-30', 'p', TREE, ctx, locked);
+  const b = selectRoute('2026-07-30', 'p', TREE, ctx, locked);
   assert.deepStrictEqual(a, b);
 });
 
@@ -579,10 +601,199 @@ test('selectRoute degrades to a normal draw when the locked route no longer matc
     },
     throughStage: 'adult'
   };
-  assert.doesNotThrow(() => selectRoute('2026-07-30', 'p', TREE, [], null, locked));
-  const route = selectRoute('2026-07-30', 'p', TREE, [], null, locked);
+  assert.doesNotThrow(() => selectRoute('2026-07-30', 'p', TREE, {}, locked));
+  const route = selectRoute('2026-07-30', 'p', TREE, {}, locked);
   assert.strictEqual(route.child.id, 'kid'); // still-valid locked stages stay locked
   assert.strictEqual(route.superultimate.id, 'top'); // degraded stages still reach the top
+});
+
+// --- readTree: next -> evolutions normalization ------------------------
+//
+// pack.json is a hand-authored file and README documents `next: [id, ...]`
+// as a supported (legacy) shape, so readTree normalizes it into the
+// `evolutions` shape selectRoute actually walks, in one single place.
+
+function writeTreePack(dirs, name, tree) {
+  const dir = path.join(dirs.packsDir, name);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+  fs.writeFileSync(
+    path.join(dir, 'pack.json'),
+    JSON.stringify({ name, stageNames: { superultimate: '초궁극' }, tree }, null, 2)
+  );
+}
+
+test('readTree normalizes a next-only node into an unconditional evolutions edge', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'nextmon', {
+    digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
+    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: ['kid'] }],
+    child: [{ id: 'kid', name: '성장', sprite: 'child', next: ['ad1'] }],
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', next: ['perf1'] }],
+    perfect: [{ id: 'perf1', name: '완전', sprite: 'perfect', next: ['ult1'] }],
+    ultimate: [{ id: 'ult1', name: '궁극', sprite: 'ultimate', next: ['top'] }],
+    superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
+  });
+
+  const tree = readTree(dirs.packsDir, 'nextmon');
+  assert.deepStrictEqual(tree.child[0].evolutions, [{ to: 'ad1', when: null }]);
+});
+
+test('readTree leaves an evolutions-only node as-is', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'evomon', TREE);
+
+  const tree = readTree(dirs.packsDir, 'evomon');
+  assert.deepStrictEqual(tree.child[0].evolutions, TREE.child[0].evolutions);
+});
+
+test('readTree prefers evolutions over next when a node declares both', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'bothmon', {
+    digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
+    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: ['kid'] }],
+    child: [{
+      id: 'kid',
+      name: '성장',
+      sprite: 'child',
+      next: ['ad1'], // stale legacy field - evolutions must win
+      evolutions: [{ to: 'ad2', when: null }]
+    }],
+    adult: [
+      { id: 'ad1', name: '성숙-구', sprite: 'adult', next: ['top'] },
+      { id: 'ad2', name: '성숙-신', sprite: 'adult2', next: ['top'] }
+    ],
+    perfect: [{ id: 'perf1', name: '완전', sprite: 'perfect', next: ['top'] }],
+    ultimate: [{ id: 'ult1', name: '궁극', sprite: 'ultimate', next: ['top'] }],
+    superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
+  });
+
+  const tree = readTree(dirs.packsDir, 'bothmon');
+  assert.deepStrictEqual(tree.child[0].evolutions, [{ to: 'ad2', when: null }]);
+});
+
+test('readTree still returns null for a partially declared pack', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'partialmon', {
+    digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
+    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: [] }]
+    // child .. superultimate missing - listRotationPacks excludes lines like this.
+  });
+
+  assert.strictEqual(readTree(dirs.packsDir, 'partialmon'), null);
+});
+
+// --- validatePackTree ----------------------------------------------------
+//
+// Runtime stays lenient (decision E) - readTree/selectRoute never throw on
+// a malformed tree. validatePackTree is where the data contract they lean
+// on actually gets enforced, for tests here and for
+// scripts/build-evolution-map.js's per-pack diagnostics.
+
+const MINIMAL_TREE = {
+  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby1', when: null }] }],
+  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid', when: null }] }],
+  child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'ad1', when: null }] }],
+  adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'top', when: null }] }],
+  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
+};
+
+test('validatePackTree accepts a tree whose every non-top node ends in a guaranteed edge', () => {
+  assert.deepStrictEqual(validatePackTree(MINIMAL_TREE), []);
+  assert.deepStrictEqual(validatePackTree(TREE), []); // the branching fixture used above
+});
+
+test('validatePackTree passes a top-stage node with no evolutions field at all', () => {
+  const tree = { ...MINIMAL_TREE, superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate' }] };
+  assert.deepStrictEqual(validatePackTree(tree), []);
+});
+
+test('validatePackTree catches a missing unconditional edge', () => {
+  const tree = {
+    ...MINIMAL_TREE,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'top', when: { type: 'sessionCount', gte: 5 } }] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'missing-unconditional-edge', stage: 'adult', node: 'ad1' }
+  ]);
+});
+
+test('validatePackTree catches a stage skip', () => {
+  // kid points straight at 'top' (superultimate), jumping over adult - the
+  // exact silent-mis-slot hazard byId spanning every stage creates (plan §9
+  // pitfall 2).
+  const tree = { ...MINIMAL_TREE, child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'top', when: null }] }] };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'stage-skip', stage: 'child', node: 'kid', to: 'top' }
+  ]);
+});
+
+test('validatePackTree catches a to that names no node at all', () => {
+  const tree = { ...MINIMAL_TREE, child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'ghost', when: null }] }] };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'unknown-target', stage: 'child', node: 'kid', to: 'ghost' }
+  ]);
+});
+
+test('validatePackTree catches an unknown condition type', () => {
+  const tree = {
+    ...MINIMAL_TREE,
+    child: [{
+      id: 'kid',
+      name: '성장',
+      sprite: 'child',
+      evolutions: [
+        { to: 'ad1', when: { type: 'typoType', gte: 1 } },
+        { to: 'ad1', when: null }
+      ]
+    }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'unknown-condition-type', stage: 'child', node: 'kid', condType: 'typoType' }
+  ]);
+});
+
+test('validatePackTree recurses into a nested all to catch an unknown condition type', () => {
+  // Regression for conditionMet's own `and` 1-level limitation (decision F)
+  // - the checker has to actually walk `all` recursively, not just its
+  // top level, or a typo two levels deep passes silently.
+  const tree = {
+    ...MINIMAL_TREE,
+    child: [{
+      id: 'kid',
+      name: '성장',
+      sprite: 'child',
+      evolutions: [
+        { to: 'ad1', when: { all: [{ type: 'sessionCount', gte: 1 }, { all: [{ type: 'bogus', gte: 1 }] }] } },
+        { to: 'ad1', when: null }
+      ]
+    }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'unknown-condition-type', stage: 'child', node: 'kid', condType: 'bogus' }
+  ]);
+});
+
+// Safety net for commits 5/6: every shipped pack.json must validate clean
+// before its data gets rewritten into evolutions/when. gaomon stops short
+// of the top stage on purpose (README §로테이션 후보 요건) and readTree
+// returns null for it - "every pack's tree reaches the top" is not an
+// assumption this test makes (plan §9 pitfall 6).
+test('validatePackTree finds zero violations across every shipped pack that has a tree', () => {
+  const packsDir = defaultPacksDir();
+  const names = fs
+    .readdirSync(packsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .map((e) => e.name);
+  let checked = 0;
+  for (const name of names) {
+    const tree = readTree(packsDir, name);
+    if (!tree) continue; // no tree, or a partial declaration - nothing to validate
+    checked += 1;
+    const violations = validatePackTree(tree);
+    assert.deepStrictEqual(violations, [], `${name}: ${JSON.stringify(violations)}`);
+  }
+  assert.ok(checked > 0, 'no shipped pack had a usable tree - this test is not exercising anything');
 });
 
 test('activeTraits reads the day rather than luck', () => {
@@ -605,16 +816,19 @@ test('activeTraits reads the day rather than luck', () => {
 // redraws the stages still ahead of the mon.
 
 const LAZY_TREE = {
-  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
-  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: ['kid'] }],
-  child: [{ id: 'kid', name: '성장', sprite: 'child', next: ['ad1'] }],
-  adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', next: ['perfSpine', 'perfSwarm'] }],
+  digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby1', when: null }] }],
+  baby: [{ id: 'baby1', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid', when: null }] }],
+  child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'ad1', when: null }] }],
+  adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [
+    { to: 'perfSwarm', when: { type: 'sessionCount', gte: 5 } },
+    { to: 'perfSpine', when: null }
+  ] }],
   perfect: [
-    { id: 'perfSpine', name: '완전-정통', sprite: 'perfect', next: ['ult1'] },
-    { id: 'perfSwarm', name: '완전-무리', sprite: 'perfect-swarm', traits: ['swarm'], next: ['ult1'] }
+    { id: 'perfSpine', name: '완전-정통', sprite: 'perfect', evolutions: [{ to: 'ult1', when: null }] },
+    { id: 'perfSwarm', name: '완전-무리', sprite: 'perfect-swarm', evolutions: [{ to: 'ult1', when: null }] }
   ],
-  ultimate: [{ id: 'ult1', name: '궁극', sprite: 'ultimate', next: ['top'] }],
-  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', next: [] }]
+  ultimate: [{ id: 'ult1', name: '궁극', sprite: 'ultimate', evolutions: [{ to: 'top', when: null }] }],
+  superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
 };
 
 // Only pack in the pool, so mon selection can't introduce randomness of
@@ -629,14 +843,13 @@ function writeLazyPack(dirs) {
   );
 }
 
-test('computeDailyTokens keeps the reached stage pinned and re-walks the rest as traits change', (t) => {
+test('computeDailyTokens keeps the reached stage pinned and re-walks the rest as ctx changes', (t) => {
   const dirs = makeRoot(t);
   writeLazyPack(dirs);
   fs.mkdirSync(dirs.projectsDir, { recursive: true });
 
   // 150,000 output tokens across 2 sessions: lands in adult (gte 100,000,
-  // below perfect's 300,000), well under focus's 0.6 topShare and swarm's
-  // 5 sessions.
+  // below perfect's 300,000), well under sessionCount's 5-session gate.
   writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000001.jsonl', [
     assistantLine('msg_1', 75_000)
   ]);
@@ -649,9 +862,9 @@ test('computeDailyTokens keeps the reached stage pinned and re-walks the rest as
   assert.strictEqual(first.route.adult.id, 'ad1');
   assert.deepStrictEqual(first.traits, []);
 
-  // Three more low-token sessions push sessionCount to 5 (swarm) without
-  // moving the total out of the adult range - the day "catches up" to a
-  // trait it couldn't have had on the first run.
+  // Three more low-token sessions push sessionCount to 5 without moving the
+  // total out of the adult range - the day "catches up" to a condition it
+  // couldn't have satisfied on the first run.
   for (let i = 3; i <= 5; i++) {
     writeTranscript(
       dirs.projectsDir,
@@ -663,7 +876,58 @@ test('computeDailyTokens keeps the reached stage pinned and re-walks the rest as
   const second = computeDailyTokens(dateAt(0), dirs);
   assert.ok(second.traits.includes('swarm'));
   assert.strictEqual(second.stageId, 'adult'); // still the same stage today
-  assert.strictEqual(second.route.adult.id, 'ad1'); // reached stage: pinned despite the new trait
+  assert.strictEqual(second.route.adult.id, 'ad1'); // reached stage: pinned despite the new signal
   assert.strictEqual(second.route.child.id, first.route.child.id); // pinned prefix below it too
-  assert.strictEqual(second.route.perfect.id, 'perfSwarm'); // not yet reached: redrawn against today's trait
+  assert.strictEqual(second.route.perfect.id, 'perfSwarm'); // not yet reached: redrawn against today's ctx
+});
+
+// Decision D's flip side: dropping "avoid yesterday's route" only pays off if
+// the same day's signals reliably produce the same route back. Without a
+// changed signal between reruns, every stage - reached or not - has to
+// redraw to the exact same node (the menubar polls every ~30s, so this runs
+// dozens of times a day for a stationary mon).
+test('computeDailyTokens produces the same route on a same-day rerun with unchanged signals', (t) => {
+  const dirs = makeRoot(t);
+  writeLazyPack(dirs);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000001.jsonl', [
+    assistantLine('msg_1', 75_000)
+  ]);
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000002.jsonl', [
+    assistantLine('msg_2', 75_000)
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  const second = computeDailyTokens(dateAt(0), dirs); // no new transcripts - same signals
+  assert.deepStrictEqual(second.route, first.route);
+  assert.strictEqual(second.stageId, first.stageId);
+});
+
+// --- computeDailyTokens: malformed tree data must never throw ----------
+//
+// readTree's own exception guard only catches JSON parse errors and
+// incomplete stage declarations (see readTree). A tree that parses fine but
+// points an edge at an id that doesn't exist is a different kind of bad
+// data, and selectRoute/candidatesFor must degrade instead of throwing - an
+// uncaught exception here takes daily-tokens.js, and all token tracking
+// with it, down (see lib/daily.js:222-227's comment on this exact failure
+// mode).
+test('computeDailyTokens survives a pack tree with a dangling evolution target', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'brokenmon', {
+    digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby1', when: null }] }],
+    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid', when: null }] }],
+    child: [{ id: 'kid', name: '성장', sprite: 'child', evolutions: [{ to: 'does-not-exist', when: null }] }],
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'perf1', when: null }] }],
+    perfect: [{ id: 'perf1', name: '완전', sprite: 'perfect', evolutions: [{ to: 'ult1', when: null }] }],
+    ultimate: [{ id: 'ult1', name: '궁극', sprite: 'ultimate', evolutions: [{ to: 'top', when: null }] }],
+    superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
+  });
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  assert.doesNotThrow(() => computeDailyTokens(dateAt(0), dirs));
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(result.mon);
+  assert.ok(result.route); // dangling target falls back rather than crashing
 });

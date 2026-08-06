@@ -15,8 +15,8 @@
         "id": "digitama",
         "name": "알",
         "sprite": "digitama",
-        "next": [
-          "tokomon"
+        "evolutions": [
+          { "to": "tokomon", "when": null }
         ]
       }
     ],
@@ -25,8 +25,8 @@
         "id": "tokomon",
         "name": "토코몬",
         "sprite": "baby",
-        "next": [
-          "falcomon"
+        "evolutions": [
+          { "to": "falcomon", "when": null }
         ]
       }
     ],
@@ -35,8 +35,8 @@
         "id": "falcomon",
         "name": "팔코몬",
         "sprite": "child",
-        "next": [
-          "peckmon"
+        "evolutions": [
+          { "to": "peckmon", "when": null }
         ]
       }
     ],
@@ -45,8 +45,8 @@
         "id": "peckmon",
         "name": "펙크몬",
         "sprite": "adult",
-        "next": [
-          "yatagaramon"
+        "evolutions": [
+          { "to": "yatagaramon", "when": null }
         ]
       }
     ],
@@ -55,8 +55,9 @@
         "id": "yatagaramon",
         "name": "야타가라몬",
         "sprite": "perfect",
-        "next": [
-          "varodurumon"
+        "evolutions": [
+          { "to": "varodurumon", "when": null },
+          { "to": "ravemon", "when": null }
         ]
       }
     ],
@@ -65,16 +66,16 @@
         "id": "varodurumon",
         "name": "발두르몬",
         "sprite": "ultimate",
-        "next": [
-          "chronomon_hm"
+        "evolutions": [
+          { "to": "chronomon_hm", "when": null }
         ]
       },
       {
         "id": "ravemon",
         "name": "레이브몬",
         "sprite": "ultimate-ravemon",
-        "next": [
-          "ravemon-bm"
+        "evolutions": [
+          { "to": "ravemon-bm", "when": null }
         ]
       }
     ],
@@ -83,13 +84,13 @@
         "id": "chronomon_hm",
         "name": "크로노몬 홀리 모드",
         "sprite": "superultimate",
-        "next": []
+        "evolutions": []
       },
       {
         "id": "ravemon-bm",
         "name": "레이브몬 버스트 모드",
         "sprite": "superultimate-ravemon_bm",
-        "next": []
+        "evolutions": []
       }
     ]
   }
