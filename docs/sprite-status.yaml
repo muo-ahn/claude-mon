@@ -1715,15 +1715,31 @@ extras:
   source: pack
 - ko: 블랙메가로그라우몬
   pack: guilmon
-  stage: perfect
+  stage: null
   source: pack
 - ko: 카오스듀크몬
   pack: guilmon
-  stage: ultimate
+  stage: null
+  source: pack
+- ko: 이블몬
+  pack: impmon
+  stage: adult
   source: pack
 - ko: 뱀파이몬
   pack: impmon
   stage: perfect
+  source: pack
+- ko: 미이라몬
+  pack: impmon
+  stage: perfect
+  source: pack
+- ko: 데스몬
+  pack: impmon
+  stage: ultimate
+  source: pack
+- ko: 데스몬 블랙
+  pack: impmon
+  stage: superultimate
   source: pack
 - ko: 블랙래피드몬
   pack: terriermon
@@ -1731,11 +1747,11 @@ extras:
   source: pack
 - ko: 화염드라몬
   pack: veemon
-  stage: perfect
+  stage: null
   source: pack
 - ko: 매그너몬
   pack: veemon
-  stage: perfect
+  stage: null
   source: pack
 - ko: 푸치몬
   pack: null
