@@ -154,6 +154,10 @@ PACK_SHEETS = {
     "impmon": {
         "adult": "devimon", "perfect": "myotismon", "ultimate": "beelzemon",
         "superultimate": "beelzemon_bm",
+        "adult-vilemon": "vilemon",
+        "perfect-mummymon": "mummymon",
+        "ultimate-ghoulmon": "ghoulmon",
+        "superultimate-ghoulmon_black": "ghoulmon_black",
     },
     # 케라몬·팔코몬·가오몬 라인은 성장기 시트도 DWDS라 child 초상을 뽑을 수
     # 있다. idle 은 관례상 성장기와 같은 프레임이지만 초상은 만들지 않는다 --
@@ -239,6 +243,11 @@ POSE_OVERRIDES = {
     # prefer and auto-pick took idx1, a breathing dup. idx4 is the mouth-wide
     # attack pose -- also what the child stage of the pack shows.
     "keramon": (0, 4),
+    # mummymon is also one row of 5: idx 0-2 are the same standing idle
+    # breathing, idx3 is the gun-levelled firing stance (the pose the species
+    # is known for), idx4 an arm-raised sweep. (0, 3) reads as an actual
+    # attack instead of a shiver.
+    "mummymon": (0, 3),
     # miragegaogamon's row 1 (idx 3, 4) both clear the +/-15% size check on
     # width but miss it on height by ~25% (the swept cape and claw-out lunge
     # extend the bbox downward) -- auto-pick found nothing and left

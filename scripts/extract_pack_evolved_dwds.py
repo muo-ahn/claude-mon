@@ -166,11 +166,19 @@ PICKS = {
     # 뱀파이몬 (Myotismon) -- pack.json carries the matching name. 베르제브몬
     # 블래스트 모드 시트(beelzemon_bm)는 이제 확보되어 아래 superultimate
     # 항목으로 들어간다.
+    # 다크 분기(2026-08-06): DWDS 임프몬 Line 1 (이블몬 → 미이라몬 → 데스몬)에
+    # 데스몬 블랙을 더해 초궁극체까지 잇는다 -- Wikimon 이 데스몬 → 데스몬(블랙)
+    # 진화를 명시하므로 변종 승격이 아니라 정사 엣지다. 데스몬 2종 시트는
+    # 동일 레이아웃 색교체판이라 프레임 인덱스도 같다.
     "impmon": {
         "adult": ("devimon", [0, 1]),
         "perfect": ("myotismon", [3, 4]),
         "ultimate": ("beelzemon", [4, 5]),
         "superultimate": ("beelzemon_bm", [1, 2]),
+        "adult-vilemon": ("vilemon", [2, 3]),
+        "perfect-mummymon": ("mummymon", [6, 7]),
+        "ultimate-ghoulmon": ("ghoulmon", [3, 4]),
+        "superultimate-ghoulmon_black": ("ghoulmon_black", [3, 4]),
     },
     # 가오몬 라인도 전 단계를 DWDS에서 뽑는다. 분기 없는 spine이라 유년기부터
     # 궁극체까지 시트가 하나씩만 있다.

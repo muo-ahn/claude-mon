@@ -106,6 +106,13 @@ out_of_catalog:
   카오스듀크몬: 팩 확장 분기 (길몬 궁극체 분기)
   레이브몬 버스트 모드: 팩 확장 분기 (팔코몬 초궁극체 분기)
   세이버레오몬: 카탈로그 외 (인기 랭킹 69위)
+  이블몬: 카탈로그 외 (임프몬 성숙기 분기, DWDS Line 1)
+  미이라몬: 카탈로그 외 (임프몬 완전체 분기, DWDS Line 1)
+  데스몬: 카탈로그 외 (임프몬 궁극체 분기, DWDS Line 1 — 영칭 Ghoulmon)
+  # Wikimon 에 Korean 표기가 없다. 데스몬(黒) 색교체 변종이고 Wikimon 이
+  # 데스몬 → 데스몬(블랙) 진화를 명시하므로 시트 영칭(Ghoulmon Black)을
+  # 그대로 옮긴 표기를 쓴다.
+  데스몬 블랙: 카탈로그 외 (임프몬 초궁극체 분기)
   푸치몬: 카탈로그 외 (천사형 유아기)
   샤인그레이몬: 카탈로그 외 (세이버즈 아구몬(2006) 계열)
   샤인그레이몬 버스트 모드: 카탈로그 외 (인기 랭킹 47위)
@@ -126,6 +133,8 @@ sheet_out_of_catalog:
   darkdramon: 다크드라몬
   flamedramon: 화염드라몬
   geogreymon: 지오그레이몬
+  ghoulmon: 데스몬
+  ghoulmon_black: 데스몬 블랙
   magnamon: 매그너몬
   myotismon: 뱀파이몬
   puttimon: 푸치몬
@@ -134,3 +143,5 @@ sheet_out_of_catalog:
   saberleomon: 세이버레오몬
   shinegreymon: 샤인그레이몬
   shinegreymon_burst: 샤인그레이몬 버스트 모드
+  vilemon: 이블몬
+  mummymon: 미이라몬

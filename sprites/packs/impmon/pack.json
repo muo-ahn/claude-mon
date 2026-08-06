@@ -36,6 +36,7 @@
         "name": "임프몬",
         "sprite": "child",
         "evolutions": [
+          { "to": "vilemon", "when": { "type": "sessionCount", "gte": 5 } },
           { "to": "devimon", "when": null }
         ]
       }
@@ -48,6 +49,14 @@
         "evolutions": [
           { "to": "myotismon", "when": null }
         ]
+      },
+      {
+        "id": "vilemon",
+        "name": "이블몬",
+        "sprite": "adult-vilemon",
+        "evolutions": [
+          { "to": "mummymon", "when": null }
+        ]
       }
     ],
     "perfect": [
@@ -57,6 +66,14 @@
         "sprite": "perfect",
         "evolutions": [
           { "to": "beelzebumon", "when": null }
+        ]
+      },
+      {
+        "id": "mummymon",
+        "name": "미이라몬",
+        "sprite": "perfect-mummymon",
+        "evolutions": [
+          { "to": "ghoulmon", "when": null }
         ]
       }
     ],
@@ -68,6 +85,14 @@
         "evolutions": [
           { "to": "beelzebumon-bm", "when": null }
         ]
+      },
+      {
+        "id": "ghoulmon",
+        "name": "데스몬",
+        "sprite": "ultimate-ghoulmon",
+        "evolutions": [
+          { "to": "ghoulmon-black", "when": null }
+        ]
       }
     ],
     "superultimate": [
@@ -75,6 +100,12 @@
         "id": "beelzebumon-bm",
         "name": "베르제브몬 블래스트 모드",
         "sprite": "superultimate",
+        "evolutions": []
+      },
+      {
+        "id": "ghoulmon-black",
+        "name": "데스몬 블랙",
+        "sprite": "superultimate-ghoulmon_black",
         "evolutions": []
       }
     ]
