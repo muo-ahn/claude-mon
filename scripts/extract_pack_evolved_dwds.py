@@ -127,6 +127,9 @@ PICKS = {
         "ultimate-blacksaintgalgomon": ("blackmegagargomon", [1, 0]),
         # perfect-blackrapidmon 은 표 미등록 = 재현 불가, 인덱스 추측 금지
         # (수동 크롭으로 만들어져 원본 프레임 인덱스가 없음).
+        #
+        # 프라리몬(아머체, 2026-08-06): 필드 행이 3칸뿐이고 0·1이 정면쌍이다.
+        "adult-prairiemon": ("prairiemon", [0, 1]),
     },
     # 케라몬 라인은 Battle Spirit 시트가 없어 성장기·유년기까지 전부 DWDS에서
     # 온다. `idle`은 팩 로드의 최소 조건이자 대기 프레임인데 관례상 성장기
