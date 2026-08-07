@@ -105,6 +105,69 @@ test('nested all actually recurses (regression for the old and-only-once limit)'
   );
 });
 
+// --- conditionMet: `any` (all's symmetric counterpart) -----------------
+//
+// Added for the "설계 날" (sage day) gate: a stage needs to reach either
+// the usual token threshold OR the sage-day alternative, so applyEvolution
+// (which already routes stage progression through conditionMet) needs an
+// OR combinator with the same recursive shape `all` has.
+
+test('any: one sub-condition passing is enough', () => {
+  const when = {
+    any: [
+      { type: 'dailyOutputTokens', gte: 1000000 },
+      { type: 'dailyUserTurns', gte: 80 }
+    ]
+  };
+  assert.strictEqual(conditionMet(when, { dailyOutputTokens: 0, dailyUserTurns: 80 }), true);
+  assert.strictEqual(conditionMet(when, { dailyOutputTokens: 1000000, dailyUserTurns: 0 }), true);
+});
+
+test('any: every sub-condition failing makes the whole thing false', () => {
+  const when = {
+    any: [
+      { type: 'dailyOutputTokens', gte: 1000000 },
+      { type: 'dailyUserTurns', gte: 80 }
+    ]
+  };
+  assert.strictEqual(conditionMet(when, { dailyOutputTokens: 0, dailyUserTurns: 0 }), false);
+});
+
+test('any: [] is never met (the symmetric opposite of all: [])', () => {
+  assert.strictEqual(conditionMet({ any: [] }, {}), false);
+});
+
+test('any nests inside all and vice versa', () => {
+  const when = {
+    all: [
+      { type: 'dailyUserTurns', gte: 80 },
+      { any: [
+        { type: 'outputPerTurn', lte: 6000 },
+        { type: 'dailyOutputTokens', gte: 1000000 }
+      ] }
+    ]
+  };
+  assert.strictEqual(
+    conditionMet(when, { dailyUserTurns: 80, outputPerTurn: 5000, dailyOutputTokens: 0 }),
+    true
+  );
+  assert.strictEqual(
+    conditionMet(when, { dailyUserTurns: 80, outputPerTurn: 9000, dailyOutputTokens: 0 }),
+    false
+  );
+});
+
+test('dailyUserTurns gates on ctx.dailyUserTurns >= gte', () => {
+  assert.strictEqual(conditionMet({ type: 'dailyUserTurns', gte: 80 }, { dailyUserTurns: 80 }), true);
+  assert.strictEqual(conditionMet({ type: 'dailyUserTurns', gte: 80 }, { dailyUserTurns: 79 }), false);
+});
+
+test('outputPerTurn gates on lte and gte', () => {
+  assert.strictEqual(conditionMet({ type: 'outputPerTurn', lte: 6000 }, { outputPerTurn: 6000 }), true);
+  assert.strictEqual(conditionMet({ type: 'outputPerTurn', lte: 6000 }, { outputPerTurn: 6001 }), false);
+  assert.strictEqual(conditionMet({ type: 'outputPerTurn', gte: 100 }, { outputPerTurn: 99 }), false);
+});
+
 test('legacy 2-item `and` matches the equivalent all: [a, b]', () => {
   const withAnd = { type: 'sessionCount', gte: 1, and: { type: 'topSharePct', gte: 10 } };
   const withAll = { all: [{ type: 'sessionCount', gte: 1 }, { type: 'topSharePct', gte: 10 }] };

@@ -20,7 +20,16 @@
       "id": "child",
       "label": "성장기 (Child)",
       "sprite": ["(^_^)/", "(^o^)/"],
-      "condition": { "type": "dailyOutputTokens", "gte": 30000 },
+      "condition": {
+        "any": [
+          { "type": "dailyOutputTokens", "gte": 30000 },
+          { "all": [
+            { "type": "dailyUserTurns", "gte": 80 },
+            { "type": "outputPerTurn", "lte": 6000 },
+            { "type": "dailyUserTurns", "gte": 30 }
+          ] }
+        ]
+      },
       "warning": { "type": "contextUsagePct", "gte": 70, "colorShift": "red" },
       "next": "adult"
     },
@@ -28,28 +37,64 @@
       "id": "adult",
       "label": "성숙기 (Adult)",
       "sprite": ["\\(^▽^)/", "\\(≧▽≦)/"],
-      "condition": { "type": "dailyOutputTokens", "gte": 100000 },
+      "condition": {
+        "any": [
+          { "type": "dailyOutputTokens", "gte": 100000 },
+          { "all": [
+            { "type": "dailyUserTurns", "gte": 80 },
+            { "type": "outputPerTurn", "lte": 6000 },
+            { "type": "dailyUserTurns", "gte": 60 }
+          ] }
+        ]
+      },
       "next": "perfect"
     },
     {
       "id": "perfect",
       "label": "완전체 (Perfect)",
       "sprite": ["★\\(^▽^)/★", "☆\\(≧▽≦)/☆"],
-      "condition": { "type": "dailyOutputTokens", "gte": 300000 },
+      "condition": {
+        "any": [
+          { "type": "dailyOutputTokens", "gte": 300000 },
+          { "all": [
+            { "type": "dailyUserTurns", "gte": 80 },
+            { "type": "outputPerTurn", "lte": 6000 },
+            { "type": "dailyUserTurns", "gte": 120 }
+          ] }
+        ]
+      },
       "next": "ultimate"
     },
     {
       "id": "ultimate",
       "label": "궁극체 (Ultimate)",
       "sprite": ["🔥\\(＠▽＠)/🔥", "⚡\\(＠▽＠)/⚡"],
-      "condition": { "type": "dailyOutputTokens", "gte": 1000000 },
+      "condition": {
+        "any": [
+          { "type": "dailyOutputTokens", "gte": 1000000 },
+          { "all": [
+            { "type": "dailyUserTurns", "gte": 80 },
+            { "type": "outputPerTurn", "lte": 6000 },
+            { "type": "dailyUserTurns", "gte": 250 }
+          ] }
+        ]
+      },
       "next": "superultimate"
     },
     {
       "id": "superultimate",
       "label": "초궁극체 (Super Ultimate)",
       "sprite": ["✨🔥\\(◎▽◎)/🔥✨", "✨⚡\\(◎▽◎)/⚡✨"],
-      "condition": { "type": "dailyOutputTokens", "gte": 2000000 },
+      "condition": {
+        "any": [
+          { "type": "dailyOutputTokens", "gte": 2000000 },
+          { "all": [
+            { "type": "dailyUserTurns", "gte": 80 },
+            { "type": "outputPerTurn", "lte": 6000 },
+            { "type": "dailyUserTurns", "gte": 500 }
+          ] }
+        ]
+      },
       "next": null
     }
   ]

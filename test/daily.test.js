@@ -27,7 +27,9 @@ const {
   computeDailyTokens,
   listJsonlFiles,
   transcriptKey,
-  defaultPacksDir
+  isRealUserTurn,
+  defaultPacksDir,
+  cacheFilePath
 } = require('../lib/daily');
 
 // --- helpers ---------------------------------------------------------
@@ -307,6 +309,28 @@ function assistantLine(id, outputTokens) {
   return JSON.stringify({
     timestamp: '2026-07-29T02:00:00.000Z', // inside the KST day of dateAt(0)
     message: { role: 'assistant', id, usage: { output_tokens: outputTokens } }
+  });
+}
+
+// A genuine human prompt line (see isRealUserTurn) - `type: "user"`, a text
+// content block, no toolUseResult/isMeta. `n` only exists to give
+// consecutive calls distinct (but still within-day) timestamps.
+function userLine(text, n = 0) {
+  return JSON.stringify({
+    type: 'user',
+    timestamp: `2026-07-29T02:${String(n % 60).padStart(2, '0')}:01.000Z`,
+    message: { role: 'user', content: [{ type: 'text', text }] }
+  });
+}
+
+// A tool_result line: shares `type: "user"` with a real prompt but must
+// never be counted as one (see isRealUserTurn).
+function toolResultLine(n = 0) {
+  return JSON.stringify({
+    type: 'user',
+    timestamp: `2026-07-29T02:${String(n % 60).padStart(2, '0')}:01.000Z`,
+    toolUseResult: { stdout: 'ok' },
+    message: { role: 'user', content: [{ type: 'tool_result', content: 'ok' }] }
   });
 }
 
@@ -805,6 +829,59 @@ test('activeTraits reads the day rather than luck', () => {
   );
 });
 
+// --- activeTraits: sage (설계 날) ---------------------------------------
+//
+// Calibrated off 8 real days of transcript data (see TODOS.md / task brief):
+// implementation-heavy days ran 149-228 user turns at 7.8k-9.4k output/turn;
+// a discussion/design-heavy day ran 140 turns at ~5.4k/turn. sage needs both
+// "lots of turns" and "low output per turn" - either alone also describes a
+// low-activity day or a terse-but-code-heavy one.
+
+test('activeTraits sets sage when turns are high and output-per-turn is low', () => {
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2, userTurns: 140, outputPerTurn: 5400 }),
+    ['sage']
+  );
+});
+
+test('activeTraits withholds sage when turns are high but output-per-turn is also high', () => {
+  // Implementation-heavy day shape: plenty of turns, but each one is
+  // generating code, not just talking.
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2, userTurns: 180, outputPerTurn: 8000 }),
+    []
+  );
+});
+
+test('activeTraits withholds sage when output-per-turn is low but turns never reached the floor', () => {
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2, userTurns: 20, outputPerTurn: 500 }),
+    []
+  );
+});
+
+test('activeTraits sage gate is boundary-inclusive on both sides', () => {
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2, userTurns: 80, outputPerTurn: 6000 }),
+    ['sage']
+  );
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2, userTurns: 79, outputPerTurn: 6000 }),
+    []
+  );
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2, userTurns: 80, outputPerTurn: 6001 }),
+    []
+  );
+});
+
+test('activeTraits can combine sage with swarm/focus/dark', () => {
+  assert.deepStrictEqual(
+    activeTraits({ failureRatio: 0, sessionCount: 7, topShare: 0.9, userTurns: 140, outputPerTurn: 5400 }),
+    ['swarm', 'focus', 'sage']
+  );
+});
+
 // --- computeDailyTokens: lazy binding end-to-end ----------------------
 //
 // selectRoute's `locked` prefix is only half the story - computeDailyTokens
@@ -930,4 +1007,206 @@ test('computeDailyTokens survives a pack tree with a dangling evolution target',
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.ok(result.mon);
   assert.ok(result.route); // dangling target falls back rather than crashing
+});
+
+// --- isRealUserTurn / userTurns counting --------------------------------
+//
+// A "설계 날" (design day) is detected from genuine human prompts, which
+// share `type: "user"` in the transcript with several things that are not
+// a person typing: tool results, meta/system-injected entries, and (for
+// subagents specifically) the parent's own injected spawn prompt.
+
+test('isRealUserTurn accepts a plain text prompt (string or block form)', () => {
+  assert.strictEqual(
+    isRealUserTurn({ type: 'user', message: { role: 'user', content: 'hello there' } }),
+    true
+  );
+  assert.strictEqual(
+    isRealUserTurn({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'hi' }] } }),
+    true
+  );
+});
+
+test('isRealUserTurn rejects a tool_result entry', () => {
+  assert.strictEqual(
+    isRealUserTurn({
+      type: 'user',
+      toolUseResult: { stdout: 'ok' },
+      message: { role: 'user', content: [{ type: 'tool_result', content: 'ok' }] }
+    }),
+    false
+  );
+});
+
+test('isRealUserTurn rejects a meta entry, an empty/whitespace prompt, and a local-command/Caveat shell', () => {
+  assert.strictEqual(
+    isRealUserTurn({ type: 'user', isMeta: true, message: { role: 'user', content: 'system note' } }),
+    false
+  );
+  assert.strictEqual(isRealUserTurn({ type: 'user', message: { role: 'user', content: '   ' } }), false);
+  assert.strictEqual(
+    isRealUserTurn({ type: 'user', message: { role: 'user', content: '<local-command-stdin>/clear</local-command-stdin>' } }),
+    false
+  );
+  assert.strictEqual(
+    isRealUserTurn({ type: 'user', message: { role: 'user', content: 'Caveat: the messages below...' } }),
+    false
+  );
+});
+
+test('isRealUserTurn rejects a non-user type/role and a content array with no text block', () => {
+  assert.strictEqual(isRealUserTurn(null), false);
+  assert.strictEqual(isRealUserTurn({ type: 'assistant', message: { role: 'assistant', content: 'x' } }), false);
+  assert.strictEqual(
+    isRealUserTurn({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result' }] } }),
+    false
+  );
+});
+
+test('computeDailyTokens counts real user turns and excludes tool results', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    userLine('첫 턴', 1),
+    assistantLine('msg_1', 100),
+    toolResultLine(2),
+    toolResultLine(3),
+    userLine('둘째 턴', 4),
+    assistantLine('msg_2', 100)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.dailyUserTurns, 2);
+});
+
+test('computeDailyTokens excludes a subagent transcript\'s injected prompt from userTurns', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    userLine('real human turn', 1),
+    assistantLine('msg_main', 100)
+  ]);
+  // Shaped exactly like a real user turn - only its path under `subagents`
+  // says it's the prompt the parent injected to spawn the subagent.
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-abc123.jsonl`, [
+    userLine('injected spawn prompt', 2),
+    assistantLine('msg_sub', 50)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.dailyUserTurns, 1);
+  assert.strictEqual(result.outputTokens, 150); // subagent's tokens still roll up (existing behavior)
+});
+
+// --- computeDailyTokens: the sage (설계 날) stage gate --------------------
+//
+// evolution-tree.json's stage conditions are `any: [tokens, sage-and-turns]`
+// so a day with many real user turns but little assistant output can still
+// climb stages that a token-only day of the same size never would.
+
+test('computeDailyTokens reaches a stage via the sage gate that token count alone would not reach', (t) => {
+  const dirs = setupDaily(t);
+  const lines = [];
+  // 80 real user turns (sage's own floor) with a token total (~400) far
+  // below even the child stage's 30,000-token path.
+  for (let i = 0; i < 80; i++) {
+    lines.push(userLine(`턴 ${i}`, i));
+    lines.push(assistantLine(`msg_${i}`, 5));
+  }
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.dailyUserTurns, 80);
+  assert.ok(result.outputPerTurn <= 6000, `outputPerTurn ${result.outputPerTurn} should qualify for sage`);
+  assert.ok(result.traits.includes('sage'));
+  // child (turns>=30) and adult (turns>=60) both clear at 80 turns; perfect
+  // (turns>=120) does not - and dailyOutputTokens (~400) clears none of the
+  // token thresholds on its own.
+  assert.strictEqual(result.stageId, 'adult');
+});
+
+test('computeDailyTokens climbs further via the sage gate as turns pass each stage\'s own floor', (t) => {
+  const dirs = setupDaily(t);
+  const lines = [];
+  for (let i = 0; i < 130; i++) {
+    lines.push(userLine(`턴 ${i}`, i));
+    lines.push(assistantLine(`msg_${i}`, 5));
+  }
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.dailyUserTurns, 130);
+  assert.ok(result.traits.includes('sage'));
+  // 130 turns clears perfect's floor (120) but not ultimate's (250).
+  assert.strictEqual(result.stageId, 'perfect');
+});
+
+test('computeDailyTokens withholds the sage gate below its own 80-turn floor even with tiny output-per-turn', (t) => {
+  const dirs = setupDaily(t);
+  const lines = [];
+  for (let i = 0; i < 50; i++) {
+    lines.push(userLine(`턴 ${i}`, i));
+    lines.push(assistantLine(`msg_${i}`, 5));
+  }
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.dailyUserTurns, 50);
+  assert.ok(!result.traits.includes('sage'));
+  assert.strictEqual(result.stageId, 'baby'); // dailyOutputTokens (~250) only clears baby's gte:1
+});
+
+// --- token-scan-cache.json: version-mismatch forces one full rescan -----
+//
+// userTurns is a field old cache entries never had. An old-shaped cache
+// (no `version`, offsets already sitting at end-of-file from a prior scan
+// that only ever tracked `contribution`) must not be trusted at face value
+// for userTurns - the field would silently and permanently read as 0 for
+// every byte already consumed under the old scheme. See CACHE_VERSION.
+
+test('computeDailyTokens rescans fully when the cache predates the userTurns field', (t) => {
+  const dirs = setupDaily(t);
+  const lines = [];
+  for (let i = 0; i < 90; i++) {
+    lines.push(userLine(`턴 ${i}`, i));
+    lines.push(assistantLine(`msg_${i}`, 5));
+  }
+  const file = writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
+
+  // Simulate a pre-existing cache from before userTurns existed: same date,
+  // offset already at EOF, contribution correct, but no version field and
+  // no userTurns - exactly what a real deployed cache looked like the
+  // moment this feature shipped.
+  fs.mkdirSync(dirs.claudemonDir, { recursive: true });
+  const oldShapeCache = {
+    dateKST: '2026-07-29',
+    files: {
+      [file]: { offset: fs.statSync(file).size, contribution: 450, mtimeMs: fs.statSync(file).mtimeMs }
+    }
+  };
+  fs.writeFileSync(cacheFilePath(dirs.claudemonDir), JSON.stringify(oldShapeCache, null, 2));
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  // Had the stale offset been trusted, userTurns would be stuck at 0
+  // forever (no unread bytes left to scan for it) despite 90 real turns
+  // sitting in already-consumed bytes.
+  assert.strictEqual(result.dailyUserTurns, 90);
+
+  const savedCache = JSON.parse(fs.readFileSync(cacheFilePath(dirs.claudemonDir), 'utf8'));
+  assert.strictEqual(savedCache.version, 2);
+});
+
+test('computeDailyTokens does not rescan (stays incremental) once the cache is current', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    userLine('턴 1', 1),
+    assistantLine('msg_1', 100)
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(first.dailyUserTurns, 1);
+
+  // A same-day rerun with no new content must reproduce the same totals
+  // via the incremental path, not silently re-double anything.
+  const second = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(second.dailyUserTurns, 1);
+  assert.strictEqual(second.outputTokens, first.outputTokens);
 });
