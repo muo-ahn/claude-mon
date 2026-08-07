@@ -426,10 +426,24 @@ const orphanNodes = packs.flatMap((p) =>
   [...p.nodes.values()].filter((n) => n.orphan).map((n) => ({ pack: p.name, name: n.name }))
 );
 
+// A stage's `condition` used to be a single flat { type, gte } - the rail
+// label just read .gte off it directly. The sage-day gate wrapped it in
+// `any: [tokenCondition, sageCondition]` (see evolution-tree.json), so the
+// token threshold this label displays now has to be found inside that
+// array instead of at the top level.
+function stageTokenGte(condition) {
+  if (!condition) return undefined;
+  if (Array.isArray(condition.any)) {
+    const tokenCond = condition.any.find((c) => c && c.type === 'dailyOutputTokens');
+    return tokenCond && tokenCond.gte;
+  }
+  return condition.gte;
+}
+
 const railCols = STAGES.map((s, i) => {
   const [ko, en] = s.label.split(' (');
-  const gte = s.condition && s.condition.gte;
-  const th = s.condition.type === 'always' ? '기본' : gte >= 1000 ? `${(gte / 1000).toLocaleString('en-US')}K` : `${gte}`;
+  const gte = stageTokenGte(s.condition);
+  const th = s.condition && s.condition.type === 'always' ? '기본' : gte >= 1000 ? `${(gte / 1000).toLocaleString('en-US')}K` : `${gte}`;
   return `<div class="rail-col">
     <span class="rail-idx">${i + 1}</span>
     <span class="rail-ko">${esc(ko)}</span>
