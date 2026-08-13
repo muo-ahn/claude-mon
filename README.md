@@ -357,6 +357,47 @@ node daily-tokens.js
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
 
+### ROM에서 직접 립하기 (`scripts/rip_dwds_sprites.py`)
+
+필요한 개체의 시트가 spriters-resource·spritedatabase 등 어디에도 없을 때(아무도 안 뜯었을 때) 쓰는 마지막 수단이다. Digimon World Dawn/Dusk의 NDS ROM에서 워터마크 없는 원본 그래픽을 직접 뽑아 위 [진화체 스프라이트](#진화체-스프라이트-adultperfectultimatesuperultimate) 흐름이 읽는 `sprites/sheets/dwds/<이름>.png`와 같은 자리에 편입할 수 있는 재료를 만든다.
+
+**ROM도 ndstool도 이 레포에는 없다** — 사용자 본인이 소유한 ROM 덤프를 준비해서 로컬에만 둔다(레포에 커밋하지 않는다, 다운로드 금지). Tinke(Windows/.NET GUI)는 macOS에서 못 쓰므로 대신 `pip3 install ndspy pillow`로 설치되는 순수 Python 파서를 쓴다.
+
+이 파이프라인의 원칙은 기존 `--contact` 관례와 동일하다 — **인덱스나 팔레트·셀 조합을 추측해서 확정하지 않는다.** ROM/그래픽 포맷의 바이트 구조(NDS FAT/FNT, Nitro G2D 헤더)는 스펙대로 정확히 파싱하지만, 어떤 그래픽·팔레트·셀이 같은 개체에 속하는지는 게임마다/팩마다 다를 수 있어 후보를 눈으로 골라야 한다.
+
+1. **ROM에서 pak 3개 꺼내기.** `spr_chr.pak`(그래픽/NCGR), `spr_pal.pak`(팔레트/NCLR), `spr_cel.pak`(셀매핑/NCER) — ROM 안 정확한 경로는 리전/덤프마다 다르므로 추측하지 않고 조회한다.
+   ```bash
+   python3 scripts/rip_dwds_sprites.py list-rom ~/roms/dwds.nds --filter spr_
+   python3 scripts/rip_dwds_sprites.py extract-rom ~/roms/dwds.nds <위에서 찾은 경로>/spr_chr.pak /tmp/spr_chr.pak
+   # spr_pal.pak, spr_cel.pak도 같은 방식으로
+   ```
+2. **pak을 개별 그래픽 블록으로 분해.** 이 게임의 pak 컨테이너 자체는 공개 스펙이 없어 컨테이너 헤더를 추측하지 않는다 — 대신 pak 바이트를 훑어 Nitro G2D 매직(NCGR/NCLR/NCER, 자기 크기를 스스로 헤더에 적어 둔다)을 찾아 그 자리에서 정확히 잘라낸다.
+   ```bash
+   python3 scripts/rip_dwds_sprites.py split-pak /tmp/spr_chr.pak /tmp/chr_split
+   python3 scripts/rip_dwds_sprites.py split-pak /tmp/spr_pal.pak /tmp/pal_split
+   python3 scripts/rip_dwds_sprites.py split-pak /tmp/spr_cel.pak /tmp/cel_split
+   ```
+   각 `*_split/`에 `ncgr_0000.bin`, `nclr_0000.bin`, `ncer_0000.bin` ... 이 나온다. 세 pak의 항목 순서가 같은 개체를 가리킨다는 보장은 없다 — 다음 단계에서 사람이 확인한다.
+3. **사람이 조합을 눈으로 고르는 지점.** `--contact`와 같은 형식(번호 붙은 스트립, 5칸마다 빨간 눈금)으로 후보를 렌더링한다.
+   ```bash
+   # 목표 인덱스 N 주변에서 팔레트만 바꿔가며 후보를 나열 (chr/cel은 N으로 고정)
+   python3 scripts/rip_dwds_sprites.py contact /tmp/chr_split /tmp/pal_split /tmp/cel_split \
+       --index N --vary palette --window 5 --out /tmp/contact-pal.png
+   # chr/pal/cel 세 인덱스가 아예 안 맞을 수도 있으니, 셋을 같이 밀어보는 것도 확인
+   python3 scripts/rip_dwds_sprites.py contact /tmp/chr_split /tmp/pal_split /tmp/cel_split \
+       --index N --vary index --window 5 --out /tmp/contact-idx.png
+   ```
+   두 PNG를 눈으로 보고 실제로 그 개체처럼 보이는 조합의 인덱스를 고른다.
+4. **확정한 조합을 최종 PNG로.**
+   ```bash
+   python3 scripts/rip_dwds_sprites.py render /tmp/chr_split/ncgr_00NN.bin /tmp/pal_split/nclr_00NN.bin \
+       /tmp/cel_split/ncer_00NN.bin /tmp/out.png --cell 0
+   ```
+   `--cell`로 NCER 안의 다른 포즈(걷기 다른 프레임 등)를 시도해볼 수 있다.
+5. **기존 흐름에 편입.** 나온 PNG(들)을 `sprites/sheets/dwds/<이름>.png`로 배치(기존 68장은 그대로 두고 신규 파일만 추가)하면, `scripts/extract_pack_evolved_dwds.py --contact <이름>`부터는 이미 있는 절차 그대로다.
+
+ROM/pak이 없거나 예상한 위치에 없으면 각 서브커맨드는 (더미 출력 없이) 즉시 명확한 에러로 실패한다. `split-pak`이 블록을 하나도 못 찾으면 그 pak이 그래픽용이 아니거나 압축(LZ10/LZ11)돼 있다는 뜻이다 — 이 도구는 압축 해제를 추측하지 않는다.
+
 ### 진화체 스프라이트 (`adult`/`perfect`/`ultimate`/`superultimate`)
 
 `scripts/extract_pack_<mon>.py`가 쓰는 Battle Spirit 시트에는 성장기(Rookie) 본인의 모션만 있고 진화체 프레임이 없다. 그래서 상위 3단계는 원래 "성장기가 강한 포즈를 취한 그림"으로 대체돼 있었고, 이름은 `pack.json`의 `stageNames`를 따라 그레이몬/메탈그레이몬/워그레이몬으로 표시되는데 도트는 아구몬인 불일치가 있었다.
