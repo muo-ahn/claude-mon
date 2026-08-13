@@ -823,6 +823,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var focusedSessionState: [String: Any] = [:]
     var focusedUnregistered = false
     var focusedLastResolvedPath = ""
+    // Guards against multiple concurrent resolveActiveSessionPath() calls
+    // stacking up when the script is slow. Read/write only on main thread.
+    var isFocusedSessionRefreshInFlight = false
+    // Counts refreshState() ticks so the focused-session resolver can run on
+    // a slower cadence than the 2s state refresh (every 3rd tick, ~6s).
+    var focusedSessionRefreshTick = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let daily = readDailyState()
@@ -845,10 +851,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.advanceFrame()
         }
         // active-session.sh re-resolves which kitty window/tmux pane/claude
-        // process is focused on every tick; polling is simpler and more
-        // robust than a vnode watch across a file that keeps getting
-        // replaced (both the resolved session file and the resolution
-        // target itself can change between ticks).
+        // process is focused; polling is simpler and more robust than a vnode
+        // watch across a file that keeps getting replaced (both the resolved
+        // session file and the resolution target itself can change between
+        // ticks). Session files and rate limits refresh on every 2s tick; the
+        // resolver script is far slower, so it only runs every 3rd tick (~6s),
+        // off the main thread.
         Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.refreshState()
         }
@@ -1106,26 +1114,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // (a claude process is visible but hasn't registered a session file
     // yet) is tracked separately so the menu can say so instead of
     // borrowing another session's info.
+    // Runs active-session.sh on a background queue to avoid blocking the
+    // main thread, then updates state back on main. Skips if a previous
+    // call is still in flight.
     func refreshFocusedSession() {
-        guard let path = resolveActiveSessionPath() else {
-            focusedUnregistered = false
-            return
+        // In-flight guard: skip if previous call hasn't finished yet.
+        // Prevents queue buildup when the script is slow.
+        guard !isFocusedSessionRefreshInFlight else { return }
+        isFocusedSessionRefreshInFlight = true
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+
+            // Run subprocess and parse result on background thread
+            let resolvedPath = self.resolveActiveSessionPath()
+
+            // Update state on main thread
+            DispatchQueue.main.async {
+                self.isFocusedSessionRefreshInFlight = false
+
+                guard let path = resolvedPath else {
+                    self.focusedUnregistered = false
+                    self.rebuildMenu()
+                    return
+                }
+
+                if path.hasPrefix("unknown:") {
+                    self.focusedUnregistered = true
+                    self.focusedSessionState = [:]
+                    self.focusedLastResolvedPath = ""
+                    self.rebuildMenu()
+                    return
+                }
+
+                guard let data = FileManager.default.contents(atPath: path),
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else {
+                    // Resolved path unreadable/malformed: keep the last good info.
+                    return
+                }
+
+                self.focusedUnregistered = false
+                self.focusedSessionState = json
+                self.focusedLastResolvedPath = path
+                self.rebuildMenu()
+            }
         }
-        if path.hasPrefix("unknown:") {
-            focusedUnregistered = true
-            focusedSessionState = [:]
-            focusedLastResolvedPath = ""
-            return
-        }
-        guard let data = FileManager.default.contents(atPath: path),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            // Resolved path unreadable/malformed: keep the last good info.
-            return
-        }
-        focusedUnregistered = false
-        focusedSessionState = json
-        focusedLastResolvedPath = path
     }
 
     func refreshState() {
@@ -1164,7 +1198,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         workingSessionCount = workingCount
 
         updateRateLimits(sessions: sessions)
-        refreshFocusedSession()
+
+        // Focused session refresh: only every 3 ticks (~6s) to reduce overhead.
+        // active-session.sh is slow (~700ms), so polling it every 2s would keep
+        // the main thread blocked 35% of the time.
+        focusedSessionRefreshTick += 1
+        if focusedSessionRefreshTick % 3 == 0 {
+            refreshFocusedSession()
+        }
 
         applyFrameSet()
         rebuildMenu()
