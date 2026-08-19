@@ -29,7 +29,11 @@ const {
   transcriptKey,
   isRealUserTurn,
   defaultPacksDir,
-  cacheFilePath
+  cacheFilePath,
+  monHistoryFilePath,
+  readMonHistory,
+  recordMonHistory,
+  MON_HISTORY_MAX
 } = require('../lib/daily');
 
 // --- helpers ---------------------------------------------------------
@@ -227,6 +231,114 @@ test('selectMon spreads picks across all candidates', (t) => {
   }
 });
 
+// --- selectMon: shuffled-deck rotation --------------------------------
+//
+// dateKeys(count) starts at 2026-01-01, which is MON_DECK_EPOCH_KST, so
+// dateKeys(N)[i] lands on dayIndex i - i.e. cycle 0, pos i - for any pool
+// of size N. That makes cycle 0 easy to address directly in these tests.
+
+test('selectMon deck: every pack appears exactly once within one cycle', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const names = ['agumon', 'gabumon', 'guilmon', 'impmon', 'renamon'];
+  for (const name of names) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  // avoidMon: null throughout so nothing steps away from its natural deck
+  // slot - this isolates the deck's own guarantee from the avoidMon guard.
+  const picks = dateKeys(names.length).map((key) => selectMon(key, packsDir, sharedDir, null));
+  assert.deepStrictEqual(picks.slice().sort(), [...names].sort());
+});
+
+test('selectMon deck: same-date rerun is idempotent mid-cycle and off-epoch', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  for (const name of ['agumon', 'gabumon', 'guilmon', 'impmon']) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  for (const dateKST of ['2026-01-01', '2026-03-17', '2027-11-02', '2020-05-05']) {
+    const first = selectMon(dateKST, packsDir, sharedDir, null);
+    assert.strictEqual(selectMon(dateKST, packsDir, sharedDir, null), first);
+    // Rerunning with an avoidMon that happens to equal today's own pick
+    // must not change the outcome across repeated calls either.
+    const guarded = selectMon(dateKST, packsDir, sharedDir, first);
+    assert.strictEqual(selectMon(dateKST, packsDir, sharedDir, first), guarded);
+  }
+});
+
+test('selectMon deck: never repeats across a year even through many cycle boundaries', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  // A small pool (N=3) packs many cycle boundaries into 365 days, which is
+  // exactly where the avoidMon guard has to keep doing its job.
+  for (const name of ['aa', 'bb', 'cc']) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  let prev = null;
+  for (const key of dateKeys(365)) {
+    const mon = selectMon(key, packsDir, sharedDir, prev);
+    assert.notStrictEqual(mon, prev, `repeated ${mon} on ${key}`);
+    prev = mon;
+  }
+});
+
+test('selectMon deck: only returns packs from the current pool as it is resized', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  for (const name of ['aa', 'bb', 'cc']) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  let prev = null;
+  const keys = dateKeys(24);
+  for (let i = 0; i < 8; i++) {
+    const mon = selectMon(keys[i], packsDir, sharedDir, prev);
+    assert.ok(['aa', 'bb', 'cc'].includes(mon), `${mon} not in original pool`);
+    prev = mon;
+  }
+
+  writePack(packsDir, 'dd', FULL);
+  for (let i = 8; i < 16; i++) {
+    const mon = selectMon(keys[i], packsDir, sharedDir, prev);
+    assert.ok(['aa', 'bb', 'cc', 'dd'].includes(mon), `${mon} not in grown pool`);
+    prev = mon;
+  }
+
+  fs.rmSync(path.join(packsDir, 'aa'), { recursive: true, force: true });
+  for (let i = 16; i < 24; i++) {
+    const mon = selectMon(keys[i], packsDir, sharedDir, prev);
+    assert.ok(['bb', 'cc', 'dd'].includes(mon), `${mon} not in shrunk pool`);
+    prev = mon;
+  }
+});
+
+test('selectMon deck: returns a pool pack for dates before the epoch (negative dayIndex)', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const names = ['agumon', 'gabumon', 'guilmon'];
+  for (const name of names) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  for (const dateKST of ['2025-12-31', '2025-01-01', '2020-06-15', '1999-01-01']) {
+    const mon = selectMon(dateKST, packsDir, sharedDir, null);
+    assert.ok(names.includes(mon), `${mon} (for ${dateKST}) not in pool`);
+  }
+});
+
+test('selectMon deck: distribution stays within +-1 of the mean across N-multiple day counts', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const names = ['aa', 'bb', 'cc', 'dd', 'ee'];
+  for (const name of names) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  const cyclesToRun = 50;
+  const days = names.length * cyclesToRun;
+  const counts = {};
+  let prev = null;
+  for (const key of dateKeys(days)) {
+    prev = selectMon(key, packsDir, sharedDir, prev);
+    counts[prev] = (counts[prev] || 0) + 1;
+  }
+  assert.deepStrictEqual(Object.keys(counts).sort(), [...names].sort());
+  const values = Object.values(counts);
+  const spread = Math.max(...values) - Math.min(...values);
+  assert.ok(spread <= 1, `distribution spread ${spread} exceeds +-1: ${JSON.stringify(counts)}`);
+});
+
 // --- computeDailyTokens: prevMon bookkeeping -------------------------
 
 function setupDaily(t) {
@@ -291,6 +403,102 @@ test('computeDailyTokens survives a corrupt daily.json', (t) => {
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.prevMon, null);
   assert.ok(result.mon);
+});
+
+// --- mon-history.json --------------------------------------------------
+//
+// Observational only: never consulted by selectMon's avoidMon guard (that
+// still reads prevMon off daily.json). Exists so a rotation-bias fix can
+// be checked against real usage after the fact.
+
+test('recordMonHistory appends a new date as a new entry', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordMonHistory(claudemonDir, '2026-08-17', 'agumon');
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+
+  const history = readMonHistory(claudemonDir);
+  assert.deepStrictEqual(history.entries, [
+    { date: '2026-08-17', mon: 'agumon' },
+    { date: '2026-08-18', mon: 'gabumon' }
+  ]);
+});
+
+test('recordMonHistory does no file I/O when the date and mon both repeat', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+  const file = monHistoryFilePath(claudemonDir);
+  const before = fs.statSync(file);
+
+  // A real mtime tick needs to be observable on every filesystem this
+  // might run on, not just "did the call throw".
+  fs.utimesSync(file, new Date(0), new Date(0));
+  const stamped = fs.statSync(file).mtimeMs;
+
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+  assert.strictEqual(fs.statSync(file).mtimeMs, stamped, 'file was rewritten despite an unchanged (date, mon) pair');
+  assert.ok(before); // sanity - the initial write did happen
+});
+
+test('recordMonHistory updates the last entry in place when the mon changes for the same date', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordMonHistory(claudemonDir, '2026-08-17', 'agumon');
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+  // A manual daily.json override mid-day must rewrite today's row, not
+  // append a second one for the same date.
+  recordMonHistory(claudemonDir, '2026-08-18', 'impmon');
+
+  const history = readMonHistory(claudemonDir);
+  assert.deepStrictEqual(history.entries, [
+    { date: '2026-08-17', mon: 'agumon' },
+    { date: '2026-08-18', mon: 'impmon' }
+  ]);
+});
+
+test('recordMonHistory trims to MON_HISTORY_MAX, dropping the oldest first', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const total = MON_HISTORY_MAX + 10;
+  for (let i = 0; i < total; i++) {
+    const day = String(i).padStart(4, '0');
+    recordMonHistory(claudemonDir, `2020-01-${day}`, `mon${i}`);
+  }
+
+  const history = readMonHistory(claudemonDir);
+  assert.strictEqual(history.entries.length, MON_HISTORY_MAX);
+  // Oldest 10 dropped; the ring buffer keeps the most recent MON_HISTORY_MAX.
+  assert.strictEqual(history.entries[0].mon, 'mon10');
+  assert.strictEqual(history.entries[history.entries.length - 1].mon, `mon${total - 1}`);
+});
+
+test('readMonHistory degrades to an empty history on a missing file, bad JSON, or a version mismatch', (t) => {
+  const { claudemonDir } = makeRoot(t);
+
+  assert.deepStrictEqual(readMonHistory(claudemonDir), { version: 1, entries: [] });
+
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(monHistoryFilePath(claudemonDir), '{ not json');
+  assert.deepStrictEqual(readMonHistory(claudemonDir), { version: 1, entries: [] });
+
+  fs.writeFileSync(
+    monHistoryFilePath(claudemonDir),
+    JSON.stringify({ version: 99, entries: [{ date: '2026-01-01', mon: 'agumon' }] })
+  );
+  assert.deepStrictEqual(readMonHistory(claudemonDir), { version: 1, entries: [] });
+});
+
+test('computeDailyTokens records the chosen mon into mon-history.json', (t) => {
+  const dirs = setupDaily(t);
+  const day1 = computeDailyTokens(dateAt(0), dirs);
+  const day2 = computeDailyTokens(dateAt(1), dirs);
+  // The ~30s poll reruns the same day repeatedly - history must not grow
+  // beyond one entry per date from those reruns.
+  computeDailyTokens(dateAt(1), dirs);
+  computeDailyTokens(dateAt(1), dirs);
+
+  const history = readMonHistory(dirs.claudemonDir);
+  assert.deepStrictEqual(history.entries, [
+    { date: day1.dateKST, mon: day1.mon },
+    { date: day2.dateKST, mon: day2.mon }
+  ]);
 });
 
 // --- computeDailyTokens: what counts as one transcript ----------------
@@ -384,13 +592,16 @@ test('computeDailyTokens counts subagent tokens into the parent session', (t) =>
 
 test('computeDailyTokens counts a session filed under two project dirs once', (t) => {
   const dirs = setupDaily(t);
-  const lines = [assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
+  const lines = [userLine('턴 1', 1), assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
   writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
   writeTranscript(dirs.projectsDir, `-Users-me-wt-repo/${SESSION}.jsonl`, lines);
 
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.outputTokens, 140);
   assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 140 });
+  // userTurns has no message.id to dedupe by, so this still leans on the
+  // transcriptKey max-fold rather than the global seen-map dedup above.
+  assert.strictEqual(result.dailyUserTurns, 1);
 });
 
 // --- rotation pool: only lines that reach the top stage ---------------
@@ -475,6 +686,49 @@ test('computeDailyTokens keeps one copy while the other catches up', (t) => {
   const caughtUp = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(caughtUp.outputTokens, 140);
   assert.deepStrictEqual(caughtUp.sessionTokens, { [SESSION]: 140 });
+});
+
+// --- computeDailyTokens: global seen-map dedup (21.1% overcount fix) ---
+//
+// Two more ways the same output tokens got double-counted, both fixed by
+// threading a single cross-file `seen` map (message.id -> max output_tokens
+// counted today) through every scan instead of folding by file path.
+
+test('computeDailyTokens dedupes a continued/forked subagent transcript copy', (t) => {
+  const dirs = setupDaily(t);
+  const shared = [assistantLine('msg_1', 100), assistantLine('msg_2', 50)];
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-A.jsonl`, shared);
+  // A continued/forked subagent copies its parent's transcript verbatim
+  // into a new file under a different agent id - same message.id,
+  // timestamp, everything - then appends its own unique turn on top.
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-B.jsonl`, [
+    ...shared,
+    assistantLine('msg_3', 30)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  // Old per-file-path fold saw two distinct transcript keys (agent-A,
+  // agent-B) and summed both in full: 100+50 + 100+50+30 = 330.
+  assert.strictEqual(result.outputTokens, 180);
+  assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 180 });
+});
+
+test('computeDailyTokens does not double-count a message.id split across two incremental scans', (t) => {
+  const dirs = setupDaily(t);
+  const file = writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    assistantLine('msg_streamed', 10) // a partial snapshot, flushed and scanned first
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(first.outputTokens, 10);
+
+  // The same message.id reappears later as its own line with the final
+  // (larger) value - same shape a real streamed transcript takes. Without
+  // the global seen-map dedup this increment would add 100 on top of the
+  // 10 already counted, instead of just the 90 that's genuinely new.
+  fs.appendFileSync(file, `${assistantLine('msg_streamed', 100)}\n`);
+  const second = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(second.outputTokens, 100);
 });
 
 // --- selectRoute: 조건부 진화 (branching routes) -------------------------
@@ -1191,7 +1445,7 @@ test('computeDailyTokens rescans fully when the cache predates the userTurns fie
   assert.strictEqual(result.dailyUserTurns, 90);
 
   const savedCache = JSON.parse(fs.readFileSync(cacheFilePath(dirs.claudemonDir), 'utf8'));
-  assert.strictEqual(savedCache.version, 2);
+  assert.strictEqual(savedCache.version, 3);
 });
 
 test('computeDailyTokens does not rescan (stays incremental) once the cache is current', (t) => {

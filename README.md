@@ -150,7 +150,7 @@ launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
 node --test
 ```
 
-Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 연속 중복 방지(`selectMon`/`prevMon`), 분기 루트 추첨(`selectRoute` — 하루 고정·조건 게이트·lazy binding), 팩 트리 검증(`validatePackTree`) — 과 조건 엔진(`lib/evolve.js`의 `checkCondition`/`conditionMet` — 조건 타입 전체 + `all` 합성), 그리고 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
+Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 셔플 덱 로테이션(`selectMon` — 사이클 내 1회씩 배치·멱등·에폭 이전 음수 `dayIndex`·풀 크기 변경·N배수 일수 분포 균등성)과 연속 중복 방지(`prevMon` 가드), 분기 루트 추첨(`selectRoute` — 하루 고정·조건 게이트·lazy binding), 팩 트리 검증(`validatePackTree`), 몬 등장 이력(`mon-history.json` — append/제자리 갱신/쓰기 생략/60개 트림/degrade) — 과 조건 엔진(`lib/evolve.js`의 `checkCondition`/`conditionMet` — 조건 타입 전체 + `all` 합성), 그리고 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
@@ -243,6 +243,14 @@ node daily-tokens.js
   { "dateKST": "2026-07-24", "outputTokens": 83002, "stageId": "child", "mon": "guilmon", "prevMon": "agumon", "sessionTokens": { "<session_id>": 5000 }, "updatedAt": "2026-07-24T01:40:35.208Z" }
   ```
 - 메뉴바 앱은 이 파일을 ~30초 주기로 폴링해서 스프라이트를 갱신한다. 증분 스캔이므로 재실행 비용은 대체로 수십 ms 이내.
+
+### `mon-history.json`
+
+- 위치: `$CLAUDEMON_DIR/mon-history.json`. 오늘의 팩이 확정된 직후(`daily.json`을 쓰기 전) `computeDailyTokens`가 기록한다.
+- 형식: `{ "version": 1, "entries": [{ "date": "2026-08-17", "mon": "agumon" }, ...] }`, `entries`는 과거 → 최신 순.
+- 상한 60개짜리 링버퍼다 — 초과분은 오래된 것부터 버린다.
+- **관찰용이다.** `selectMon`의 `avoidMon` 가드는 이 파일이 아니라 여전히 `daily.json`의 `prevMon`만 본다 — 셔플 덱으로 바꾼 뒤 실제 등장 빈도가 고르게 나오는지 사후 확인하려는 용도로만 쓴다.
+- 쓰기 최소화: 30초 폴링마다 호출되지만, 마지막 항목의 날짜·팩이 이번 것과 둘 다 같으면 파일 I/O 자체를 하지 않는다. 날짜는 같은데 팩만 다르면(수동으로 `daily.json`의 `mon`을 바꿔치기한 경우) 새 행을 추가하는 대신 마지막 항목을 제자리에서 갱신한다. 파일이 없거나 손상됐거나 `version`이 다르면 조용히 빈 이력으로 취급한다(`daily.json`/캐시와 동일한 degrade 정책). 이력 쓰기가 실패해도 `daily.json` 갱신이나 30초 폴링 루프에는 영향이 없다.
 
 ## 스프라이트 팩 (`sprites/packs/`)
 
@@ -341,12 +349,14 @@ node daily-tokens.js
 
 ### 매일 랜덤 몬 선택 (`lib/daily.js`)
 
-- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 로테이션 후보 목록(`.`으로 시작하지 않고, `idle-0.png`가 있고, 자체 `digitama-0.png` 또는 공용 `sprites/shared/digitama-0.png`가 있고, `pack.json`이 최상위 단계 이름을 선언한 디렉터리, 이름순 정렬)을 스캔하고, `dateKST` 문자열의 해시(`hashString` — 문자코드 누적 + murmur3 fmix32 finalizer, `Math.random` 미사용)를 팩 개수로 나눈 나머지로 그날의 팩을 고른다.
-- finalizer가 있어야 하는 이유: 누적 해시만 쓰면 하루 차이 날짜의 해시가 정확히 `+1`이라 인덱스가 알파벳 순서를 하루 한 칸씩 걷는 꼴이 된다. 그러면 앞쪽에 정렬되는 후보가 하나 늘어날 때 인덱스가 한 칸 밀리면서 일일 `+1`과 상쇄돼 **이틀 연속 같은 몬**이 나온다(실제로 `.omc` 때문에 파피몬이 이틀 연속 나온 적 있다). fmix32로 인접 입력을 흩어놓아 이 결합을 끊는다.
-- **연속 중복 방지(`prevMon`)**: 해시를 잘 섞어도 균등 분포라면 `1/N` 확률로 어제와 같은 팩이 뽑힌다. 밖에서 보면 우연한 중복과 로테이션 고장이 구분되지 않으므로, `daily.json`의 `prevMon`(직전에 실제로 표시된 팩)과 오늘 뽑힌 팩이 같으면 이름순 다음 팩으로 한 칸 민다. 후보가 1개뿐이면 밀 곳이 없으므로 그대로 둔다.
-- 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. `prevMon`도 그날 내내 함께 보존된다(30초마다 덮어써도 유실되지 않아야 내일 가드가 비교 대상을 갖는다). 날짜가 바뀌면 그때의 `mon`이 다음 날의 `prevMon`이 되고 해시로 재계산한다.
+- `computeDailyTokens`가 실행될 때마다 `sprites/packs/` 아래에서 로테이션 후보 목록(`.`으로 시작하지 않고, `idle-0.png`가 있고, 자체 `digitama-0.png` 또는 공용 `sprites/shared/digitama-0.png`가 있고, `pack.json`이 최상위 단계 이름을 선언한 디렉터리, 이름순 정렬)을 스캔하고, **시드 기반 셔플 덱**으로 그날의 팩을 고른다: `dateKST`를 `MON_DECK_EPOCH_KST`(`2026-01-01`) 기준 일수(`dayIndex`, 에폭 이전이면 음수)로 바꾼 뒤 후보 개수 `N`으로 나눈 몫(`cycle`)·나머지(`pos`, 항상 0..N-1)를 구하고, `hashString(\`${cycle}|${N}\`)`을 시드로 이름순 후보 목록을 mulberry32 기반 결정적 Fisher-Yates로 섞은 "그 사이클의 덱"에서 `deck[pos]`를 오늘의 픽으로 쓴다. 팩 개수가 바뀌면 시드도 바뀌므로(N이 시드에 포함) 팩 추가/삭제 시 해당 사이클 전체가 다시 섞인다.
+- 예전 방식(`hashString(dateKST) % N`)을 버린 이유: murmur3 fmix32로 해시를 잘 섞어도 `% N`의 나머지 분포 자체가 균등하지 않아, 개별 팩의 장기 등장 빈도가 최대 2배까지 벌어졌다(실측: 90일간 9개 팩 기준 keramon 18회 vs veemon 6회, 기대값 10회). 셔플 덱은 사이클(N일)마다 각 팩이 정확히 한 번씩 배치되므로 이 편향이 구조적으로 없다.
+- **연속 중복 방지(`prevMon`)**: 덱 자체가 한 사이클 안의 중복은 없애지만, 사이클 경계(이전 사이클의 마지막 자리와 다음 사이클의 첫 자리가 우연히 같은 팩일 수 있다)와 사용자가 `daily.json`의 `mon`을 수동으로 갈아끼운 경우는 덱만으로 못 막는다. 그래서 `daily.json`의 `prevMon`(직전에 실제로 표시된 팩)과 오늘 뽑힌 팩이 같으면 덱의 다음 자리(`deck[(pos+1)%N]`)로 한 칸 민다. 후보가 1개뿐이면 밀 곳이 없으므로 그대로 둔다.
+- 보장되는 것: 한 사이클(N일) 안에 각 팩이 정확히 1회 등장 + 연속 이틀 중복 없음(위 `prevMon` 가드). 보장되지 않는 것: 같은 팩이 재등장하기까지의 최소 간격 — 사이클 k의 마지막 자리와 k+1의 첫 자리에 우연히 같은 팩이 오면 사이클 경계를 넘어 2~3일 만에 재등장할 수 있다.
+- 같은 KST 날짜 안에서는 몇 번을 재실행해도 같은 팩이 나오고(멱등 — 시드 기반 셔플이라 `Math.random`은 쓰지 않는다), `daily.json`에 오늘 날짜의 `mon`이 이미 있으면 도중에 새 팩이 추가돼도 당일은 그 값을 그대로 유지한다. `prevMon`도 그날 내내 함께 보존된다(30초마다 덮어써도 유실되지 않아야 내일 가드가 비교 대상을 갖는다). 날짜가 바뀌면 그때의 `mon`이 다음 날의 `prevMon`이 되고 덱에서 재계산한다.
 - 며칠 쉬었다 실행해도 `prevMon`은 "마지막으로 실제 표시된 팩"이라 가드가 그대로 동작한다. `daily.json`이 없거나 깨졌으면 `prevMon`은 `null`이고 가드는 그냥 건너뛴다.
-- 후보가 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다).
+- 후보가 하나도 없으면 `mon: "guilmon"`으로 fallback한다(해당 팩 파일이 실제로 있어야 표시된다). 후보가 정확히 하나면 덱을 만들 것도 없이 그 팩을 그대로 반환한다.
+- 어떤 팩이 실제로 며칠에 한 번 나왔는지는 `mon-history.json`에 관찰용으로 남는다 — 아래 [`mon-history.json`](#mon-historyjson) 참고.
 
 ### 새 팩 등록하기
 
