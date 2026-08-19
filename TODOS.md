@@ -188,3 +188,24 @@ D7 자체는 가오몬 궁극체 노드 하나(`terminal: true`)만 편입해 �
 **Why** — 3번 트랙(백로그 도트 추출)과 같은 파이프라인으로 처리 가능한 저비용 후보다.
 
 **Depends on** — 3번의 추출 파이프라인.
+
+---
+
+## 8. (신규, D7 후속) 전역 진화 그래프 — Phase B(그래프/자산 분리) → Phase A(지연 진화 완성)
+
+**What** — 팩별 트리를 전역 그래프로 병합하고(Phase B), 이어서 로키(digitama) 선택까지
+조건화해 지연 진화를 완성한다(Phase A). 상세 설계·데이터 모델·마이그레이션 계획은
+`docs/global-graph-plan.md`.
+
+**Why** — `pack.json`이 계보 그래프·표시 이름·도트 파일 소유를 겸해 라인 교차가
+불가능하고 중복 노드가 생긴다(오메가몬·베르제브몬 등, `docs/global-graph-plan.md` §1).
+D7이 D3(`docs/evolution-routes.md` §8)의 보류 근거("D2와 상충")를 없애 지연 진화
+재검이 가능해졌다.
+
+**주의** — Phase B는 Q1(`docs/evolution-routes.md` §9, `인퍼몬 → 베르제브몬` 계보 결론)이
+선결조건이다 — 병합 시 케라몬 팩 안에 격리된 의심 엣지가 임프몬 라인 전체에 노출된다.
+Phase A는 Phase B 없이는 착수 불가(로키에 조건을 걸 노드 모음 자체가 병합 후에만
+존재한다). Phase A는 셔플 덱 로테이션·`mon-history.json`(#23, `81a3f5f`)의 존재
+이유를 없앤다 — 되돌릴 수 없는 트레이드오프다(`docs/global-graph-plan.md` §4 A-1).
+
+**Depends on** — Phase B는 Q1 선결, Phase A는 Phase B 완료 후.
