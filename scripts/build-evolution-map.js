@@ -102,16 +102,29 @@ function readPacks() {
         });
       }
       const topDeclared = stages[stages.length - 1];
-      const rotation = Boolean(
-        j.stageNames && typeof j.stageNames[TOP] === 'string' && j.stageNames[TOP].trim()
-      );
+      // Rotation eligibility mirrors lib/daily.js listRotationPacks's D7 pool
+      // (plan §2.5): a pack.json tree, however far it reaches, is enough --
+      // a lineage that ends before superultimate (가오몬) declares that via
+      // `terminal: true` on its last node rather than by sitting out the
+      // rotation. Only a tree-less legacy pack still needs the old
+      // stageNames[전역최상위] check. This intentionally does not validate
+      // the tree (decision E) -- an incomplete/invalid tree still counts as
+      // "has a tree" here and shows up as an INVALID chip instead.
+      const hasTree = stages.length > 0;
+      const rotation = hasTree
+        ? true
+        : Boolean(j.stageNames && typeof j.stageNames[TOP] === 'string' && j.stageNames[TOP].trim());
       const invalid = validatePackTree(tree);
       return { dir, name: j.name || dir, tree, stages, nodes, topDeclared, rotation, invalid };
     });
 }
 
-// A node counts as reachable only if an evolutions chain carries it to the
-// pack's last declared stage AND every dot on that chain exists.
+// A node counts as reachable if it has a dot AND either an evolutions chain
+// carries it to the pack's last declared stage, or it is itself a declared
+// lineage end (`terminal: true`, D7) -- checked the same strict way
+// lib/daily.js's isTerminal does, so a terminal node below topDeclared
+// (a pack whose tree keeps going for other branches) still counts, instead
+// of reading as stalled because its own `evolutions` list is empty.
 function markReachable(pack) {
   const order = [...pack.stages].reverse();
   for (const stageId of order) {
@@ -120,7 +133,7 @@ function markReachable(pack) {
         node.reaches = false;
         continue;
       }
-      if (stageId === pack.topDeclared) {
+      if (node.terminal === true || stageId === pack.topDeclared) {
         node.reaches = true;
         continue;
       }
@@ -783,8 +796,11 @@ const html = `<title>claudemon 진화 맵</title>
       <p>부모 노드의 <code>evolutions</code> 목록을 순서대로 검사해 오늘의 신호(<code>sessionCount</code>
         · <code>topSharePct</code> · <code>failureRatioPct</code> 등)로 조건이 먼저 걸린 분기를
         먼저 시도하고, 실선(<code>when: null</code>)이 도달을 보장하는 폴백이다. 후속이 없는
-        분기를 다음 스테이지의 spine으로 되돌리는 합성 엣지는 더 이상 없다 — 각 팩의 데이터가
-        직접 도달을 보장해야 하고, <span class="path">validatePackTree</span>가 그 계약을 검사한다.</p>
+        분기를 다음 스테이지의 spine으로 되돌리는 합성 엣지는 없다 — 각 노드는 엣지로 다음
+        스테이지에 도달하거나, <code>terminal: true</code>로 계보가 여기서 끝난다고 스스로
+        선언해야 한다. <span class="path">validatePackTree</span>가 그 계약(엣지 부재 시
+        <code>missing-terminal</code>, 종점인데 엣지가 있으면 <code>terminal-with-edges</code>)을
+        검사한다.</p>
     </div>
     <div class="note calm">
       <h4>지연 진화가 들어왔다</h4>
@@ -794,9 +810,11 @@ const html = `<title>claudemon 진화 맵</title>
     </div>
     <div class="note calm">
       <h4>로테이션에 드는 조건</h4>
-      <p><span class="path">idle-0.png</span>이 있고, 알 도트에 닿고, <span class="path">stageNames</span>가
-        초궁극체를 이름 붙인 팩만 매일 추첨에 든다. 가오몬은 궁극체(미라지가오가몬)에서 멈춰
-        제외 상태 — 명시 선택으로는 그대로 나온다.</p>
+      <p><span class="path">idle-0.png</span>이 있고, 알 도트에 닿고, <code>pack.json</code>에 진화
+        트리가 있어야 매일 추첨에 든다(트리가 없는 레거시 팩은 여전히 <span class="path">stageNames</span>가
+        전역 최상위 스테이지를 이름 붙여야 한다). 가오몬처럼 초궁극체 없이 끝나는 계보도 마지막
+        노드가 <code>terminal: true</code>를 선언하면 후보에 든다 — 더 이상 하드코딩된 예외가
+        아니다.</p>
     </div>
     <div class="note">
       <h4>두 층이 겹치지 않는 자리</h4>

@@ -29,7 +29,11 @@ const {
   transcriptKey,
   isRealUserTurn,
   defaultPacksDir,
-  cacheFilePath
+  cacheFilePath,
+  monHistoryFilePath,
+  readMonHistory,
+  recordMonHistory,
+  MON_HISTORY_MAX
 } = require('../lib/daily');
 
 // --- helpers ---------------------------------------------------------
@@ -227,6 +231,114 @@ test('selectMon spreads picks across all candidates', (t) => {
   }
 });
 
+// --- selectMon: shuffled-deck rotation --------------------------------
+//
+// dateKeys(count) starts at 2026-01-01, which is MON_DECK_EPOCH_KST, so
+// dateKeys(N)[i] lands on dayIndex i - i.e. cycle 0, pos i - for any pool
+// of size N. That makes cycle 0 easy to address directly in these tests.
+
+test('selectMon deck: every pack appears exactly once within one cycle', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const names = ['agumon', 'gabumon', 'guilmon', 'impmon', 'renamon'];
+  for (const name of names) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  // avoidMon: null throughout so nothing steps away from its natural deck
+  // slot - this isolates the deck's own guarantee from the avoidMon guard.
+  const picks = dateKeys(names.length).map((key) => selectMon(key, packsDir, sharedDir, null));
+  assert.deepStrictEqual(picks.slice().sort(), [...names].sort());
+});
+
+test('selectMon deck: same-date rerun is idempotent mid-cycle and off-epoch', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  for (const name of ['agumon', 'gabumon', 'guilmon', 'impmon']) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  for (const dateKST of ['2026-01-01', '2026-03-17', '2027-11-02', '2020-05-05']) {
+    const first = selectMon(dateKST, packsDir, sharedDir, null);
+    assert.strictEqual(selectMon(dateKST, packsDir, sharedDir, null), first);
+    // Rerunning with an avoidMon that happens to equal today's own pick
+    // must not change the outcome across repeated calls either.
+    const guarded = selectMon(dateKST, packsDir, sharedDir, first);
+    assert.strictEqual(selectMon(dateKST, packsDir, sharedDir, first), guarded);
+  }
+});
+
+test('selectMon deck: never repeats across a year even through many cycle boundaries', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  // A small pool (N=3) packs many cycle boundaries into 365 days, which is
+  // exactly where the avoidMon guard has to keep doing its job.
+  for (const name of ['aa', 'bb', 'cc']) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  let prev = null;
+  for (const key of dateKeys(365)) {
+    const mon = selectMon(key, packsDir, sharedDir, prev);
+    assert.notStrictEqual(mon, prev, `repeated ${mon} on ${key}`);
+    prev = mon;
+  }
+});
+
+test('selectMon deck: only returns packs from the current pool as it is resized', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  for (const name of ['aa', 'bb', 'cc']) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  let prev = null;
+  const keys = dateKeys(24);
+  for (let i = 0; i < 8; i++) {
+    const mon = selectMon(keys[i], packsDir, sharedDir, prev);
+    assert.ok(['aa', 'bb', 'cc'].includes(mon), `${mon} not in original pool`);
+    prev = mon;
+  }
+
+  writePack(packsDir, 'dd', FULL);
+  for (let i = 8; i < 16; i++) {
+    const mon = selectMon(keys[i], packsDir, sharedDir, prev);
+    assert.ok(['aa', 'bb', 'cc', 'dd'].includes(mon), `${mon} not in grown pool`);
+    prev = mon;
+  }
+
+  fs.rmSync(path.join(packsDir, 'aa'), { recursive: true, force: true });
+  for (let i = 16; i < 24; i++) {
+    const mon = selectMon(keys[i], packsDir, sharedDir, prev);
+    assert.ok(['bb', 'cc', 'dd'].includes(mon), `${mon} not in shrunk pool`);
+    prev = mon;
+  }
+});
+
+test('selectMon deck: returns a pool pack for dates before the epoch (negative dayIndex)', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const names = ['agumon', 'gabumon', 'guilmon'];
+  for (const name of names) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  for (const dateKST of ['2025-12-31', '2025-01-01', '2020-06-15', '1999-01-01']) {
+    const mon = selectMon(dateKST, packsDir, sharedDir, null);
+    assert.ok(names.includes(mon), `${mon} (for ${dateKST}) not in pool`);
+  }
+});
+
+test('selectMon deck: distribution stays within +-1 of the mean across N-multiple day counts', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  const names = ['aa', 'bb', 'cc', 'dd', 'ee'];
+  for (const name of names) writePack(packsDir, name, FULL);
+  writeSharedEgg(sharedDir);
+
+  const cyclesToRun = 50;
+  const days = names.length * cyclesToRun;
+  const counts = {};
+  let prev = null;
+  for (const key of dateKeys(days)) {
+    prev = selectMon(key, packsDir, sharedDir, prev);
+    counts[prev] = (counts[prev] || 0) + 1;
+  }
+  assert.deepStrictEqual(Object.keys(counts).sort(), [...names].sort());
+  const values = Object.values(counts);
+  const spread = Math.max(...values) - Math.min(...values);
+  assert.ok(spread <= 1, `distribution spread ${spread} exceeds +-1: ${JSON.stringify(counts)}`);
+});
+
 // --- computeDailyTokens: prevMon bookkeeping -------------------------
 
 function setupDaily(t) {
@@ -291,6 +403,102 @@ test('computeDailyTokens survives a corrupt daily.json', (t) => {
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.prevMon, null);
   assert.ok(result.mon);
+});
+
+// --- mon-history.json --------------------------------------------------
+//
+// Observational only: never consulted by selectMon's avoidMon guard (that
+// still reads prevMon off daily.json). Exists so a rotation-bias fix can
+// be checked against real usage after the fact.
+
+test('recordMonHistory appends a new date as a new entry', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordMonHistory(claudemonDir, '2026-08-17', 'agumon');
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+
+  const history = readMonHistory(claudemonDir);
+  assert.deepStrictEqual(history.entries, [
+    { date: '2026-08-17', mon: 'agumon' },
+    { date: '2026-08-18', mon: 'gabumon' }
+  ]);
+});
+
+test('recordMonHistory does no file I/O when the date and mon both repeat', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+  const file = monHistoryFilePath(claudemonDir);
+  const before = fs.statSync(file);
+
+  // A real mtime tick needs to be observable on every filesystem this
+  // might run on, not just "did the call throw".
+  fs.utimesSync(file, new Date(0), new Date(0));
+  const stamped = fs.statSync(file).mtimeMs;
+
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+  assert.strictEqual(fs.statSync(file).mtimeMs, stamped, 'file was rewritten despite an unchanged (date, mon) pair');
+  assert.ok(before); // sanity - the initial write did happen
+});
+
+test('recordMonHistory updates the last entry in place when the mon changes for the same date', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordMonHistory(claudemonDir, '2026-08-17', 'agumon');
+  recordMonHistory(claudemonDir, '2026-08-18', 'gabumon');
+  // A manual daily.json override mid-day must rewrite today's row, not
+  // append a second one for the same date.
+  recordMonHistory(claudemonDir, '2026-08-18', 'impmon');
+
+  const history = readMonHistory(claudemonDir);
+  assert.deepStrictEqual(history.entries, [
+    { date: '2026-08-17', mon: 'agumon' },
+    { date: '2026-08-18', mon: 'impmon' }
+  ]);
+});
+
+test('recordMonHistory trims to MON_HISTORY_MAX, dropping the oldest first', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const total = MON_HISTORY_MAX + 10;
+  for (let i = 0; i < total; i++) {
+    const day = String(i).padStart(4, '0');
+    recordMonHistory(claudemonDir, `2020-01-${day}`, `mon${i}`);
+  }
+
+  const history = readMonHistory(claudemonDir);
+  assert.strictEqual(history.entries.length, MON_HISTORY_MAX);
+  // Oldest 10 dropped; the ring buffer keeps the most recent MON_HISTORY_MAX.
+  assert.strictEqual(history.entries[0].mon, 'mon10');
+  assert.strictEqual(history.entries[history.entries.length - 1].mon, `mon${total - 1}`);
+});
+
+test('readMonHistory degrades to an empty history on a missing file, bad JSON, or a version mismatch', (t) => {
+  const { claudemonDir } = makeRoot(t);
+
+  assert.deepStrictEqual(readMonHistory(claudemonDir), { version: 1, entries: [] });
+
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(monHistoryFilePath(claudemonDir), '{ not json');
+  assert.deepStrictEqual(readMonHistory(claudemonDir), { version: 1, entries: [] });
+
+  fs.writeFileSync(
+    monHistoryFilePath(claudemonDir),
+    JSON.stringify({ version: 99, entries: [{ date: '2026-01-01', mon: 'agumon' }] })
+  );
+  assert.deepStrictEqual(readMonHistory(claudemonDir), { version: 1, entries: [] });
+});
+
+test('computeDailyTokens records the chosen mon into mon-history.json', (t) => {
+  const dirs = setupDaily(t);
+  const day1 = computeDailyTokens(dateAt(0), dirs);
+  const day2 = computeDailyTokens(dateAt(1), dirs);
+  // The ~30s poll reruns the same day repeatedly - history must not grow
+  // beyond one entry per date from those reruns.
+  computeDailyTokens(dateAt(1), dirs);
+  computeDailyTokens(dateAt(1), dirs);
+
+  const history = readMonHistory(dirs.claudemonDir);
+  assert.deepStrictEqual(history.entries, [
+    { date: day1.dateKST, mon: day1.mon },
+    { date: day2.dateKST, mon: day2.mon }
+  ]);
 });
 
 // --- computeDailyTokens: what counts as one transcript ----------------
@@ -384,24 +592,60 @@ test('computeDailyTokens counts subagent tokens into the parent session', (t) =>
 
 test('computeDailyTokens counts a session filed under two project dirs once', (t) => {
   const dirs = setupDaily(t);
-  const lines = [assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
+  const lines = [userLine('턴 1', 1), assistantLine('msg_a', 100), assistantLine('msg_b', 40)];
   writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, lines);
   writeTranscript(dirs.projectsDir, `-Users-me-wt-repo/${SESSION}.jsonl`, lines);
 
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.outputTokens, 140);
   assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 140 });
+  // userTurns has no message.id to dedupe by, so this still leans on the
+  // transcriptKey max-fold rather than the global seen-map dedup above.
+  assert.strictEqual(result.dailyUserTurns, 1);
 });
 
-// --- rotation pool: only lines that reach the top stage ---------------
+// --- rotation pool (D7: docs/evolution-routes.md §8) -------------------
 //
-// A pack whose evolution line tops out early would sit one stage below
-// the ceiling on the heaviest days of the month, so it is held out of the
-// daily rotation entirely rather than shown with a stage it can never
-// reach. It stays a *valid* pack - explicit selection and the guilmon
-// fallback still render it.
+// Before D7, a pack whose evolution line topped out early was held out of
+// the daily rotation entirely - one stage below the ceiling on the
+// heaviest days was worse than not rotating it at all. D7 relaxes that:
+// a tree-based pack is a rotation candidate as long as readTree resolves
+// a tree for it (front-contiguous is enough - see readTree's doc
+// comment), however short. What's still excluded is a pack with no tree
+// at all whose legacy stageNames don't name the global top stage, or no
+// usable pack.json at all - listValidPacks alone would let those into the
+// rotation on nothing but an idle-0.png and a Digi-Egg sprite.
+//
+// writePack (below) only ever writes the legacy, tree-less shape, so it's
+// still the right helper for exercising that legacy gate; the tree-based
+// side is covered separately with writeTreePack further down.
 
-test('listRotationPacks drops a line that stops short of the top stage', (t) => {
+test('listRotationPacks keeps a tree-based line that stops short of the top stage', (t) => {
+  const dirs = makeRoot(t);
+  // Written directly (not via writeTreePack) so stageNames does NOT name
+  // the global top stage - this isolates condition (a) (readTree
+  // resolves a tree) from condition (b) (legacy stageNames fallback),
+  // so the test can't pass for the wrong reason.
+  const dir = path.join(dirs.packsDir, 'short-line');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({
+    name: 'short-line',
+    stageNames: { child: 'short-line' }, // no superultimate name at all
+    tree: {
+      digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'kid', when: null }] }],
+      baby: [{ id: 'kid', name: '유년', sprite: 'baby', terminal: true, evolutions: [] }]
+    }
+  }, null, 2));
+  writePack(dirs.packsDir, 'legacy-full', FULL);
+
+  assert.deepStrictEqual(
+    listRotationPacks(dirs.packsDir, dirs.sharedDir).sort(),
+    ['legacy-full', 'short-line']
+  );
+});
+
+test('listRotationPacks drops a legacy (tree-less) line that stops short of the top stage', (t) => {
   const dirs = makeRoot(t);
   writePack(dirs.packsDir, 'reaches-top', FULL);
   writePack(dirs.packsDir, 'tops-out-early', FULL, { topStage: false });
@@ -436,6 +680,21 @@ test('selectMon never lands on a pack outside the rotation pool', (t) => {
   }
 });
 
+// Regression: gaomon is the concrete pack D7 exists for (docs/evolution-
+// routes.md §1 - it and renamon were the two 0-branch lines this policy
+// excluded). It must actually reach the real deck, not just pass
+// listRotationPacks in isolation.
+test('gaomon appears in the real rotation deck now that its tree loads', () => {
+  const packs = listRotationPacks(defaultPacksDir(), undefined);
+  assert.ok(packs.includes('gaomon'), `gaomon missing from rotation pool: ${packs}`);
+
+  const seen = new Set();
+  for (const key of dateKeys(60)) {
+    seen.add(selectMon(key, defaultPacksDir(), undefined, null));
+  }
+  assert.ok(seen.has('gaomon'), `gaomon never came up across 60 days: ${[...seen]}`);
+});
+
 test('computeDailyTokens reaches the top stage past its threshold', (t) => {
   const dirs = setupDaily(t);
   // 2.1M output tokens in one KST day: past the top stage's gte.
@@ -448,6 +707,45 @@ test('computeDailyTokens reaches the top stage past its threshold', (t) => {
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.outputTokens, 2_100_000);
   assert.strictEqual(result.stageId, topStageId());
+  // A full line reaching the real top stage has nothing to clamp against -
+  // terminalFrom must be absent, not present-and-falsy (see D7's doc
+  // comment on the clamp in computeDailyTokens).
+  assert.strictEqual(result.terminalFrom, undefined);
+});
+
+// D7 (docs/evolution-routes.md §8): a short line (terminal: true before
+// the global top stage) must cap stageId at its own ending even on a
+// heavy-token day, and daily.json has to say why via terminalFrom.
+test('computeDailyTokens clamps stageId to a terminal line and records terminalFrom', (t) => {
+  const dirs = makeRoot(t);
+  const dir = path.join(dirs.packsDir, 'shortmon');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({
+    name: 'shortmon',
+    tree: {
+      digitama: [{ id: 'egg3', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby3', when: null }] }],
+      baby: [{ id: 'baby3', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid3', when: null }] }],
+      child: [{ id: 'kid3', name: '성장', sprite: 'child', evolutions: [{ to: 'ad3', when: null }] }],
+      adult: [{ id: 'ad3', name: '성숙', sprite: 'adult', terminal: true, evolutions: [] }]
+    }
+  }, null, 2));
+  writeSharedEgg(dirs.sharedDir);
+
+  // 2.1M output tokens in one KST day: the same threshold the full-line
+  // test above uses to reach the real top stage.
+  writeTranscript(
+    dirs.projectsDir,
+    `-Users-me-repo/${SESSION}.jsonl`,
+    [assistantLine('msg_a', 1_100_000), assistantLine('msg_b', 1_000_000)]
+  );
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.mon, 'shortmon'); // only pack on disk - selectMon's N===1 case
+  assert.strictEqual(result.outputTokens, 2_100_000); // the true count - never clamped
+  assert.strictEqual(result.stageId, 'adult'); // clamped down from superultimate
+  assert.strictEqual(result.terminalFrom, 'adult');
+  assert.deepStrictEqual(result.route.superultimate, { id: 'ad3', name: '성숙', sprite: 'adult' });
 });
 
 test('computeDailyTokens stays one stage below just under the threshold', (t) => {
@@ -475,6 +773,49 @@ test('computeDailyTokens keeps one copy while the other catches up', (t) => {
   const caughtUp = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(caughtUp.outputTokens, 140);
   assert.deepStrictEqual(caughtUp.sessionTokens, { [SESSION]: 140 });
+});
+
+// --- computeDailyTokens: global seen-map dedup (21.1% overcount fix) ---
+//
+// Two more ways the same output tokens got double-counted, both fixed by
+// threading a single cross-file `seen` map (message.id -> max output_tokens
+// counted today) through every scan instead of folding by file path.
+
+test('computeDailyTokens dedupes a continued/forked subagent transcript copy', (t) => {
+  const dirs = setupDaily(t);
+  const shared = [assistantLine('msg_1', 100), assistantLine('msg_2', 50)];
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-A.jsonl`, shared);
+  // A continued/forked subagent copies its parent's transcript verbatim
+  // into a new file under a different agent id - same message.id,
+  // timestamp, everything - then appends its own unique turn on top.
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}/subagents/agent-B.jsonl`, [
+    ...shared,
+    assistantLine('msg_3', 30)
+  ]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  // Old per-file-path fold saw two distinct transcript keys (agent-A,
+  // agent-B) and summed both in full: 100+50 + 100+50+30 = 330.
+  assert.strictEqual(result.outputTokens, 180);
+  assert.deepStrictEqual(result.sessionTokens, { [SESSION]: 180 });
+});
+
+test('computeDailyTokens does not double-count a message.id split across two incremental scans', (t) => {
+  const dirs = setupDaily(t);
+  const file = writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [
+    assistantLine('msg_streamed', 10) // a partial snapshot, flushed and scanned first
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(first.outputTokens, 10);
+
+  // The same message.id reappears later as its own line with the final
+  // (larger) value - same shape a real streamed transcript takes. Without
+  // the global seen-map dedup this increment would add 100 on top of the
+  // 10 already counted, instead of just the 90 that's genuinely new.
+  fs.appendFileSync(file, `${assistantLine('msg_streamed', 100)}\n`);
+  const second = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(second.outputTokens, 100);
 });
 
 // --- selectRoute: 조건부 진화 (branching routes) -------------------------
@@ -631,6 +972,108 @@ test('selectRoute degrades to a normal draw when the locked route no longer matc
   assert.strictEqual(route.superultimate.id, 'top'); // degraded stages still reach the top
 });
 
+// --- selectRoute: terminal lines (D7, docs/evolution-routes.md §8) -----
+//
+// A line that ends before the global top stage (`terminal: true` on its
+// last node - see isTerminal) has nowhere left to draw a next form from.
+// walk() has to repeat that node for every stage still ahead instead of
+// asking candidatesFor for a fallback - candidatesFor's fallback on a
+// terminal node (zero edges) is `tree[stage][0]`, the NEXT stage's spine,
+// which is exactly the fake-edge spine-return D1 removed. These tests are
+// the regression suite for that: reachable by a normal draw, reachable
+// through a locked prefix (the actual D1 regression shape), reachable
+// past where the tree stops declaring stages at all, and stable across a
+// lazy-binding re-walk.
+
+const TERMINAL_TREE = {
+  digitama: [{ id: 'egg2', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby2', when: null }] }],
+  baby: [{ id: 'baby2', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid2', when: null }] }],
+  child: [{ id: 'kid2', name: '성장', sprite: 'child', evolutions: [
+    { to: 'shortA', when: { type: 'failureRatioPct', gte: 5 } },
+    { to: 'spineA2', when: null }
+  ] }],
+  adult: [
+    { id: 'spineA2', name: '정통', sprite: 'adult', evolutions: [{ to: 'spineP2', when: null }] },
+    { id: 'shortA', name: '조기종결', sprite: 'adult-short', terminal: true, evolutions: [] }
+  ],
+  perfect: [{ id: 'spineP2', name: '완전', sprite: 'perfect', evolutions: [{ to: 'spineU2', when: null }] }],
+  ultimate: [{ id: 'spineU2', name: '궁극', sprite: 'ultimate', evolutions: [{ to: 'top2', when: null }] }],
+  superultimate: [{ id: 'top2', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
+};
+
+test('selectRoute repeats a terminal node through every stage still ahead, not the spine', () => {
+  const ctx = { failureRatioPct: 10 }; // deterministically satisfies shortA's edge
+  const route = selectRoute('2026-07-30', 'p', TERMINAL_TREE, ctx);
+  assert.strictEqual(route.adult.id, 'shortA');
+  for (const stage of ['perfect', 'ultimate', 'superultimate']) {
+    assert.deepStrictEqual(
+      route[stage],
+      { id: 'shortA', name: '조기종결', sprite: 'adult-short' },
+      `${stage} should repeat the terminal node, not the spine`
+    );
+  }
+});
+
+test('selectRoute past a terminal node does not jump to next stage\'s spine through a locked prefix (D1 regression)', () => {
+  // The exact shape of the regression: a route pinned through the stage
+  // where the line already ended. Re-walking from that locked prefix must
+  // not let the stages ahead fall through to candidatesFor's fallback.
+  const locked = {
+    route: {
+      digitama: { id: 'egg2', name: '알', sprite: 'digitama' },
+      baby: { id: 'baby2', name: '유년', sprite: 'baby' },
+      child: { id: 'kid2', name: '성장', sprite: 'child' },
+      adult: { id: 'shortA', name: '조기종결', sprite: 'adult-short' }
+    },
+    throughStage: 'adult'
+  };
+  // ctx deliberately does NOT satisfy shortA's condition - if the locked
+  // prefix failed to hold past adult, a normal draw here would pick
+  // spineA2 instead, and everything after it would be the spine.
+  const route = selectRoute('2026-07-30', 'p', TERMINAL_TREE, {}, locked);
+  assert.strictEqual(route.adult.id, 'shortA');
+  for (const stage of ['perfect', 'ultimate', 'superultimate']) {
+    assert.strictEqual(route[stage].id, 'shortA', `${stage} spine-jumped past the locked terminal node`);
+  }
+});
+
+test('selectRoute repeats a terminal node past stages its own tree never declares', () => {
+  // gaomon's actual shape: the tree stops declaring stages at all past
+  // its terminal node, rather than declaring them with a terminal spine.
+  // Without the terminal-fill branch running before the "stage not
+  // declared" fallback, this would throw on tree[stage][0] being
+  // undefined instead of degrading.
+  const shortTree = {
+    digitama: TERMINAL_TREE.digitama,
+    baby: TERMINAL_TREE.baby,
+    child: TERMINAL_TREE.child,
+    adult: TERMINAL_TREE.adult
+    // perfect / ultimate / superultimate never declared.
+  };
+  const ctx = { failureRatioPct: 10 };
+  assert.doesNotThrow(() => selectRoute('2026-07-30', 'p', shortTree, ctx));
+  const route = selectRoute('2026-07-30', 'p', shortTree, ctx);
+  assert.strictEqual(route.adult.id, 'shortA');
+  for (const stage of ['perfect', 'ultimate', 'superultimate']) {
+    assert.deepStrictEqual(route[stage], { id: 'shortA', name: '조기종결', sprite: 'adult-short' });
+  }
+});
+
+test('selectRoute is idempotent re-walking a locked route through a terminal line', () => {
+  const ctx = { failureRatioPct: 10 };
+  const base = selectRoute('2026-07-30', 'p', TERMINAL_TREE, ctx);
+  const locked = { route: base, throughStage: 'superultimate' };
+
+  // A day-later poll with a completely different ctx must not move
+  // anything - every stage from adult on is locked behind the terminal
+  // node, and the stages before it are locked too since throughStage
+  // covers the whole ladder.
+  const a = selectRoute('2026-07-30', 'p', TERMINAL_TREE, {}, locked);
+  const b = selectRoute('2026-07-30', 'p', TERMINAL_TREE, {}, locked);
+  assert.deepStrictEqual(a, base);
+  assert.deepStrictEqual(a, b);
+});
+
 // --- readTree: next -> evolutions normalization ------------------------
 //
 // pack.json is a hand-authored file and README documents `next: [id, ...]`
@@ -696,15 +1139,44 @@ test('readTree prefers evolutions over next when a node declares both', (t) => {
   assert.deepStrictEqual(tree.child[0].evolutions, [{ to: 'ad2', when: null }]);
 });
 
-test('readTree still returns null for a partially declared pack', (t) => {
+// D7 (docs/evolution-routes.md §8): readTree used to require every one of
+// the 7 global stages before returning anything at all. It now only
+// requires the declared stages to be front-contiguous - a line that
+// legitimately stops short of the top (가오몬 tops out at 궁극체) loads
+// fine, as long as nothing is declared out of order past where it stops.
+
+test('readTree loads a pack that front-contiguously stops short of the top stage', (t) => {
   const dirs = makeRoot(t);
   writeTreePack(dirs, 'partialmon', {
     digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
-    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: [] }]
-    // child .. superultimate missing - listRotationPacks excludes lines like this.
+    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', terminal: true, next: [] }]
+    // child .. superultimate never declared - a real short line, not a gap.
   });
 
-  assert.strictEqual(readTree(dirs.packsDir, 'partialmon'), null);
+  const tree = readTree(dirs.packsDir, 'partialmon');
+  assert.ok(tree, 'a front-contiguous partial tree should load, not return null');
+  assert.deepStrictEqual(Object.keys(tree), ['digitama', 'baby']);
+  assert.strictEqual(tree.baby[0].terminal, true);
+});
+
+test('readTree rejects a tree with a hole in the middle of the ladder', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'holeymon', {
+    digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['kid'] }],
+    // baby missing here, but child is still declared below - a real gap,
+    // not a short line, because byId/candidatesFor span stages
+    // positionally and this would otherwise resolve into the wrong stage.
+    child: [{ id: 'kid', name: '성장', sprite: 'child', terminal: true, next: [] }]
+  });
+
+  assert.strictEqual(readTree(dirs.packsDir, 'holeymon'), null);
+});
+
+test('readTree loads the real gaomon pack now that it stops short of the top stage', () => {
+  const tree = readTree(defaultPacksDir(), 'gaomon');
+  assert.ok(tree, 'gaomon should have a usable tree post-D7');
+  assert.deepStrictEqual(Object.keys(tree), ['digitama', 'baby', 'child', 'adult', 'perfect', 'ultimate']);
+  assert.strictEqual(tree.ultimate[0].terminal, true);
 });
 
 // --- validatePackTree ----------------------------------------------------
@@ -730,6 +1202,52 @@ test('validatePackTree accepts a tree whose every non-top node ends in a guarant
 test('validatePackTree passes a top-stage node with no evolutions field at all', () => {
   const tree = { ...MINIMAL_TREE, superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate' }] };
   assert.deepStrictEqual(validatePackTree(tree), []);
+});
+
+// --- validatePackTree: D7 terminal rules (docs/evolution-routes.md §8) --
+//
+// `terminal: true` is what lets a line end anywhere in the tree, not just
+// at the tree's own last declared stage - these three tests are the
+// contract for it: exempt when declared correctly, caught when
+// contradicted by its own edges, and caught when the tree's line stops
+// without ever declaring it.
+
+test('validatePackTree exempts a terminal node mid-tree from needing its own edge', () => {
+  // adult is NOT this tree's last declared stage (superultimate is) - the
+  // exemption has to apply wherever terminal is declared, not only there.
+  const tree = {
+    ...MINIMAL_TREE,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', terminal: true, evolutions: [] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), []);
+});
+
+test('validatePackTree catches a terminal node that still declares edges', () => {
+  const tree = {
+    ...MINIMAL_TREE,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', terminal: true, evolutions: [{ to: 'top', when: null }] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'terminal-with-edges', stage: 'adult', node: 'ad1' }
+  ]);
+});
+
+test('validatePackTree catches a pack whose own last declared stage has no terminal node', () => {
+  // A tree that stops short of the global top (가오몬 before this PR's fix)
+  // without ever saying so via `terminal: true` - the exact contract D7
+  // exists to enforce. The old unconditional exemption at
+  // `stages[stages.length - 1]` (this tree's OWN last stage) would have
+  // let this through silently; the exemption now lives only at the
+  // GLOBAL top stage (topStageId()), which this short tree never reaches.
+  const tree = {
+    digitama: MINIMAL_TREE.digitama,
+    baby: MINIMAL_TREE.baby,
+    child: MINIMAL_TREE.child,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'ad1', when: null }] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'missing-terminal', stage: 'adult', node: 'ad1' }
+  ]);
 });
 
 test('validatePackTree catches a missing unconditional edge', () => {
@@ -798,11 +1316,14 @@ test('validatePackTree recurses into a nested all to catch an unknown condition 
   ]);
 });
 
-// Safety net for commits 5/6: every shipped pack.json must validate clean
-// before its data gets rewritten into evolutions/when. gaomon stops short
-// of the top stage on purpose (README §로테이션 후보 요건) and readTree
-// returns null for it - "every pack's tree reaches the top" is not an
-// assumption this test makes (plan §9 pitfall 6).
+// Safety net: every shipped pack.json must validate clean. gaomon stops
+// short of the top stage on purpose (README §로테이션 후보 요건, docs/
+// evolution-routes.md §8 D7) - since D7, readTree loads its tree instead
+// of returning null for it, and its `terminal: true` marker on
+// miragegaogamon is exactly what this test's `checked` count now covers
+// that it didn't before. "every pack's tree reaches the top" is still not
+// an assumption this test makes (plan §9 pitfall 6) - a tree ending short
+// is expected to pass as long as its ending is declared, not implied.
 test('validatePackTree finds zero violations across every shipped pack that has a tree', () => {
   const packsDir = defaultPacksDir();
   const names = fs
@@ -1191,7 +1712,7 @@ test('computeDailyTokens rescans fully when the cache predates the userTurns fie
   assert.strictEqual(result.dailyUserTurns, 90);
 
   const savedCache = JSON.parse(fs.readFileSync(cacheFilePath(dirs.claudemonDir), 'utf8'));
-  assert.strictEqual(savedCache.version, 2);
+  assert.strictEqual(savedCache.version, 3);
 });
 
 test('computeDailyTokens does not rescan (stays incremental) once the cache is current', (t) => {

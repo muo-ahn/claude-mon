@@ -64,6 +64,7 @@
         "id": "miragegaogamon",
         "name": "미라지가오가몬",
         "sprite": "ultimate",
+        "terminal": true,
         "evolutions": []
       }
     ]
