@@ -604,15 +604,48 @@ test('computeDailyTokens counts a session filed under two project dirs once', (t
   assert.strictEqual(result.dailyUserTurns, 1);
 });
 
-// --- rotation pool: only lines that reach the top stage ---------------
+// --- rotation pool (D7: docs/evolution-routes.md §8) -------------------
 //
-// A pack whose evolution line tops out early would sit one stage below
-// the ceiling on the heaviest days of the month, so it is held out of the
-// daily rotation entirely rather than shown with a stage it can never
-// reach. It stays a *valid* pack - explicit selection and the guilmon
-// fallback still render it.
+// Before D7, a pack whose evolution line topped out early was held out of
+// the daily rotation entirely - one stage below the ceiling on the
+// heaviest days was worse than not rotating it at all. D7 relaxes that:
+// a tree-based pack is a rotation candidate as long as readTree resolves
+// a tree for it (front-contiguous is enough - see readTree's doc
+// comment), however short. What's still excluded is a pack with no tree
+// at all whose legacy stageNames don't name the global top stage, or no
+// usable pack.json at all - listValidPacks alone would let those into the
+// rotation on nothing but an idle-0.png and a Digi-Egg sprite.
+//
+// writePack (below) only ever writes the legacy, tree-less shape, so it's
+// still the right helper for exercising that legacy gate; the tree-based
+// side is covered separately with writeTreePack further down.
 
-test('listRotationPacks drops a line that stops short of the top stage', (t) => {
+test('listRotationPacks keeps a tree-based line that stops short of the top stage', (t) => {
+  const dirs = makeRoot(t);
+  // Written directly (not via writeTreePack) so stageNames does NOT name
+  // the global top stage - this isolates condition (a) (readTree
+  // resolves a tree) from condition (b) (legacy stageNames fallback),
+  // so the test can't pass for the wrong reason.
+  const dir = path.join(dirs.packsDir, 'short-line');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({
+    name: 'short-line',
+    stageNames: { child: 'short-line' }, // no superultimate name at all
+    tree: {
+      digitama: [{ id: 'egg', name: '알', sprite: 'digitama', evolutions: [{ to: 'kid', when: null }] }],
+      baby: [{ id: 'kid', name: '유년', sprite: 'baby', terminal: true, evolutions: [] }]
+    }
+  }, null, 2));
+  writePack(dirs.packsDir, 'legacy-full', FULL);
+
+  assert.deepStrictEqual(
+    listRotationPacks(dirs.packsDir, dirs.sharedDir).sort(),
+    ['legacy-full', 'short-line']
+  );
+});
+
+test('listRotationPacks drops a legacy (tree-less) line that stops short of the top stage', (t) => {
   const dirs = makeRoot(t);
   writePack(dirs.packsDir, 'reaches-top', FULL);
   writePack(dirs.packsDir, 'tops-out-early', FULL, { topStage: false });
@@ -647,6 +680,21 @@ test('selectMon never lands on a pack outside the rotation pool', (t) => {
   }
 });
 
+// Regression: gaomon is the concrete pack D7 exists for (docs/evolution-
+// routes.md §1 - it and renamon were the two 0-branch lines this policy
+// excluded). It must actually reach the real deck, not just pass
+// listRotationPacks in isolation.
+test('gaomon appears in the real rotation deck now that its tree loads', () => {
+  const packs = listRotationPacks(defaultPacksDir(), undefined);
+  assert.ok(packs.includes('gaomon'), `gaomon missing from rotation pool: ${packs}`);
+
+  const seen = new Set();
+  for (const key of dateKeys(60)) {
+    seen.add(selectMon(key, defaultPacksDir(), undefined, null));
+  }
+  assert.ok(seen.has('gaomon'), `gaomon never came up across 60 days: ${[...seen]}`);
+});
+
 test('computeDailyTokens reaches the top stage past its threshold', (t) => {
   const dirs = setupDaily(t);
   // 2.1M output tokens in one KST day: past the top stage's gte.
@@ -659,6 +707,45 @@ test('computeDailyTokens reaches the top stage past its threshold', (t) => {
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.strictEqual(result.outputTokens, 2_100_000);
   assert.strictEqual(result.stageId, topStageId());
+  // A full line reaching the real top stage has nothing to clamp against -
+  // terminalFrom must be absent, not present-and-falsy (see D7's doc
+  // comment on the clamp in computeDailyTokens).
+  assert.strictEqual(result.terminalFrom, undefined);
+});
+
+// D7 (docs/evolution-routes.md §8): a short line (terminal: true before
+// the global top stage) must cap stageId at its own ending even on a
+// heavy-token day, and daily.json has to say why via terminalFrom.
+test('computeDailyTokens clamps stageId to a terminal line and records terminalFrom', (t) => {
+  const dirs = makeRoot(t);
+  const dir = path.join(dirs.packsDir, 'shortmon');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of FULL) fs.writeFileSync(path.join(dir, f), 'png');
+  fs.writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({
+    name: 'shortmon',
+    tree: {
+      digitama: [{ id: 'egg3', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby3', when: null }] }],
+      baby: [{ id: 'baby3', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid3', when: null }] }],
+      child: [{ id: 'kid3', name: '성장', sprite: 'child', evolutions: [{ to: 'ad3', when: null }] }],
+      adult: [{ id: 'ad3', name: '성숙', sprite: 'adult', terminal: true, evolutions: [] }]
+    }
+  }, null, 2));
+  writeSharedEgg(dirs.sharedDir);
+
+  // 2.1M output tokens in one KST day: the same threshold the full-line
+  // test above uses to reach the real top stage.
+  writeTranscript(
+    dirs.projectsDir,
+    `-Users-me-repo/${SESSION}.jsonl`,
+    [assistantLine('msg_a', 1_100_000), assistantLine('msg_b', 1_000_000)]
+  );
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.mon, 'shortmon'); // only pack on disk - selectMon's N===1 case
+  assert.strictEqual(result.outputTokens, 2_100_000); // the true count - never clamped
+  assert.strictEqual(result.stageId, 'adult'); // clamped down from superultimate
+  assert.strictEqual(result.terminalFrom, 'adult');
+  assert.deepStrictEqual(result.route.superultimate, { id: 'ad3', name: '성숙', sprite: 'adult' });
 });
 
 test('computeDailyTokens stays one stage below just under the threshold', (t) => {
@@ -885,6 +972,108 @@ test('selectRoute degrades to a normal draw when the locked route no longer matc
   assert.strictEqual(route.superultimate.id, 'top'); // degraded stages still reach the top
 });
 
+// --- selectRoute: terminal lines (D7, docs/evolution-routes.md §8) -----
+//
+// A line that ends before the global top stage (`terminal: true` on its
+// last node - see isTerminal) has nowhere left to draw a next form from.
+// walk() has to repeat that node for every stage still ahead instead of
+// asking candidatesFor for a fallback - candidatesFor's fallback on a
+// terminal node (zero edges) is `tree[stage][0]`, the NEXT stage's spine,
+// which is exactly the fake-edge spine-return D1 removed. These tests are
+// the regression suite for that: reachable by a normal draw, reachable
+// through a locked prefix (the actual D1 regression shape), reachable
+// past where the tree stops declaring stages at all, and stable across a
+// lazy-binding re-walk.
+
+const TERMINAL_TREE = {
+  digitama: [{ id: 'egg2', name: '알', sprite: 'digitama', evolutions: [{ to: 'baby2', when: null }] }],
+  baby: [{ id: 'baby2', name: '유년', sprite: 'baby', evolutions: [{ to: 'kid2', when: null }] }],
+  child: [{ id: 'kid2', name: '성장', sprite: 'child', evolutions: [
+    { to: 'shortA', when: { type: 'failureRatioPct', gte: 5 } },
+    { to: 'spineA2', when: null }
+  ] }],
+  adult: [
+    { id: 'spineA2', name: '정통', sprite: 'adult', evolutions: [{ to: 'spineP2', when: null }] },
+    { id: 'shortA', name: '조기종결', sprite: 'adult-short', terminal: true, evolutions: [] }
+  ],
+  perfect: [{ id: 'spineP2', name: '완전', sprite: 'perfect', evolutions: [{ to: 'spineU2', when: null }] }],
+  ultimate: [{ id: 'spineU2', name: '궁극', sprite: 'ultimate', evolutions: [{ to: 'top2', when: null }] }],
+  superultimate: [{ id: 'top2', name: '초궁극', sprite: 'superultimate', evolutions: [] }]
+};
+
+test('selectRoute repeats a terminal node through every stage still ahead, not the spine', () => {
+  const ctx = { failureRatioPct: 10 }; // deterministically satisfies shortA's edge
+  const route = selectRoute('2026-07-30', 'p', TERMINAL_TREE, ctx);
+  assert.strictEqual(route.adult.id, 'shortA');
+  for (const stage of ['perfect', 'ultimate', 'superultimate']) {
+    assert.deepStrictEqual(
+      route[stage],
+      { id: 'shortA', name: '조기종결', sprite: 'adult-short' },
+      `${stage} should repeat the terminal node, not the spine`
+    );
+  }
+});
+
+test('selectRoute past a terminal node does not jump to next stage\'s spine through a locked prefix (D1 regression)', () => {
+  // The exact shape of the regression: a route pinned through the stage
+  // where the line already ended. Re-walking from that locked prefix must
+  // not let the stages ahead fall through to candidatesFor's fallback.
+  const locked = {
+    route: {
+      digitama: { id: 'egg2', name: '알', sprite: 'digitama' },
+      baby: { id: 'baby2', name: '유년', sprite: 'baby' },
+      child: { id: 'kid2', name: '성장', sprite: 'child' },
+      adult: { id: 'shortA', name: '조기종결', sprite: 'adult-short' }
+    },
+    throughStage: 'adult'
+  };
+  // ctx deliberately does NOT satisfy shortA's condition - if the locked
+  // prefix failed to hold past adult, a normal draw here would pick
+  // spineA2 instead, and everything after it would be the spine.
+  const route = selectRoute('2026-07-30', 'p', TERMINAL_TREE, {}, locked);
+  assert.strictEqual(route.adult.id, 'shortA');
+  for (const stage of ['perfect', 'ultimate', 'superultimate']) {
+    assert.strictEqual(route[stage].id, 'shortA', `${stage} spine-jumped past the locked terminal node`);
+  }
+});
+
+test('selectRoute repeats a terminal node past stages its own tree never declares', () => {
+  // gaomon's actual shape: the tree stops declaring stages at all past
+  // its terminal node, rather than declaring them with a terminal spine.
+  // Without the terminal-fill branch running before the "stage not
+  // declared" fallback, this would throw on tree[stage][0] being
+  // undefined instead of degrading.
+  const shortTree = {
+    digitama: TERMINAL_TREE.digitama,
+    baby: TERMINAL_TREE.baby,
+    child: TERMINAL_TREE.child,
+    adult: TERMINAL_TREE.adult
+    // perfect / ultimate / superultimate never declared.
+  };
+  const ctx = { failureRatioPct: 10 };
+  assert.doesNotThrow(() => selectRoute('2026-07-30', 'p', shortTree, ctx));
+  const route = selectRoute('2026-07-30', 'p', shortTree, ctx);
+  assert.strictEqual(route.adult.id, 'shortA');
+  for (const stage of ['perfect', 'ultimate', 'superultimate']) {
+    assert.deepStrictEqual(route[stage], { id: 'shortA', name: '조기종결', sprite: 'adult-short' });
+  }
+});
+
+test('selectRoute is idempotent re-walking a locked route through a terminal line', () => {
+  const ctx = { failureRatioPct: 10 };
+  const base = selectRoute('2026-07-30', 'p', TERMINAL_TREE, ctx);
+  const locked = { route: base, throughStage: 'superultimate' };
+
+  // A day-later poll with a completely different ctx must not move
+  // anything - every stage from adult on is locked behind the terminal
+  // node, and the stages before it are locked too since throughStage
+  // covers the whole ladder.
+  const a = selectRoute('2026-07-30', 'p', TERMINAL_TREE, {}, locked);
+  const b = selectRoute('2026-07-30', 'p', TERMINAL_TREE, {}, locked);
+  assert.deepStrictEqual(a, base);
+  assert.deepStrictEqual(a, b);
+});
+
 // --- readTree: next -> evolutions normalization ------------------------
 //
 // pack.json is a hand-authored file and README documents `next: [id, ...]`
@@ -950,15 +1139,44 @@ test('readTree prefers evolutions over next when a node declares both', (t) => {
   assert.deepStrictEqual(tree.child[0].evolutions, [{ to: 'ad2', when: null }]);
 });
 
-test('readTree still returns null for a partially declared pack', (t) => {
+// D7 (docs/evolution-routes.md §8): readTree used to require every one of
+// the 7 global stages before returning anything at all. It now only
+// requires the declared stages to be front-contiguous - a line that
+// legitimately stops short of the top (가오몬 tops out at 궁극체) loads
+// fine, as long as nothing is declared out of order past where it stops.
+
+test('readTree loads a pack that front-contiguously stops short of the top stage', (t) => {
   const dirs = makeRoot(t);
   writeTreePack(dirs, 'partialmon', {
     digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['baby1'] }],
-    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', next: [] }]
-    // child .. superultimate missing - listRotationPacks excludes lines like this.
+    baby: [{ id: 'baby1', name: '유년', sprite: 'baby', terminal: true, next: [] }]
+    // child .. superultimate never declared - a real short line, not a gap.
   });
 
-  assert.strictEqual(readTree(dirs.packsDir, 'partialmon'), null);
+  const tree = readTree(dirs.packsDir, 'partialmon');
+  assert.ok(tree, 'a front-contiguous partial tree should load, not return null');
+  assert.deepStrictEqual(Object.keys(tree), ['digitama', 'baby']);
+  assert.strictEqual(tree.baby[0].terminal, true);
+});
+
+test('readTree rejects a tree with a hole in the middle of the ladder', (t) => {
+  const dirs = makeRoot(t);
+  writeTreePack(dirs, 'holeymon', {
+    digitama: [{ id: 'egg', name: '알', sprite: 'digitama', next: ['kid'] }],
+    // baby missing here, but child is still declared below - a real gap,
+    // not a short line, because byId/candidatesFor span stages
+    // positionally and this would otherwise resolve into the wrong stage.
+    child: [{ id: 'kid', name: '성장', sprite: 'child', terminal: true, next: [] }]
+  });
+
+  assert.strictEqual(readTree(dirs.packsDir, 'holeymon'), null);
+});
+
+test('readTree loads the real gaomon pack now that it stops short of the top stage', () => {
+  const tree = readTree(defaultPacksDir(), 'gaomon');
+  assert.ok(tree, 'gaomon should have a usable tree post-D7');
+  assert.deepStrictEqual(Object.keys(tree), ['digitama', 'baby', 'child', 'adult', 'perfect', 'ultimate']);
+  assert.strictEqual(tree.ultimate[0].terminal, true);
 });
 
 // --- validatePackTree ----------------------------------------------------
@@ -984,6 +1202,52 @@ test('validatePackTree accepts a tree whose every non-top node ends in a guarant
 test('validatePackTree passes a top-stage node with no evolutions field at all', () => {
   const tree = { ...MINIMAL_TREE, superultimate: [{ id: 'top', name: '초궁극', sprite: 'superultimate' }] };
   assert.deepStrictEqual(validatePackTree(tree), []);
+});
+
+// --- validatePackTree: D7 terminal rules (docs/evolution-routes.md §8) --
+//
+// `terminal: true` is what lets a line end anywhere in the tree, not just
+// at the tree's own last declared stage - these three tests are the
+// contract for it: exempt when declared correctly, caught when
+// contradicted by its own edges, and caught when the tree's line stops
+// without ever declaring it.
+
+test('validatePackTree exempts a terminal node mid-tree from needing its own edge', () => {
+  // adult is NOT this tree's last declared stage (superultimate is) - the
+  // exemption has to apply wherever terminal is declared, not only there.
+  const tree = {
+    ...MINIMAL_TREE,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', terminal: true, evolutions: [] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), []);
+});
+
+test('validatePackTree catches a terminal node that still declares edges', () => {
+  const tree = {
+    ...MINIMAL_TREE,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', terminal: true, evolutions: [{ to: 'top', when: null }] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'terminal-with-edges', stage: 'adult', node: 'ad1' }
+  ]);
+});
+
+test('validatePackTree catches a pack whose own last declared stage has no terminal node', () => {
+  // A tree that stops short of the global top (가오몬 before this PR's fix)
+  // without ever saying so via `terminal: true` - the exact contract D7
+  // exists to enforce. The old unconditional exemption at
+  // `stages[stages.length - 1]` (this tree's OWN last stage) would have
+  // let this through silently; the exemption now lives only at the
+  // GLOBAL top stage (topStageId()), which this short tree never reaches.
+  const tree = {
+    digitama: MINIMAL_TREE.digitama,
+    baby: MINIMAL_TREE.baby,
+    child: MINIMAL_TREE.child,
+    adult: [{ id: 'ad1', name: '성숙', sprite: 'adult', evolutions: [{ to: 'ad1', when: null }] }]
+  };
+  assert.deepStrictEqual(validatePackTree(tree), [
+    { rule: 'missing-terminal', stage: 'adult', node: 'ad1' }
+  ]);
 });
 
 test('validatePackTree catches a missing unconditional edge', () => {
@@ -1052,11 +1316,14 @@ test('validatePackTree recurses into a nested all to catch an unknown condition 
   ]);
 });
 
-// Safety net for commits 5/6: every shipped pack.json must validate clean
-// before its data gets rewritten into evolutions/when. gaomon stops short
-// of the top stage on purpose (README §로테이션 후보 요건) and readTree
-// returns null for it - "every pack's tree reaches the top" is not an
-// assumption this test makes (plan §9 pitfall 6).
+// Safety net: every shipped pack.json must validate clean. gaomon stops
+// short of the top stage on purpose (README §로테이션 후보 요건, docs/
+// evolution-routes.md §8 D7) - since D7, readTree loads its tree instead
+// of returning null for it, and its `terminal: true` marker on
+// miragegaogamon is exactly what this test's `checked` count now covers
+// that it didn't before. "every pack's tree reaches the top" is still not
+// an assumption this test makes (plan §9 pitfall 6) - a tree ending short
+// is expected to pass as long as its ending is declared, not implied.
 test('validatePackTree finds zero violations across every shipped pack that has a tree', () => {
   const packsDir = defaultPacksDir();
   const names = fs

@@ -198,7 +198,11 @@ func applyRoute(_ route: [String: [String: String]], mon: String) -> Bool {
         if let s = node["sprite"], !s.isEmpty { sprites[stage] = s }
         if let n = node["name"], !n.isEmpty { names[stage] = n }
     }
-    let key = ([mon] + stageIds.map { sprites[$0] ?? $0 }).joined(separator: ">")
+    // name has to be in the key too, not just sprite: a terminalFrom clamp
+    // (or any other metadata-only route update) can change which stage a
+    // name attaches to without touching any sprite string, and a
+    // sprite-only key would then see no change and skip the reload.
+    let key = ([mon] + stageIds.flatMap { [sprites[$0] ?? $0, names[$0] ?? ""] }).joined(separator: ">")
     guard key != activeRouteKey else { return false }
     activeRouteSprites = sprites
     activeRouteNames = names
@@ -495,10 +499,10 @@ func readHudCache(cwd: String) -> (json: [String: Any], stale: Bool)? {
 // Reads $CLAUDEMON_DIR/daily.json. Any failure (missing file, malformed
 // JSON, unrecognized stageId) falls back to ("digitama", 0, nil) rather
 // than crashing or showing a stale/garbage stage.
-func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int], route: [String: [String: String]]) {
+func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int], route: [String: [String: String]], terminalFrom: String?) {
     guard let data = FileManager.default.contents(atPath: dailyStateFile),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    else { return ("digitama", 0, nil, defaultMon, [:], [:]) }
+    else { return ("digitama", 0, nil, defaultMon, [:], [:], nil) }
     let rawStage = json["stageId"] as? String ?? "digitama"
     let stageId = stageIds.contains(rawStage) ? rawStage : "digitama"
     let tokens = intValue(json["outputTokens"])
@@ -511,8 +515,14 @@ func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, 
     if let raw = json["sessionTokens"] as? [String: Any] {
         for (sid, v) in raw { sessionTokens[sid] = intValue(v) }
     }
+    // route stays [String: [String: String]] on purpose -- a Bool value
+    // mixed into any node dict would fail this cast for the WHOLE route
+    // (not just that node), collapsing it to [:] and losing every stage's
+    // name/sprite. terminalFrom carries "which stage this lineage ends at"
+    // as a separate top-level string key instead (lib/daily.js D7 clamp).
     let route = json["route"] as? [String: [String: String]] ?? [:]
-    return (stageId, tokens, dateKST, mon, sessionTokens, route)
+    let terminalFrom = json["terminalFrom"] as? String
+    return (stageId, tokens, dateKST, mon, sessionTokens, route, terminalFrom)
 }
 
 // Resolves which pack directory should actually be used for a requested
@@ -673,6 +683,7 @@ func dumpState() {
     print("pack: \(resolved.path)")
     print("name: \(evolvedName(pack: resolved.path, mon: resolved.mon, stageId: daily.stageId))")
     print("dailyStage: \(daily.stageId)")
+    print("terminalFrom: \(daily.terminalFrom ?? "")")
     print("dailyOutputTokens: \(daily.outputTokens)")
     print("workingSessionCount: \(workingCount)")
     print("animating: \(animating)")
@@ -801,6 +812,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentFrameSetKey = ""
     var frameIdx = 0
     var currentStageId = "digitama"
+    // Non-nil when today's route ends before the top stage (D7 clamp in
+    // lib/daily.js) -- the stageId the lineage's terminal node sits at.
+    // Compared against currentStageId to decide whether to show the
+    // "이 계보의 최종형" header badge (see makeHeaderMenuItem).
+    var currentTerminalFrom: String? = nil
     var currentMon = ""
     var currentPackPath = ""
     var dailyOutputTokens = 0
@@ -833,6 +849,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let daily = readDailyState()
         currentStageId = daily.stageId
+        currentTerminalFrom = daily.terminalFrom
         dailyOutputTokens = daily.outputTokens
         _ = applyRoute(daily.route, mon: daily.mon)
         switchMonIfNeeded(daily.mon)
@@ -1168,6 +1185,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let previousStageId = currentStageId
         let previousMon = currentMon
         currentStageId = daily.stageId
+        currentTerminalFrom = daily.terminalFrom
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
         switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route, mon: daily.mon))
@@ -1543,7 +1561,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         nameLabel.frame = NSRect(x: 0, y: 38, width: width, height: 18)
         container.addSubview(nameLabel)
 
-        let stageLabel = NSTextField(labelWithString: stageLabels[stageId] ?? stageId)
+        // Badge point is judged off the CURRENT stage only (route[currentStageId]
+        // via currentTerminalFrom == stageId), never "the route has a terminal
+        // node somewhere" -- the latter would light the badge up from the egg
+        // stage on, since every route contains its own terminal node further up.
+        let baseStageText = stageLabels[stageId] ?? stageId
+        let stageText = (currentTerminalFrom == stageId) ? "\(baseStageText) · 이 계보의 최종형" : baseStageText
+        let stageLabel = NSTextField(labelWithString: stageText)
         stageLabel.font = NSFont.systemFont(ofSize: 11)
         stageLabel.alignment = .center
         stageLabel.textColor = NSColor.secondaryLabelColor
