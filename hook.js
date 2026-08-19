@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 // Usage: node hook.js <event>
 // event: tool-success | tool-failure | pr-merged | turn-start | turn-end | session-start |
-//        notification | session-end
+//        notification | session-end | subagent-end | notify-awaiting | notify-agent-done
 // Intended to be wired into .claude/settings.json hooks, e.g.:
 //   "PostToolUse": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js tool-success" }] }]
 //   "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js turn-start" }] }]
 //   "Stop": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js turn-end" }] }]
+//   "SubagentStop": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js subagent-end" }] }]
+//   "Notification" (permission_prompt|agent_needs_input): [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js notify-awaiting" }] }]
+//   "Notification" (agent_completed): [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js notify-agent-done" }] }]
 //
 // Claude Code hooks pass a JSON payload on stdin (session_id, cwd, tool_name, ...).
 // When session_id is present, state is tracked per-session under
@@ -14,11 +17,21 @@
 // invocation), falls back to the single global state file.
 const fs = require('fs');
 
+const path = require('path');
+
 const { load, save, loadSession, saveSession, loadGlobal, saveGlobal, pruneSessions } = require('./lib/state');
 const { applyEvolution, applyRegression } = require('./lib/evolve');
+const { notifyTurnEnd, notifyAwaitingUser, notifySubagentDone } = require('./lib/notify');
 
 function todayMarker(d) {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+// Banner bodies name the project so a banner from a background session is
+// identifiable without switching to it. cwd is absent on manual invocation.
+function projectName(cwd) {
+  if (typeof cwd !== 'string' || !cwd) return null;
+  return path.basename(cwd) || null;
 }
 
 function readStdinPayload() {
@@ -30,6 +43,20 @@ function readStdinPayload() {
   } catch (e) {
     return {};
   }
+}
+
+// Detects sub-agent context using the same fields delegation_guard.py checks.
+// Banners from sub-agents are noise - only host notifications matter.
+function isSubagentContext(payload) {
+  return !!(payload.agent_id || payload.agent_type || payload.subagent_type || payload.parent_session_id);
+}
+
+// Checks if a completion banner was fired within the last 5 seconds.
+// Prevents duplicate banners when both subagent-end and agent_completed fire.
+function shouldSuppressCompletionBanner(state, now) {
+  if (!state.lastCompletionBannerAt) return false;
+  const elapsed = now.getTime() - new Date(state.lastCompletionBannerAt).getTime();
+  return Number.isFinite(elapsed) && elapsed < 5000;
 }
 
 function main() {
@@ -55,6 +82,11 @@ function main() {
       global.toolSuccessCount += 1;
       state.working = true;
       state.awaitingUserSince = null; // work resumed
+      // Track whether the host launched a sub-agent this turn, so turn-end
+      // can suppress its banner (the work continues in background).
+      if (payload.tool_name === 'Agent' || payload.tool_name === 'Task') {
+        state.agentLaunchedThisTurn = true;
+      }
       break;
     case 'tool-failure':
       state.toolFailureCount += 1;
@@ -69,6 +101,10 @@ function main() {
       state.working = true;
       state.awaitingUserSince = null; // user responded
       state.endedAt = null;
+      // Stamped so turn-end can tell a long-running turn (worth a banner)
+      // from one the user sat and watched.
+      state.turnStartedAt = now.toISOString();
+      state.agentLaunchedThisTurn = false;
       break;
     case 'turn-end':
       state.working = false;
@@ -83,6 +119,23 @@ function main() {
       //   the stale "waiting" state left by the earlier Notification call.
       // endedAt is intentionally untouched: turn end != session end.
       state.awaitingUserSince = null;
+      // Suppress the banner if a sub-agent was launched - the actual work
+      // hasn't finished yet. State cleanup still happens.
+      if (!state.agentLaunchedThisTurn && !isSubagentContext(payload)) {
+        notifyTurnEnd(state.turnStartedAt, now, projectName(payload.cwd));
+      }
+      state.turnStartedAt = null;
+      break;
+    case 'subagent-end':
+      // A sub-agent finished. Only fire the banner when the turn has already
+      // ended (working === false), signaling delegated work is complete.
+      // Don't fire if the turn is still active - the user is watching.
+      if (!state.working && !shouldSuppressCompletionBanner(state, now)) {
+        notifySubagentDone(projectName(payload.cwd));
+        state.lastCompletionBannerAt = now.toISOString();
+      }
+      // Reset the flag so subsequent turns can fire turn-end banners normally.
+      state.agentLaunchedThisTurn = false;
       break;
     case 'session-start':
       state.working = false;
@@ -90,10 +143,24 @@ function main() {
       state.endedAt = null;
       break;
     case 'notification':
-      // Permission wait or idle-input notification. Only set the timestamp
-      // on the first notification so it reflects when waiting began, not
-      // the most recent nudge.
+      // Permission wait or idle-input notification. Records the timestamp only
+      // (banner firing is now handled by notify-awaiting).
       if (!state.awaitingUserSince) state.awaitingUserSince = now.toISOString();
+      break;
+    case 'notify-awaiting':
+      // Banner-only path for permission_prompt|agent_needs_input notifications.
+      // State recording stays in the notification case above.
+      if (!isSubagentContext(payload)) {
+        notifyAwaitingUser(projectName(payload.cwd));
+      }
+      break;
+    case 'notify-agent-done':
+      // Banner-only path for agent_completed notifications.
+      // Suppressed if a completion banner already fired in the last 5s.
+      if (!isSubagentContext(payload) && !shouldSuppressCompletionBanner(state, now)) {
+        notifySubagentDone(projectName(payload.cwd));
+        state.lastCompletionBannerAt = now.toISOString();
+      }
       break;
     case 'session-end':
       state.endedAt = now.toISOString();
