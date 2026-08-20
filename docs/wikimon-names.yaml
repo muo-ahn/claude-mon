@@ -1,0 +1,17 @@
+# 노드 id ↔ Wikimon 페이지 제목 매핑 (양방향)
+
+exceptions:
+  # 노드 id → Wikimon 제목 (정방향, 조회용)
+  varodurumon: "Valdurmon"
+  ravemon: "Ravmon"
+
+aliases:
+  # Wikimon 제목 → 노드 id (역방향, 매칭용)
+  # 영문 더빙명 vs 일본어 로마자 불일치 (실측 확정, 2026-08-20)
+  "Vamdemon": "myotismon"
+  "Growmon": "growlmon"
+  "Megalo Growmon": "megalogrowlmon"
+  "Black Megalo Growmon": "blackmegalogrowlmon"
+  "Deathmon": "ghoulmon"
+  "Ravmon": "ravemon"
+  "Valdurmon": "varodurumon"
