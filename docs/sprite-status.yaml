@@ -214,7 +214,7 @@ species:
   stage: baby2
   dot: mismatch
   pack: agumon
-  sprite: baby
+  sprite: koromon
   portrait: false
   sheet: null
   priority: null
@@ -224,7 +224,7 @@ species:
   stage: child
   dot: ready
   pack: agumon
-  sprite: child
+  sprite: agumon
   portrait: false
   sheet: null
   priority: null
@@ -234,7 +234,7 @@ species:
   stage: adult
   dot: ready
   pack: agumon
-  sprite: adult
+  sprite: greymon
   portrait: true
   sheet: greymon.png
   priority: null
@@ -244,7 +244,7 @@ species:
   stage: perfect
   dot: ready
   pack: agumon
-  sprite: perfect
+  sprite: metalgreymon
   portrait: true
   sheet: metalgreymon.png
   priority: null
@@ -274,7 +274,7 @@ species:
   stage: ultimate
   dot: ready
   pack: agumon
-  sprite: ultimate
+  sprite: wargreymon
   portrait: true
   sheet: wargreymon.png
   priority: null
@@ -294,7 +294,7 @@ species:
   stage: superultimate
   dot: ready
   pack: agumon
-  sprite: superultimate
+  sprite: omegamon
   portrait: true
   sheet: omegamon.png
   priority: null
@@ -328,7 +328,7 @@ species:
   stage: baby2
   dot: mismatch
   pack: gabumon
-  sprite: baby
+  sprite: tsunomon
   portrait: false
   sheet: null
   priority: null
@@ -338,7 +338,7 @@ species:
   stage: child
   dot: ready
   pack: gabumon
-  sprite: child
+  sprite: gabumon
   portrait: false
   sheet: null
   priority: null
@@ -348,7 +348,7 @@ species:
   stage: adult
   dot: ready
   pack: gabumon
-  sprite: adult
+  sprite: garurumon
   portrait: true
   sheet: garurumon.png
   priority: null
@@ -358,7 +358,7 @@ species:
   stage: perfect
   dot: ready
   pack: gabumon
-  sprite: perfect
+  sprite: weregarurumon
   portrait: true
   sheet: weregarurumon.png
   priority: null
@@ -368,7 +368,7 @@ species:
   stage: ultimate
   dot: ready
   pack: gabumon
-  sprite: ultimate
+  sprite: metalgarurumon
   portrait: true
   sheet: metalgarurumon.png
   priority: null
@@ -398,7 +398,7 @@ species:
   stage: baby2
   dot: ready
   pack: falcomon
-  sprite: baby
+  sprite: tokomon
   portrait: false
   sheet: tokomon.png
   priority: null
@@ -713,7 +713,7 @@ species:
   stage: baby2
   dot: mismatch
   pack: veemon
-  sprite: baby
+  sprite: chibomon
   portrait: false
   sheet: null
   priority: null
@@ -723,7 +723,7 @@ species:
   stage: child
   dot: ready
   pack: veemon
-  sprite: child
+  sprite: veemon
   portrait: false
   sheet: null
   priority: null
@@ -733,7 +733,7 @@ species:
   stage: adult
   dot: ready
   pack: veemon
-  sprite: adult
+  sprite: exveemon
   portrait: true
   sheet: exveemon.png
   priority: null
@@ -763,7 +763,7 @@ species:
   stage: perfect
   dot: ready
   pack: veemon
-  sprite: perfect
+  sprite: paildramon
   portrait: true
   sheet: paildramon.png
   priority: null
@@ -783,7 +783,7 @@ species:
   stage: ultimate
   dot: ready
   pack: veemon
-  sprite: ultimate-imperialdramon_dm
+  sprite: imperialdramon_dm
   portrait: true
   sheet: imperialdramon_dm.png
   priority: null
@@ -793,7 +793,7 @@ species:
   stage: ultimate
   dot: ready
   pack: veemon
-  sprite: ultimate
+  sprite: imperialdramon_fm
   portrait: true
   sheet: imperialdramon_fm.png
   priority: null
@@ -803,7 +803,7 @@ species:
   stage: ultimate
   dot: ready
   pack: veemon
-  sprite: superultimate
+  sprite: imperialdramon_pm
   portrait: true
   sheet: imperialdramon_pm.png
   priority: null
@@ -984,7 +984,7 @@ species:
   stage: baby2
   dot: mismatch
   pack: guilmon
-  sprite: baby
+  sprite: gigimon
   portrait: false
   sheet: null
   priority: null
@@ -994,7 +994,7 @@ species:
   stage: child
   dot: ready
   pack: guilmon
-  sprite: child
+  sprite: guilmon
   portrait: false
   sheet: null
   priority: null
@@ -1004,7 +1004,7 @@ species:
   stage: adult
   dot: ready
   pack: guilmon
-  sprite: adult
+  sprite: growlmon
   portrait: true
   sheet: growlmon.png
   priority: null
@@ -1014,7 +1014,7 @@ species:
   stage: perfect
   dot: ready
   pack: guilmon
-  sprite: perfect
+  sprite: megalogrowlmon
   portrait: true
   sheet: wargrowlmon.png
   priority: null
@@ -1024,7 +1024,7 @@ species:
   stage: ultimate
   dot: ready
   pack: guilmon
-  sprite: ultimate
+  sprite: dukemon
   portrait: true
   sheet: gallantmon.png
   priority: null
@@ -1034,7 +1034,7 @@ species:
   stage: superultimate
   dot: ready
   pack: guilmon
-  sprite: superultimate
+  sprite: dukemon_crimson
   portrait: true
   sheet: gallantmon_crimson.png
   priority: null
@@ -1054,7 +1054,7 @@ species:
   stage: baby2
   dot: mismatch
   pack: renamon
-  sprite: baby
+  sprite: pokomon
   portrait: false
   sheet: null
   priority: null
@@ -1064,7 +1064,7 @@ species:
   stage: child
   dot: ready
   pack: renamon
-  sprite: child
+  sprite: renamon
   portrait: false
   sheet: null
   priority: null
@@ -1074,7 +1074,7 @@ species:
   stage: adult
   dot: ready
   pack: renamon
-  sprite: adult
+  sprite: kyubimon
   portrait: true
   sheet: kyubimon.png
   priority: null
@@ -1084,7 +1084,7 @@ species:
   stage: perfect
   dot: ready
   pack: renamon
-  sprite: perfect
+  sprite: taomon
   portrait: true
   sheet: taomon.png
   priority: null
@@ -1094,7 +1094,7 @@ species:
   stage: ultimate
   dot: ready
   pack: renamon
-  sprite: ultimate
+  sprite: sakuyamon
   portrait: true
   sheet: sakuyamon.png
   priority: null
@@ -1104,7 +1104,7 @@ species:
   stage: superultimate
   dot: ready
   pack: renamon
-  sprite: ultimate-kuzuhamon
+  sprite: kuzuhamon
   portrait: true
   sheet: kuzuhamon.png
   priority: null
@@ -1124,7 +1124,7 @@ species:
   stage: baby2
   dot: mismatch
   pack: terriermon
-  sprite: baby
+  sprite: gummymon
   portrait: false
   sheet: null
   priority: null
@@ -1134,7 +1134,7 @@ species:
   stage: child
   dot: ready
   pack: terriermon
-  sprite: child
+  sprite: terriermon
   portrait: false
   sheet: null
   priority: null
@@ -1144,7 +1144,7 @@ species:
   stage: adult
   dot: ready
   pack: terriermon
-  sprite: adult
+  sprite: gargomon
   portrait: true
   sheet: gargomon.png
   priority: null
@@ -1154,7 +1154,7 @@ species:
   stage: perfect
   dot: ready
   pack: terriermon
-  sprite: perfect
+  sprite: rapidmon
   portrait: true
   sheet: rapidmon.png
   priority: null
@@ -1164,7 +1164,7 @@ species:
   stage: ultimate
   dot: ready
   pack: terriermon
-  sprite: ultimate
+  sprite: saintgalgomon
   portrait: true
   sheet: megagargomon.png
   priority: null
@@ -1174,7 +1174,7 @@ species:
   stage: superultimate
   dot: ready
   pack: terriermon
-  sprite: ultimate-blacksaintgalgomon
+  sprite: blacksaintgalgomon
   portrait: true
   sheet: blackmegagargomon.png
   priority: null
@@ -1284,7 +1284,7 @@ species:
   stage: baby1
   dot: mismatch
   pack: impmon
-  sprite: baby
+  sprite: yaamon
   portrait: false
   sheet: null
   priority: null
@@ -1294,7 +1294,7 @@ species:
   stage: child
   dot: ready
   pack: impmon
-  sprite: child
+  sprite: impmon
   portrait: false
   sheet: null
   priority: null
@@ -1304,7 +1304,7 @@ species:
   stage: adult
   dot: ready
   pack: impmon
-  sprite: adult
+  sprite: devimon
   portrait: true
   sheet: devimon.png
   priority: null
@@ -1325,7 +1325,7 @@ species:
   stage: ultimate
   dot: ready
   pack: impmon
-  sprite: ultimate
+  sprite: beelzebumon
   portrait: true
   sheet: beelzemon.png
   priority: null
@@ -1335,7 +1335,7 @@ species:
   stage: superultimate
   dot: ready
   pack: impmon
-  sprite: superultimate
+  sprite: beelzebumon-bm
   portrait: true
   sheet: beelzemon_bm.png
   priority: null
@@ -1435,7 +1435,7 @@ species:
   stage: child
   dot: ready
   pack: falcomon
-  sprite: child
+  sprite: falcomon
   portrait: true
   sheet: falcomon.png
   priority: null
@@ -1465,7 +1465,7 @@ species:
   stage: adult
   dot: ready
   pack: falcomon
-  sprite: adult
+  sprite: peckmon
   portrait: true
   sheet: peckmon.png
   priority: null
@@ -1475,7 +1475,7 @@ species:
   stage: perfect
   dot: ready
   pack: falcomon
-  sprite: perfect
+  sprite: yatagaramon
   portrait: true
   sheet: yatagaramon.png
   priority: null
@@ -1495,7 +1495,7 @@ species:
   stage: ultimate
   dot: ready
   pack: falcomon
-  sprite: ultimate
+  sprite: varodurumon
   portrait: true
   sheet: varodurumon.png
   priority: null
@@ -1515,7 +1515,7 @@ species:
   stage: ultimate
   dot: ready
   pack: falcomon
-  sprite: ultimate-ravemon
+  sprite: ravemon
   portrait: false
   sheet: ravemon.png
   priority: null
@@ -1525,7 +1525,7 @@ species:
   stage: baby2
   dot: ready
   pack: gaomon
-  sprite: baby
+  sprite: wanyamon
   portrait: false
   sheet: wanyamon.png
   priority: null
@@ -1535,7 +1535,7 @@ species:
   stage: child
   dot: ready
   pack: gaomon
-  sprite: child
+  sprite: gaomon
   portrait: true
   sheet: gaomon.png
   priority: null
@@ -1545,7 +1545,7 @@ species:
   stage: adult
   dot: ready
   pack: gaomon
-  sprite: adult
+  sprite: gaogamon
   portrait: true
   sheet: gaogamon.png
   priority: null
@@ -1565,7 +1565,7 @@ species:
   stage: perfect
   dot: ready
   pack: gaomon
-  sprite: perfect
+  sprite: machgaogamon
   portrait: true
   sheet: machgaogamon.png
   priority: null
@@ -1585,7 +1585,7 @@ species:
   stage: ultimate
   dot: ready
   pack: gaomon
-  sprite: ultimate
+  sprite: miragegaogamon
   portrait: true
   sheet: miragegaogamon.png
   priority: null
@@ -1607,7 +1607,7 @@ species:
   stage: baby1
   dot: ready
   pack: keramon
-  sprite: baby
+  sprite: kuramon
   portrait: false
   sheet: kuramon.png
   priority: null
@@ -1627,7 +1627,7 @@ species:
   stage: child
   dot: ready
   pack: keramon
-  sprite: child
+  sprite: keramon
   portrait: true
   sheet: keramon.png
   priority: null
@@ -1637,7 +1637,7 @@ species:
   stage: adult
   dot: ready
   pack: keramon
-  sprite: adult
+  sprite: kurisarimon
   portrait: true
   sheet: kurisarimon.png
   priority: null
@@ -1647,7 +1647,7 @@ species:
   stage: perfect
   dot: ready
   pack: keramon
-  sprite: perfect
+  sprite: infermon
   portrait: true
   sheet: infermon.png
   priority: null
@@ -1657,7 +1657,7 @@ species:
   stage: ultimate
   dot: ready
   pack: keramon
-  sprite: ultimate
+  sprite: diablomon
   portrait: true
   sheet: diaboromon.png
   priority: null
@@ -1667,12 +1667,16 @@ species:
   stage: superultimate
   dot: ready
   pack: keramon
-  sprite: superultimate
+  sprite: armagemon
   portrait: true
   sheet: armagemon.png
   priority: null
   status: done
 extras:
+- ko: 블랙워그레이몬
+  pack: agumon
+  stage: ultimate
+  source: pack
 - ko: 알
   pack: agumon
   stage: digitama
@@ -1684,10 +1688,6 @@ extras:
 - ko: 라이즈그레이몬
   pack: agumon
   stage: perfect
-  source: pack
-- ko: 블랙워그레이몬
-  pack: agumon
-  stage: ultimate
   source: pack
 - ko: 샤인그레이몬
   pack: agumon
@@ -1721,18 +1721,6 @@ extras:
   pack: guilmon
   stage: ultimate
   source: pack
-- ko: 이블몬
-  pack: impmon
-  stage: adult
-  source: pack
-- ko: 뱀파이몬
-  pack: impmon
-  stage: perfect
-  source: pack
-- ko: 미이라몬
-  pack: impmon
-  stage: perfect
-  source: pack
 - ko: 데스몬
   pack: impmon
   stage: ultimate
@@ -1741,13 +1729,25 @@ extras:
   pack: impmon
   stage: superultimate
   source: pack
-- ko: 프라리몬
-  pack: terriermon
+- ko: 미이라몬
+  pack: impmon
+  stage: perfect
+  source: pack
+- ko: 뱀파이몬
+  pack: impmon
+  stage: perfect
+  source: pack
+- ko: 이블몬
+  pack: impmon
   stage: adult
   source: pack
 - ko: 블랙래피드몬
   pack: terriermon
   stage: perfect
+  source: pack
+- ko: 프라리몬
+  pack: terriermon
+  stage: adult
   source: pack
 - ko: 화염드라몬
   pack: veemon
@@ -1766,5 +1766,4 @@ extras:
   stage: null
   source: sheet:saberleomon.png
 warnings: []
-acknowledged_warnings:
-- falcomon 팩의 본류 baby 가 "토코몬" 인데 이 종은 patamon 라인 소속이다 (카탈로그와 어긋남)
+acknowledged_warnings: []

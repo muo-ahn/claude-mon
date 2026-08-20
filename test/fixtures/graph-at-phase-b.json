@@ -1,0 +1,1044 @@
+{
+  "version": "1.0.0",
+  "generatedBy": "scripts/migrate-packs-to-graph.js",
+  "nodes": [
+    {
+      "id": "digitama",
+      "name": "알",
+      "stage": "digitama",
+      "sprite": "digitama",
+      "evolvesFrom": []
+    },
+    {
+      "id": "koromon",
+      "name": "코로몬",
+      "stage": "baby",
+      "sprite": "koromon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "tokomon",
+      "name": "토코몬",
+      "stage": "baby",
+      "sprite": "tokomon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "tsunomon",
+      "name": "뿔몬",
+      "stage": "baby",
+      "sprite": "tsunomon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "wanyamon",
+      "name": "와냐몬",
+      "stage": "baby",
+      "sprite": "wanyamon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "gigimon",
+      "name": "기기몬",
+      "stage": "baby",
+      "sprite": "gigimon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "yaamon",
+      "name": "야몬",
+      "stage": "baby",
+      "sprite": "yaamon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "kuramon",
+      "name": "쿠라몬",
+      "stage": "baby",
+      "sprite": "kuramon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "pokomon",
+      "name": "포코몬",
+      "stage": "baby",
+      "sprite": "pokomon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "gummymon",
+      "name": "구미몬",
+      "stage": "baby",
+      "sprite": "gummymon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "chibomon",
+      "name": "꼬마몬",
+      "stage": "baby",
+      "sprite": "chibomon",
+      "evolvesFrom": [
+        {
+          "from": "digitama",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "agumon",
+      "name": "아구몬",
+      "stage": "child",
+      "sprite": "agumon",
+      "evolvesFrom": [
+        {
+          "from": "koromon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "falcomon",
+      "name": "팔코몬",
+      "stage": "child",
+      "sprite": "falcomon",
+      "evolvesFrom": [
+        {
+          "from": "tokomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "gabumon",
+      "name": "파피몬",
+      "stage": "child",
+      "sprite": "gabumon",
+      "evolvesFrom": [
+        {
+          "from": "tsunomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "gaomon",
+      "name": "가오몬",
+      "stage": "child",
+      "sprite": "gaomon",
+      "evolvesFrom": [
+        {
+          "from": "wanyamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "guilmon",
+      "name": "길몬",
+      "stage": "child",
+      "sprite": "guilmon",
+      "evolvesFrom": [
+        {
+          "from": "gigimon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "impmon",
+      "name": "임프몬",
+      "stage": "child",
+      "sprite": "impmon",
+      "evolvesFrom": [
+        {
+          "from": "yaamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "keramon",
+      "name": "케라몬",
+      "stage": "child",
+      "sprite": "keramon",
+      "evolvesFrom": [
+        {
+          "from": "kuramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "renamon",
+      "name": "레나몬",
+      "stage": "child",
+      "sprite": "renamon",
+      "evolvesFrom": [
+        {
+          "from": "pokomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "terriermon",
+      "name": "테리어몬",
+      "stage": "child",
+      "sprite": "terriermon",
+      "evolvesFrom": [
+        {
+          "from": "gummymon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "veemon",
+      "name": "브이몬",
+      "stage": "child",
+      "sprite": "veemon",
+      "evolvesFrom": [
+        {
+          "from": "chibomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "greymon",
+      "name": "그레이몬",
+      "stage": "adult",
+      "sprite": "greymon",
+      "evolvesFrom": [
+        {
+          "from": "agumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "geogreymon",
+      "name": "지오그레이몬",
+      "stage": "adult",
+      "sprite": "geogreymon",
+      "evolvesFrom": [
+        {
+          "from": "agumon",
+          "when": {
+            "type": "sessionCount",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "peckmon",
+      "name": "펙크몬",
+      "stage": "adult",
+      "sprite": "peckmon",
+      "evolvesFrom": [
+        {
+          "from": "falcomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "garurumon",
+      "name": "가루몬",
+      "stage": "adult",
+      "sprite": "garurumon",
+      "evolvesFrom": [
+        {
+          "from": "gabumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "gaogamon",
+      "name": "가오가몬",
+      "stage": "adult",
+      "sprite": "gaogamon",
+      "evolvesFrom": [
+        {
+          "from": "gaomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "growlmon",
+      "name": "그라우몬",
+      "stage": "adult",
+      "sprite": "growlmon",
+      "evolvesFrom": [
+        {
+          "from": "guilmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "devimon",
+      "name": "데블몬",
+      "stage": "adult",
+      "sprite": "devimon",
+      "evolvesFrom": [
+        {
+          "from": "impmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "vilemon",
+      "name": "이블몬",
+      "stage": "adult",
+      "sprite": "vilemon",
+      "evolvesFrom": [
+        {
+          "from": "impmon",
+          "when": {
+            "type": "sessionCount",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "kurisarimon",
+      "name": "크리사리몬",
+      "stage": "adult",
+      "sprite": "kurisarimon",
+      "evolvesFrom": [
+        {
+          "from": "keramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "kyubimon",
+      "name": "구미호몬",
+      "stage": "adult",
+      "sprite": "kyubimon",
+      "evolvesFrom": [
+        {
+          "from": "renamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "gargomon",
+      "name": "가르고몬",
+      "stage": "adult",
+      "sprite": "gargomon",
+      "evolvesFrom": [
+        {
+          "from": "terriermon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "prairiemon",
+      "name": "프라리몬",
+      "stage": "adult",
+      "sprite": "prairiemon",
+      "evolvesFrom": [
+        {
+          "from": "terriermon",
+          "when": {
+            "type": "topSharePct",
+            "lte": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "exveemon",
+      "name": "엑스브이몬",
+      "stage": "adult",
+      "sprite": "exveemon",
+      "evolvesFrom": [
+        {
+          "from": "veemon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "magnamon",
+      "name": "매그너몬",
+      "stage": "adult",
+      "sprite": "magnamon",
+      "evolvesFrom": [
+        {
+          "from": "veemon",
+          "when": {
+            "type": "sessionCount",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "flamedramon",
+      "name": "화염드라몬",
+      "stage": "adult",
+      "sprite": "flamedramon",
+      "evolvesFrom": [
+        {
+          "from": "veemon",
+          "when": {
+            "all": [
+              {
+                "type": "topSharePct",
+                "gte": 60
+              },
+              {
+                "type": "sessionCount",
+                "gte": 2
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "metalgreymon",
+      "name": "메탈그레이몬",
+      "stage": "perfect",
+      "sprite": "metalgreymon",
+      "evolvesFrom": [
+        {
+          "from": "greymon",
+          "when": null
+        },
+        {
+          "from": "geogreymon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "rizegreymon",
+      "name": "라이즈그레이몬",
+      "stage": "perfect",
+      "sprite": "rizegreymon",
+      "evolvesFrom": [
+        {
+          "from": "geogreymon",
+          "when": {
+            "type": "sessionCount",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "yatagaramon",
+      "name": "야타가라몬",
+      "stage": "perfect",
+      "sprite": "yatagaramon",
+      "evolvesFrom": [
+        {
+          "from": "peckmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "weregarurumon",
+      "name": "워가루몬",
+      "stage": "perfect",
+      "sprite": "weregarurumon",
+      "evolvesFrom": [
+        {
+          "from": "garurumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "blackweregarurumon",
+      "name": "블랙워가루몬",
+      "stage": "perfect",
+      "sprite": "blackweregarurumon",
+      "evolvesFrom": [
+        {
+          "from": "garurumon",
+          "when": {
+            "type": "failureRatioPct",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "machgaogamon",
+      "name": "마하가오가몬",
+      "stage": "perfect",
+      "sprite": "machgaogamon",
+      "evolvesFrom": [
+        {
+          "from": "gaogamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "megalogrowlmon",
+      "name": "메가로그라우몬",
+      "stage": "perfect",
+      "sprite": "megalogrowlmon",
+      "evolvesFrom": [
+        {
+          "from": "growlmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "blackmegalogrowlmon",
+      "name": "블랙메가로그라우몬",
+      "stage": "perfect",
+      "sprite": "blackmegalogrowlmon",
+      "evolvesFrom": [
+        {
+          "from": "growlmon",
+          "when": {
+            "type": "failureRatioPct",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "myotismon",
+      "name": "뱀파이몬",
+      "stage": "perfect",
+      "sprite": "myotismon",
+      "evolvesFrom": [
+        {
+          "from": "devimon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "mummymon",
+      "name": "미이라몬",
+      "stage": "perfect",
+      "sprite": "mummymon",
+      "evolvesFrom": [
+        {
+          "from": "vilemon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "infermon",
+      "name": "인펠몬",
+      "stage": "perfect",
+      "sprite": "infermon",
+      "evolvesFrom": [
+        {
+          "from": "kurisarimon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "taomon",
+      "name": "도사몬",
+      "stage": "perfect",
+      "sprite": "taomon",
+      "evolvesFrom": [
+        {
+          "from": "kyubimon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "rapidmon",
+      "name": "래피드몬",
+      "stage": "perfect",
+      "sprite": "rapidmon",
+      "evolvesFrom": [
+        {
+          "from": "gargomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "blackrapidmon",
+      "name": "블랙래피드몬",
+      "stage": "perfect",
+      "sprite": "blackrapidmon",
+      "evolvesFrom": [
+        {
+          "from": "gargomon",
+          "when": {
+            "type": "failureRatioPct",
+            "gte": 5
+          }
+        },
+        {
+          "from": "prairiemon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "paildramon",
+      "name": "파일드라몬",
+      "stage": "perfect",
+      "sprite": "paildramon",
+      "evolvesFrom": [
+        {
+          "from": "exveemon",
+          "when": null
+        },
+        {
+          "from": "flamedramon",
+          "when": null
+        },
+        {
+          "from": "magnamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "wargreymon",
+      "name": "워그레이몬",
+      "stage": "ultimate",
+      "sprite": "wargreymon",
+      "evolvesFrom": [
+        {
+          "from": "metalgreymon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "blackwargreymon",
+      "name": "블랙워그레이몬",
+      "stage": "ultimate",
+      "sprite": "blackwargreymon",
+      "evolvesFrom": [
+        {
+          "from": "metalgreymon",
+          "when": {
+            "type": "failureRatioPct",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "shinegreymon",
+      "name": "샤인그레이몬",
+      "stage": "ultimate",
+      "sprite": "shinegreymon",
+      "evolvesFrom": [
+        {
+          "from": "rizegreymon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "varodurumon",
+      "name": "발두르몬",
+      "stage": "ultimate",
+      "sprite": "varodurumon",
+      "evolvesFrom": [
+        {
+          "from": "yatagaramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "ravemon",
+      "name": "레이브몬",
+      "stage": "ultimate",
+      "sprite": "ravemon",
+      "evolvesFrom": [
+        {
+          "from": "yatagaramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "metalgarurumon",
+      "name": "메탈가루몬",
+      "stage": "ultimate",
+      "sprite": "metalgarurumon",
+      "evolvesFrom": [
+        {
+          "from": "weregarurumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "darkdramon",
+      "name": "다크드라몬",
+      "stage": "ultimate",
+      "sprite": "darkdramon",
+      "evolvesFrom": [
+        {
+          "from": "blackweregarurumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "miragegaogamon",
+      "name": "미라지가오가몬",
+      "stage": "ultimate",
+      "sprite": "miragegaogamon",
+      "evolvesFrom": [
+        {
+          "from": "machgaogamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "dukemon",
+      "name": "듀크몬",
+      "stage": "ultimate",
+      "sprite": "dukemon",
+      "evolvesFrom": [
+        {
+          "from": "megalogrowlmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "chaosdukemon",
+      "name": "카오스듀크몬",
+      "stage": "ultimate",
+      "sprite": "chaosdukemon",
+      "evolvesFrom": [
+        {
+          "from": "blackmegalogrowlmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "beelzebumon",
+      "name": "베르제브몬",
+      "stage": "ultimate",
+      "sprite": "beelzebumon",
+      "evolvesFrom": [
+        {
+          "from": "myotismon",
+          "when": null
+        },
+        {
+          "from": "mummymon",
+          "when": {
+            "type": "topSharePct",
+            "gte": 60
+          }
+        },
+        {
+          "from": "infermon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "ghoulmon",
+      "name": "데스몬",
+      "stage": "ultimate",
+      "sprite": "ghoulmon",
+      "evolvesFrom": [
+        {
+          "from": "mummymon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "diablomon",
+      "name": "디아블로몬",
+      "stage": "ultimate",
+      "sprite": "diablomon",
+      "evolvesFrom": [
+        {
+          "from": "infermon",
+          "when": {
+            "type": "sessionCount",
+            "gte": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "sakuyamon",
+      "name": "샤크라몬",
+      "stage": "ultimate",
+      "sprite": "sakuyamon",
+      "evolvesFrom": [
+        {
+          "from": "taomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "saintgalgomon",
+      "name": "세인트가르고몬",
+      "stage": "ultimate",
+      "sprite": "saintgalgomon",
+      "evolvesFrom": [
+        {
+          "from": "rapidmon",
+          "when": null
+        },
+        {
+          "from": "blackrapidmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "imperialdramon_fm",
+      "name": "황제드라몬 파이터 모드",
+      "stage": "ultimate",
+      "sprite": "imperialdramon_fm",
+      "evolvesFrom": [
+        {
+          "from": "paildramon",
+          "when": {
+            "type": "topSharePct",
+            "gte": 60
+          }
+        }
+      ]
+    },
+    {
+      "id": "imperialdramon_dm",
+      "name": "황제드라몬 드래곤 모드",
+      "stage": "ultimate",
+      "sprite": "imperialdramon_dm",
+      "evolvesFrom": [
+        {
+          "from": "paildramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "omegamon",
+      "name": "오메가몬",
+      "stage": "superultimate",
+      "sprite": "omegamon",
+      "evolvesFrom": [
+        {
+          "from": "wargreymon",
+          "when": null
+        },
+        {
+          "from": "blackwargreymon",
+          "when": null
+        },
+        {
+          "from": "metalgarurumon",
+          "when": null
+        },
+        {
+          "from": "darkdramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "shinegreymon_burst",
+      "name": "샤인그레이몬 버스트 모드",
+      "stage": "superultimate",
+      "sprite": "shinegreymon_burst",
+      "evolvesFrom": [
+        {
+          "from": "shinegreymon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "chronomon_hm",
+      "name": "크로노몬 홀리 모드",
+      "stage": "superultimate",
+      "sprite": "chronomon_hm",
+      "evolvesFrom": [
+        {
+          "from": "varodurumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "ravemon-bm",
+      "name": "레이브몬 버스트 모드",
+      "stage": "superultimate",
+      "sprite": "ravemon-bm",
+      "evolvesFrom": [
+        {
+          "from": "ravemon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "dukemon_crimson",
+      "name": "듀크몬 크림슨 모드",
+      "stage": "superultimate",
+      "sprite": "dukemon_crimson",
+      "evolvesFrom": [
+        {
+          "from": "dukemon",
+          "when": null
+        },
+        {
+          "from": "chaosdukemon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "beelzebumon-bm",
+      "name": "베르제브몬 블래스트 모드",
+      "stage": "superultimate",
+      "sprite": "beelzebumon-bm",
+      "evolvesFrom": [
+        {
+          "from": "beelzebumon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "ghoulmon-black",
+      "name": "데스몬 블랙",
+      "stage": "superultimate",
+      "sprite": "ghoulmon-black",
+      "evolvesFrom": [
+        {
+          "from": "ghoulmon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "armagemon",
+      "name": "아마게몬",
+      "stage": "superultimate",
+      "sprite": "armagemon",
+      "evolvesFrom": [
+        {
+          "from": "diablomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "kuzuhamon",
+      "name": "쿠즈하몬",
+      "stage": "superultimate",
+      "sprite": "kuzuhamon",
+      "evolvesFrom": [
+        {
+          "from": "sakuyamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "blacksaintgalgomon",
+      "name": "블랙세인트가르고몬",
+      "stage": "superultimate",
+      "sprite": "blacksaintgalgomon",
+      "evolvesFrom": [
+        {
+          "from": "saintgalgomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "imperialdramon_pm",
+      "name": "황제드라몬 팔라딘 모드",
+      "stage": "superultimate",
+      "sprite": "imperialdramon_pm",
+      "evolvesFrom": [
+        {
+          "from": "imperialdramon_fm",
+          "when": null
+        },
+        {
+          "from": "imperialdramon_dm",
+          "when": null
+        }
+      ]
+    }
+  ]
+}
