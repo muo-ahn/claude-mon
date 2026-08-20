@@ -73,6 +73,7 @@
         "name": "미이라몬",
         "sprite": "perfect-mummymon",
         "evolutions": [
+          { "to": "beelzebumon", "when": { "type": "topSharePct", "gte": 60 } },
           { "to": "ghoulmon", "when": null }
         ]
       }

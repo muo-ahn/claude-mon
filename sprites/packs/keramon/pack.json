@@ -74,9 +74,8 @@
         "id": "beelzebumon",
         "name": "베르제브몬",
         "sprite": "ultimate-beelzebumon",
-        "evolutions": [
-          { "to": "armagemon", "when": null }
-        ]
+        "terminal": true,
+        "evolutions": []
       }
     ],
     "superultimate": [
