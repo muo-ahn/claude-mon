@@ -742,6 +742,13 @@
       "sprite": "darkdramon",
       "evolvesFrom": [
         {
+          "from": "weregarurumon",
+          "when": {
+            "type": "sessionCount",
+            "gte": 3
+          }
+        },
+        {
           "from": "blackweregarurumon",
           "when": null
         }
