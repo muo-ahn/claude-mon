@@ -306,7 +306,7 @@ node daily-tokens.js
 
 디지몬은 같은 종족이라도 성장 배경에 따라 다른 형태로 진화한다. claudemon도 하루 단위로 **루트**를 뽑는다 — 오늘의 마스코트는 (팩, 루트) 쌍이다.
 
-**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(79개)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
+**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(314개, 2026-08-20 Wikimon `Digimon Story` 오버월드 립 235종 편입 이후)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
 
 **`evolvesFrom`은 부모별로 조건을 갖는다.**
 
@@ -393,6 +393,13 @@ node daily-tokens.js
 **기존 그래프에 엣지만 추가하는 경우에도 4단계(materialize)를 다시 돌려야 한다.** 도트를 새로 만들지 않아도, 팩 경계를 넘는 엣지(`evolvesFrom`에 다른 팩의 노드를 부모로 추가)는 그 팩이 렌더할 수 있는 노드 집합을 넓히므로 프레임이 그 팩 디렉터리에 없다. 건너뛰면 **조건이 발동하는 날에만** 프레임이 없어 한 단계 아래로 폴백한다 — 평소에는 정상으로 보이고 특정 조건의 날에만 퇴화처럼 보이는, 재현이 어려운 형태로 나타난다. `python3 scripts/sprite_status.py --check` (exit code 확인)가 이 누락을 잡는다. 엣지를 추가했으면 이 검사를 돌려라.
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
+
+### 새 노드 대량 편입 도구 (2026-08-20)
+
+도트 부족이 아니라 **어떤 종을 편입할지 정사대로 판정하는 것**이 병목이 되면서, 위 1~4단계를 대량으로 돌리기 위한 도구 둘이 추가됐다.
+
+- **`scripts/harvest-wikimon-canon.js`** — 종 목록(또는 `--from-graph`로 현재 그래프 전체)에 대해 Wikimon raw wikitext에서 세대·한글명·`Evolves From` 부모 목록과 각 부모의 출처 게임을 뽑아 JSON으로 산출한다. 신규 노드를 `evolution-graph.json`에 편입할 때의 입력 자료다. `--roster-mode strict|relaxed`로 로스터 게이트 완화 여부를 조절하며, 어느 모드든 각 엣지에 `games`와 `passesStrictGate`(항상 strict 기준)를 같이 남겨 사후 소급 적용/철회가 가능하다(§ [Q5 참고](docs/evolution-routes.md)).
+- **`scripts/fetch-wikimon-dots.py`** — Wikimon이 종별로 호스팅하는 Digimon Story 오버월드 도트(`<Title>_dst_map.png`, 없으면 `_dsle_map.png` 폴백)를 내려받아 이 레포의 노드 도트 규격(`sprites/nodes/<id>-0.png`, 32×32 RGBA)으로 정규화한다. 파일 존재 여부와 실제 다운로드 URL은 MediaWiki API(`wikimon.net/api.php`)로만 확인하며, 없는 파일을 추측해서 만들지 않는다. `source: "vpet_*"`를 지정하면 컬러 vpet 도트 세트(848종)로 확장할 수도 있다 — dst/dsle_map 337종보다 큰 풀이 필요할 때의 경로다.
 
 ### ROM에서 직접 립하기 (`scripts/rip_dwds_sprites.py`)
 

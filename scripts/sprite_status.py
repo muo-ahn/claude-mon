@@ -184,6 +184,21 @@ def has_portrait(pack_dir, sprite):
                for i in FRAMES)
 
 
+def has_usable_portrait(pack_dir, sprite):
+    """프레임 0 하나만 있으면 참 — has_portrait() 의 "프레임 0·1 전부"
+    기준과는 별개의, 더 약한 판정이다.
+
+    런타임(menubar/claudemon-menubar.swift:1018 portraitImage(forStage:))이
+    portraitFrames[stage]?.first 만 읽고, 그 유일한 소비자인 진화 컷인
+    (:1401)과 드롭다운 헤더(:1554) 둘 다 정적 1장만 그린다 — 프레임 1은
+    애초에 소비되지 않는다. 즉 프레임 0만 있는 초상도 런타임에서는
+    완전히 동작한다. has_portrait()/portrait_ready 는 그대로 "2프레임
+    완비" 기준을 유지하고(의미를 바꾸지 않음), 이 함수는 "지금 실제로
+    화면에 뜰 수 있는가"를 별도로 답한다.
+    """
+    return os.path.exists(os.path.join(pack_dir, f'portrait-{sprite}-0.png'))
+
+
 def orphan_sprites(pack_dir, declared, legacy_keys):
     """그래프에 선언되지 않았는데 PNG 만 존재하는 스프라이트 키.
 
@@ -270,6 +285,7 @@ def scan_packs(aliases, catalog, by_id, children_of, warnings):
                 'pack': pack, 'stage': stage, 'sprite': sprite,
                 'frames': have, 'frames_total': total,
                 'portrait': has_portrait(pack_dir, sprite),
+                'portrait_usable': has_usable_portrait(pack_dir, sprite),
             }
             if have == 0:
                 # digitama 는 예외 — sprites/shared/ 에 있다.
@@ -307,6 +323,7 @@ def scan_packs(aliases, catalog, by_id, children_of, warnings):
                 'pack': pack, 'stage': None, 'sprite': sprite,
                 'frames': have, 'frames_total': total,
                 'portrait': has_portrait(pack_dir, sprite),
+                'portrait_usable': has_usable_portrait(pack_dir, sprite),
                 'undeclared': True,
             }
             record(found, name, entry)
@@ -382,6 +399,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
     species, by_line = [], OrderedDict()
     counts = Counter()
     portrait_ready = 0
+    portrait_usable = 0
 
     for name, occurrences in catalog.items():
         dot, hit = classify(name, packs, sheets, dot_mismatch)
@@ -392,6 +410,9 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
         portrait = bool(hit and hit['portrait'])
         if portrait:
             portrait_ready += 1
+        usable = bool(hit and hit.get('portrait_usable'))
+        if usable:
+            portrait_usable += 1
 
         line_id, line_ko, stage = occurrences[0]
         row = OrderedDict([
@@ -402,6 +423,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
             ('pack', hit['pack'] if hit else None),
             ('sprite', hit['sprite'] if hit else None),
             ('portrait', portrait),
+            ('portrait_usable', usable),
             ('sheet', sheets.get(name)),
             ('priority', item.get('priority')),
             ('status', item.get('status', 'done' if dot == 'ready' else 'todo')),
@@ -449,6 +471,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
         ('missing', counts['missing']),
         ('coverage_pct', round(100 * counts['ready'] / len(catalog)) if catalog else 0),
         ('portrait_ready', portrait_ready),
+        ('portrait_usable', portrait_usable),
     ])
     return summary, list(by_line.values()), species, list(seen_extra.values())
 
@@ -470,6 +493,19 @@ HEADER = """\
 #
 # dot: ready(프레임 완비) / mismatch(프레임은 있으나 알려진 결함) / partial(프레임 일부)
 #      / source_only(dwds 시트만) / missing
+#
+# portrait vs portrait_usable — 왜 두 지표가 다른가:
+#   portrait        프레임 0·1 이 모두 존재해야 참 (portrait_ready 집계). 판정
+#                   기준을 바꾸지 않았다 — 계속 "2프레임 완비"를 의미한다.
+#   portrait_usable 프레임 0 하나만 있으면 참 (portrait_usable 집계). 런타임
+#                   (menubar/claudemon-menubar.swift:1018 portraitImage(forStage:))
+#                   이 portraitFrames[stage]?.first 만 읽고, 유일한 소비자인
+#                   진화 컷인(:1401)·드롭다운 헤더(:1554) 둘 다 정적 1장만
+#                   그리므로 프레임 1은 애초에 쓰이지 않는다 — 즉 1프레임
+#                   초상도 화면에서는 완전히 동작한다. portrait_usable 은
+#                   "지금 실제로 뜰 수 있는 초상 수"이고, portrait_ready 는
+#                   "2프레임까지 완비된 초상 수"다. 후자가 전자보다 작은 건
+#                   정상이며 stale 이 아니다.
 """
 
 
@@ -505,7 +541,8 @@ def print_summary(summary, by_line, warnings, acknowledged, species):
           f"/ mismatch {summary['mismatch']} / partial {summary['partial']} "
           f"/ source_only {summary['source_only']} / missing {summary['missing']}"
           f"  → 커버리지 {summary['coverage_pct']}%")
-    print(f"초상(portrait) 완비: {summary['portrait_ready']}종\n")
+    print(f"초상(portrait) 완비: {summary['portrait_ready']}종 "
+          f"| 런타임 가용(프레임0만): {summary['portrait_usable']}종\n")
 
     print('라인별 커버리지')
     for b in sorted(by_line, key=lambda x: (-x['pct'], x['line'])):

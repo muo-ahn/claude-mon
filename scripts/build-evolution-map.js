@@ -63,7 +63,13 @@ const SPRITE = 64;
 const ROW = 108;
 const PAD_TOP = 14;
 const PAD_BOTTOM = 12;
-const NARROW_SCALE = 0.8; // stage ladder shrinks on narrow screens instead of getting wider
+
+// A stage with 97 nodes (ultimate) in one column is a 10000px scroll. Give
+// each stage its own sub-column grid instead - width grows a little, height
+// drops a lot. Cap at 6 sub-columns so dense stages don't get comically wide.
+function subcolsForCount(count) {
+  return Math.max(1, Math.min(6, Math.ceil(Math.sqrt(count))));
+}
 
 function dataUri(file) {
   if (!file || !fs.existsSync(file)) return null;
@@ -106,26 +112,45 @@ for (const node of GRAPH.nodes) {
   }
 }
 
-// Assign row positions within each stage (arbitrary stable order)
+// Each stage gets its own sub-column count (subcolsForCount) and its own
+// horizontal offset (stageX), computed left-to-right so stage order
+// (digitama -> superultimate) is preserved. Within a stage, nodes fill a
+// row-major grid (arbitrary stable order, same order as nodesByStage).
+const stageSubcols = new Map();
+const stageX = new Map();
+const stageWidth = new Map();
+{
+  let x = 0;
+  for (const stage of STAGES) {
+    const count = (nodesByStage.get(stage.id) || []).length;
+    const subcols = subcolsForCount(count);
+    stageSubcols.set(stage.id, subcols);
+    stageX.set(stage.id, x);
+    const w = subcols * COL_W;
+    stageWidth.set(stage.id, w);
+    x += w;
+  }
+}
+
 const nodeGeomCache = new Map();
 for (const [stageId, nodes] of nodesByStage.entries()) {
+  const subcols = stageSubcols.get(stageId);
+  const baseX = stageX.get(stageId);
   nodes.forEach((node, i) => {
-    const stageIdx = STAGES.findIndex(s => s.id === stageId);
-    const x = colX(stageIdx);
-    const y = PAD_TOP + i * ROW;
+    const col = i % subcols;
+    const row = Math.floor(i / subcols);
+    const x = baseX + col * COL_W + (COL_W - NODE_W) / 2;
+    const y = PAD_TOP + row * ROW;
     nodeGeomCache.set(node.id, {
       x, y,
       cx: x + NODE_W / 2,
       cy: y + SPRITE / 2,
       left: x + (NODE_W - SPRITE) / 2,
       right: x + (NODE_W + SPRITE) / 2,
-      row: i
+      idx: i,
+      row
     });
   });
-}
-
-function colX(i) {
-  return i * COL_W + (COL_W - NODE_W) / 2;
 }
 
 function nodeGeom(nodeId) {
@@ -304,7 +329,7 @@ function wrapName(name) {
 function renderGraph() {
   const maxRow = Math.max(...GRAPH.nodes.map(n => nodeGeom(n.id)?.row || 0));
   const height = PAD_TOP + maxRow * ROW + SPRITE + 30 + PAD_BOTTOM;
-  const width = STAGES.length * COL_W;
+  const width = STAGES.reduce((sum, s) => sum + stageWidth.get(s.id), 0);
 
   const edge = (e) => {
     const fromNode = GRAPH.byId.get(e.from);
@@ -317,16 +342,20 @@ function renderGraph() {
     const x2 = B.left - 5;
     const mid = x1 + (x2 - x1) / 2;
     const label = conditionLabel(e.when);
-    const path = `<path class="${label ? 'e-cond' : 'e-real'}" d="M${x1} ${A.cy} C${mid} ${A.cy} ${mid} ${B.cy} ${x2} ${B.cy}" />`;
+    const isCond = label !== null;
+    const path = `<path class="${isCond ? 'e-cond' : 'e-real'}" d="M${x1} ${A.cy} C${mid} ${A.cy} ${mid} ${B.cy} ${x2} ${B.cy}" />`;
     const text = label ? `<text class="e-label" x="${mid}" y="${(A.cy + B.cy) / 2 - 4}">${esc(label)}</text>` : '';
-    return path + text;
+    // Wrapped in a <g data-from/data-to/class="cond"|"uncond"> so the focus
+    // and filter JS can toggle visibility/emphasis without re-deriving the
+    // adjacency server-side. See <script> at end of body.
+    return `<g class="edge ${isCond ? 'cond' : 'uncond'}" data-from="${esc(e.from)}" data-to="${esc(e.to)}">${path}${text}</g>`;
   };
 
   const nodeSvg = (node) => {
     const g = nodeGeom(node.id);
     if (!g) return '';
     const isOrphan = orphanSet.has(node.id);
-    const isSpine = g.row === 0; // First node in stage is considered spine
+    const isSpine = g.idx === 0; // First node listed in the stage is considered spine
     const dot = spriteFor(node);
     const cls = ['node', isSpine ? 'spine' : 'branch', isOrphan ? 'orphan' : ''].join(' ');
     const frame = dot
@@ -337,7 +366,7 @@ function renderGraph() {
     const lines = wrapName(node.name)
       .map((l, i) => `<tspan x="${g.cx}" dy="${i === 0 ? 0 : 12}">${esc(l)}</tspan>`)
       .join('');
-    return `<g class="${cls}">${frame}<text class="name" x="${g.cx}" y="${g.y + SPRITE + 15}">${lines}</text></g>`;
+    return `<g class="${cls}" data-id="${esc(node.id)}" data-name="${esc(node.name)}" tabindex="0">${frame}<text class="name" x="${g.cx}" y="${g.y + SPRITE + 15}">${lines}</text></g>`;
   };
 
   return `<section class="lane">
@@ -351,7 +380,7 @@ function renderGraph() {
         ${orphans.length ? `<span class="chip warn">부모 없음 ${orphans.length}</span>` : ''}
       </div>
     </div>
-    <svg class="graph" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
+    <svg class="graph" id="evo-graph" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
          aria-label="전역 진화 그래프">
       <g class="edges">${edges.map(edge).join('')}</g>
       ${GRAPH.nodes.map(nodeSvg).join('\n      ')}
@@ -527,6 +556,14 @@ const roots = rootNodes();
 const totalRoutes = countRoutes();
 const megaRoutes = countMegaRoutes();
 
+// Line filter dropdown options: only packs whose dir is an actual child-stage
+// node id in the graph (same rule renderCatalog/treeSpriteIndex uses to
+// decide a pack "roots" a rookie line).
+const linePacks = packs.filter((p) => {
+  const rookie = GRAPH.byId.get(p.dir);
+  return rookie && rookie.stage === 'child';
+});
+
 const catalog = renderCatalog(packs);
 const catalogued = new Set(CATALOG.species.filter((x) => x.pack && x.sprite).map((x) => `${x.pack}/${x.sprite}`));
 const offCatalog = GRAPH.nodes.filter(n => n.id !== 'digitama' && !catalogued.has(`nodes/${n.sprite}`));
@@ -552,15 +589,160 @@ const railCols = STAGES.map((s, i) => {
   const [ko, en] = s.label.split(' (');
   const gte = stageTokenGte(s.condition);
   const th = s.condition && s.condition.type === 'always' ? '기본' : gte >= 1000 ? `${(gte / 1000).toLocaleString('en-US')}K` : `${gte}`;
-  return `<div class="rail-col">
+  const count = (nodesByStage.get(s.id) || []).length;
+  return `<div class="rail-col" style="width:${stageWidth.get(s.id)}px">
     <span class="rail-idx">${i + 1}</span>
     <span class="rail-ko">${esc(ko)}</span>
     <span class="rail-en">${esc((en || '').replace(')', ''))}</span>
-    <span class="rail-th">${th}</span>
+    <span class="rail-th">${th} · ${count}종</span>
   </div>`;
 }).join('');
 
-const html = `<title>claudemon 진화 맵</title>
+// Client-side behaviour for the map: focus mode (click a node -> highlight
+// its full lineage), the line filter (select a rookie -> keep only its
+// reachable subgraph), a name search, and the conditional-only toggle. Kept
+// as a plain string (no backticks/no template interpolation) because it's
+// spliced into the outer `html` template literal below - a stray backtick
+// or "${" in here would break that literal.
+const GRAPH_SCRIPT = [
+  '(function () {',
+  '  var svg = document.getElementById("evo-graph");',
+  '  if (!svg) return;',
+  '  var nodeEls = Array.prototype.slice.call(svg.querySelectorAll(".node"));',
+  '  var edgeEls = Array.prototype.slice.call(svg.querySelectorAll(".edge"));',
+  '  var parentsOf = new Map();',
+  '  var childrenOf = new Map();',
+  '  edgeEls.forEach(function (g) {',
+  '    var from = g.getAttribute("data-from"), to = g.getAttribute("data-to");',
+  '    if (!childrenOf.has(from)) childrenOf.set(from, []);',
+  '    childrenOf.get(from).push(to);',
+  '    if (!parentsOf.has(to)) parentsOf.set(to, []);',
+  '    parentsOf.get(to).push(from);',
+  '  });',
+  '',
+  '  function closure(startId, adj) {',
+  '    var seen = new Set([startId]);',
+  '    var stack = [startId];',
+  '    while (stack.length) {',
+  '      var id = stack.pop();',
+  '      var next = adj.get(id) || [];',
+  '      for (var i = 0; i < next.length; i++) {',
+  '        if (!seen.has(next[i])) { seen.add(next[i]); stack.push(next[i]); }',
+  '      }',
+  '    }',
+  '    return seen;',
+  '  }',
+  '',
+  '  var focusedId = null;',
+  '',
+  '  function clearFocus() {',
+  '    focusedId = null;',
+  '    nodeEls.forEach(function (el) { el.classList.remove("in-focus", "dimmed"); });',
+  '    edgeEls.forEach(function (el) { el.classList.remove("in-focus", "dimmed"); });',
+  '  }',
+  '',
+  '  function setFocus(id) {',
+  '    focusedId = id;',
+  '    var anc = closure(id, parentsOf);',
+  '    var desc = closure(id, childrenOf);',
+  '    var lineage = new Set(anc);',
+  '    desc.forEach(function (x) { lineage.add(x); });',
+  '    nodeEls.forEach(function (el) {',
+  '      var on = lineage.has(el.getAttribute("data-id"));',
+  '      el.classList.toggle("in-focus", on);',
+  '      el.classList.toggle("dimmed", !on);',
+  '    });',
+  '    edgeEls.forEach(function (el) {',
+  '      var f = el.getAttribute("data-from"), t = el.getAttribute("data-to");',
+  '      var on = (anc.has(f) && anc.has(t)) || (desc.has(f) && desc.has(t));',
+  '      el.classList.toggle("in-focus", on);',
+  '      el.classList.toggle("dimmed", !on);',
+  '    });',
+  '  }',
+  '',
+  '  svg.addEventListener("click", function (e) {',
+  '    var g = e.target.closest ? e.target.closest(".node") : null;',
+  '    if (!g) { clearFocus(); return; }',
+  '    var id = g.getAttribute("data-id");',
+  '    if (focusedId === id) clearFocus(); else setFocus(id);',
+  '  });',
+  '  svg.addEventListener("keydown", function (e) {',
+  '    if (e.key !== "Enter" && e.key !== " ") return;',
+  '    var g = e.target.closest ? e.target.closest(".node") : null;',
+  '    if (!g) return;',
+  '    e.preventDefault();',
+  '    var id = g.getAttribute("data-id");',
+  '    if (focusedId === id) clearFocus(); else setFocus(id);',
+  '  });',
+  '',
+  '  var clearBtn = document.getElementById("clear-focus");',
+  '  if (clearBtn) clearBtn.addEventListener("click", clearFocus);',
+  '',
+  '  function applyLineFilter(rootId) {',
+  '    clearFocus();',
+  '    if (!rootId || rootId === "all") {',
+  '      nodeEls.forEach(function (el) { el.classList.remove("filtered-out"); });',
+  '      edgeEls.forEach(function (el) { el.classList.remove("filtered-out"); });',
+  '      return;',
+  '    }',
+  '    var anc = closure(rootId, parentsOf);',
+  '    var desc = closure(rootId, childrenOf);',
+  '    var keep = new Set(anc);',
+  '    desc.forEach(function (x) { keep.add(x); });',
+  '    nodeEls.forEach(function (el) {',
+  '      el.classList.toggle("filtered-out", !keep.has(el.getAttribute("data-id")));',
+  '    });',
+  '    edgeEls.forEach(function (el) {',
+  '      var f = el.getAttribute("data-from"), t = el.getAttribute("data-to");',
+  '      el.classList.toggle("filtered-out", !(keep.has(f) && keep.has(t)));',
+  '    });',
+  '  }',
+  '',
+  '  var lineSelect = document.getElementById("line-filter");',
+  '  if (lineSelect) lineSelect.addEventListener("change", function () {',
+  '    applyLineFilter(lineSelect.value);',
+  '    updateCount();',
+  '  });',
+  '',
+  '  var condOnly = document.getElementById("cond-only");',
+  '  if (condOnly) condOnly.addEventListener("change", function () {',
+  '    svg.classList.toggle("cond-only", condOnly.checked);',
+  '    updateCount();',
+  '  });',
+  '',
+  '  var searchInput = document.getElementById("node-search");',
+  '  if (searchInput) searchInput.addEventListener("input", function () {',
+  '    var q = searchInput.value.trim().toLowerCase();',
+  '    if (!q) return;',
+  '    var hit = nodeEls.find(function (el) {',
+  '      return (el.getAttribute("data-name") || "").toLowerCase().indexOf(q) !== -1 &&',
+  '        !el.classList.contains("filtered-out");',
+  '    });',
+  '    if (!hit) return;',
+  '    var id = hit.getAttribute("data-id");',
+  '    setFocus(id);',
+  '    hit.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });',
+  '  });',
+  '',
+  '  var countEl = document.getElementById("live-count");',
+  '  function updateCount() {',
+  '    if (!countEl) return;',
+  '    var condActive = svg.classList.contains("cond-only");',
+  '    var visNodes = 0, visEdges = 0;',
+  '    nodeEls.forEach(function (el) { if (!el.classList.contains("filtered-out")) visNodes++; });',
+  '    edgeEls.forEach(function (el) {',
+  '      if (el.classList.contains("filtered-out")) return;',
+  '      if (condActive && !el.classList.contains("cond")) return;',
+  '      visEdges++;',
+  '    });',
+  '    countEl.textContent = "표시 중 · 노드 " + visNodes + "/" + nodeEls.length + " · 엣지 " + visEdges + "/" + edgeEls.length;',
+  '  }',
+  '  updateCount();',
+  '})();'
+].join('\n');
+
+const html = `<meta charset="utf-8">
+<title>claudemon 진화 맵</title>
 <style>
   :root {
     --paper: #E3E7DD;
@@ -646,7 +828,7 @@ const html = `<title>claudemon 진화 맵</title>
   }
   .rail-label span { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   .rail-col {
-    flex: none; width: ${COL_W}px; padding: 8px 10px 9px;
+    flex: none; padding: 8px 10px 9px; /* width set inline per stage - a dense stage gets more sub-columns */
     display: flex; flex-direction: column; gap: 1px; border-left: 1px solid var(--line-soft);
   }
   .rail-idx { font-family: var(--mono); font-size: 10px; color: var(--muted); }
@@ -676,20 +858,38 @@ const html = `<title>claudemon 진화 맵</title>
   .chip.q { border-color: var(--accent-soft); color: var(--ink-2); }
 
   /* nodes */
-  .cell { fill: var(--sunken); stroke: var(--line-soft); }
+  .cell { fill: var(--sunken); stroke: var(--line-soft); transition: opacity .15s; }
   .cell.empty { fill: none; stroke: var(--line); stroke-dasharray: 3 3; }
+  .node { cursor: pointer; }
   .node image { image-rendering: pixelated; }
   .node .name { font-family: var(--display); font-size: 11.5px; font-weight: 600; fill: var(--ink); text-anchor: middle; }
   .node .nodot { font-family: var(--mono); font-size: 8.5px; fill: var(--muted); text-anchor: middle; }
   .node.spine .cell { stroke: var(--accent-soft); }
   .node.orphan .cell { stroke: var(--signal); stroke-dasharray: 3 3; }
   .node.orphan image { opacity: .5; }
+  .node.dimmed { opacity: .16; }
+  .node.dimmed .cell { stroke: var(--line-soft); }
+  .node.in-focus .cell { stroke: var(--accent); stroke-width: 2.2; }
+  .node.in-focus .name { font-weight: 800; fill: var(--accent); }
+  .node.filtered-out { display: none; }
 
-  /* edges */
-  .edges path { fill: none; stroke-linecap: round; }
-  .e-real { stroke: var(--accent); stroke-width: 1.6; opacity: .75; }
-  .e-cond { stroke: var(--signal); stroke-width: 1.4; stroke-dasharray: 2 4; opacity: .8; }
-  .e-label { font-family: var(--mono); font-size: 8px; fill: var(--signal); text-anchor: middle; letter-spacing: .01em; }
+  /* edges - default view kills the hairball: unconditional edges (e-real)
+     stay near-invisible, conditional edges (e-cond) stay legible since
+     there are only a handful and they're the one part of this graph that's
+     actually decided at runtime. Focus mode (click a node) and the line
+     filter (select a rookie) toggle .in-focus/.dimmed/.filtered-out via the
+     <script> at the end of body - see setFocus()/applyLineFilter(). */
+  .edges path { fill: none; stroke-linecap: round; transition: opacity .15s, stroke-width .15s; }
+  .e-real { stroke: var(--accent); stroke-width: 1; opacity: .06; }
+  .e-cond { stroke: var(--signal); stroke-width: 1.5; stroke-dasharray: 2 4; opacity: .85; }
+  .e-label { font-family: var(--mono); font-size: 8px; fill: var(--signal); text-anchor: middle; letter-spacing: .01em; opacity: .85; }
+  .edge.in-focus .e-real { stroke-width: 2; opacity: .9; }
+  .edge.in-focus .e-cond { stroke-width: 2.2; opacity: 1; }
+  .edge.dimmed .e-real { opacity: .02; }
+  .edge.dimmed .e-cond { opacity: .12; }
+  .edge.dimmed .e-label { opacity: .12; }
+  .edge.filtered-out { display: none; }
+  .graph.cond-only .edge.uncond { display: none; }
 
   /* ---- section heads ---- */
   .section-head { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
@@ -764,8 +964,8 @@ const html = `<title>claudemon 진화 맵</title>
     .scroll-hint span { color: var(--ink-2); }
 
     .lane-head, .rail-label { width: 118px; }
-    .graph { width: ${STAGES.length * COL_W * NARROW_SCALE}px; height: auto; }
-    .rail-col { width: ${COL_W * NARROW_SCALE}px; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .controls .field { width: 100%; }
     .lane-head { padding: 13px 10px 12px 13px; }
     .lane-head h3 { font-size: 15px; }
     .rail-label { padding: 9px 10px 10px 13px; }
@@ -793,6 +993,30 @@ const html = `<title>claudemon 진화 맵</title>
     .cat-extra { padding: 8px 14px 10px; }
     .bar { max-width: 220px; }
   }
+
+  /* ---- controls (focus/filter/search bar above the graph) ---- */
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface);
+  }
+  .controls .field { display: flex; align-items: center; gap: 6px; }
+  .controls label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--muted); white-space: nowrap; }
+  .controls input[type="text"], .controls select {
+    font-family: var(--display); font-size: 12.5px; color: var(--ink); background: var(--sunken);
+    border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; min-width: 150px;
+  }
+  .controls input[type="checkbox"] { accent-color: var(--signal); }
+  .controls .check { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+  .controls .spacer { flex: 1 1 auto; }
+  .controls .live-count {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .controls button {
+    font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--ink-2);
+    background: var(--sunken); border: 1px solid var(--line); border-radius: 3px; padding: 5px 10px; cursor: pointer;
+  }
+  .controls button:hover { color: var(--accent); border-color: var(--accent-soft); }
 
   /* ---- legend + notes ---- */
   .legend { display: flex; flex-wrap: wrap; gap: 10px 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
@@ -844,10 +1068,30 @@ const html = `<title>claudemon 진화 맵</title>
   </div>
 
   <div class="legend">
-    <div><i class="swatch real"></i> 무조건 엣지 (<code>when: null</code>)</div>
-    <div><i class="swatch cond"></i> 조건부 엣지 (라벨 = 오늘 이 분기를 여는 조건)</div>
+    <div><i class="swatch real"></i> 무조건 엣지 (기본은 희미하게 숨김)</div>
+    <div><i class="swatch cond"></i> 조건부 엣지 (항상 표시 · 라벨 = 오늘 이 분기를 여는 조건)</div>
     <div><i class="box"></i> spine (스테이지 첫 노드)</div>
     ${orphans.length ? '<div><i class="box orphan"></i> 부모 엣지 없음 · 도달 불가</div>' : ''}
+  </div>
+
+  <div class="controls" id="graph-controls">
+    <div class="field">
+      <label for="node-search">검색</label>
+      <input type="text" id="node-search" placeholder="한글 이름…" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="line-filter">라인</label>
+      <select id="line-filter">
+        <option value="all" selected>전체</option>
+        ${linePacks.map((p) => `<option value="${esc(p.dir)}">${esc(p.name)}</option>`).join('')}
+      </select>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="cond-only" /> 조건부만 보기
+    </label>
+    <button type="button" id="clear-focus">선택 해제</button>
+    <div class="spacer"></div>
+    <div class="live-count" id="live-count">표시 중 · 노드 ${totalNodes}/${totalNodes} · 엣지 ${totalEdges}/${totalEdges}</div>
   </div>
 
   <div class="map">
@@ -859,6 +1103,8 @@ const html = `<title>claudemon 진화 맵</title>
       ${renderGraph()}
     </div>
   </div>
+
+  <p class="section-head" style="margin-top:0"><span class="scroll-hint" style="display:block">노드를 클릭하면 그 종의 조상(알까지)과 후손 전체가 강조되고 나머지는 흐려진다. 다시 클릭하면 해제.</span></p>
 
   <div class="section-head">
     <p class="eyebrow">layer 2 · docs/digimon-evolution-lines.yaml</p>
@@ -919,6 +1165,9 @@ const html = `<title>claudemon 진화 맵</title>
 
   <footer>저장소 실측 · 노드 ${totalNodes} · 엣지 ${totalEdges} · 조건부 ${condEdges.length} · 분기점 ${branches.length} · 경로 ${totalRoutes} · 초궁극체 ${megaRoutes} · 종점 ${terminals.length} · 수렴 ${convergence.length} · 루트 ${roots.length} · 규칙은 docs/global-graph-plan.md</footer>
 </div>
+<script>
+${GRAPH_SCRIPT}
+</script>
 `;
 
 fs.writeFileSync(OUT, html);
