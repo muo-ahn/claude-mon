@@ -6,17 +6,31 @@
 #
 # dot: ready(프레임 완비) / mismatch(프레임은 있으나 알려진 결함) / partial(프레임 일부)
 #      / source_only(dwds 시트만) / missing
+#
+# portrait vs portrait_usable — 왜 두 지표가 다른가:
+#   portrait        프레임 0·1 이 모두 존재해야 참 (portrait_ready 집계). 판정
+#                   기준을 바꾸지 않았다 — 계속 "2프레임 완비"를 의미한다.
+#   portrait_usable 프레임 0 하나만 있으면 참 (portrait_usable 집계). 런타임
+#                   (menubar/claudemon-menubar.swift:1018 portraitImage(forStage:))
+#                   이 portraitFrames[stage]?.first 만 읽고, 유일한 소비자인
+#                   진화 컷인(:1401)·드롭다운 헤더(:1554) 둘 다 정적 1장만
+#                   그리므로 프레임 1은 애초에 쓰이지 않는다 — 즉 1프레임
+#                   초상도 화면에서는 완전히 동작한다. portrait_usable 은
+#                   "지금 실제로 뜰 수 있는 초상 수"이고, portrait_ready 는
+#                   "2프레임까지 완비된 초상 수"다. 후자가 전자보다 작은 건
+#                   정상이며 stale 이 아니다.
 
 generated_by: scripts/sprite_status.py
 summary:
   total: 146
   ready: 51
   mismatch: 7
-  partial: 0
+  partial: 18
   source_only: 1
-  missing: 87
+  missing: 69
   coverage_pct: 35
   portrait_ready: 40
+  portrait_usable: 66
 by_line:
 - line: agumon
   ko: 아구몬
@@ -41,18 +55,18 @@ by_line:
   total: 7
   ready: 1
   mismatch: 0
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 6
+  missing: 4
   pct: 14
 - line: armadimon
   ko: 아르마몬
   total: 5
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 1
   source_only: 0
-  missing: 5
+  missing: 4
   pct: 0
 - line: gomamon
   ko: 쉬라몬
@@ -77,45 +91,45 @@ by_line:
   total: 6
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 6
+  missing: 4
   pct: 0
 - line: palmon
   ko: 팔몬
   total: 6
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 6
+  missing: 4
   pct: 0
 - line: v-mon
   ko: 브이몬
   total: 11
   ready: 6
   mismatch: 1
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 4
+  missing: 2
   pct: 55
 - line: hawkmon
   ko: 호크몬
   total: 6
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 6
+  missing: 4
   pct: 0
 - line: wormmon
   ko: 추추몬
   total: 6
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 1
   source_only: 0
-  missing: 6
+  missing: 5
   pct: 0
 - line: guilmon
   ko: 길몬
@@ -149,9 +163,9 @@ by_line:
   total: 9
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 9
+  missing: 7
   pct: 0
 - line: impmon
   ko: 임프몬
@@ -167,18 +181,18 @@ by_line:
   total: 7
   ready: 0
   mismatch: 0
-  partial: 0
+  partial: 3
   source_only: 0
-  missing: 7
+  missing: 4
   pct: 0
 - line: falcomon
   ko: 팔코몬
   total: 11
   ready: 5
   mismatch: 0
-  partial: 0
+  partial: 2
   source_only: 0
-  missing: 6
+  missing: 4
   pct: 45
 - line: gaomon
   ko: 가오몬
@@ -206,6 +220,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -214,8 +229,9 @@ species:
   stage: baby2
   dot: mismatch
   pack: agumon
-  sprite: baby
+  sprite: koromon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -224,8 +240,9 @@ species:
   stage: child
   dot: ready
   pack: agumon
-  sprite: child
+  sprite: agumon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -234,8 +251,9 @@ species:
   stage: adult
   dot: ready
   pack: agumon
-  sprite: adult
+  sprite: greymon
   portrait: true
+  portrait_usable: true
   sheet: greymon.png
   priority: null
   status: done
@@ -244,8 +262,9 @@ species:
   stage: perfect
   dot: ready
   pack: agumon
-  sprite: perfect
+  sprite: metalgreymon
   portrait: true
+  portrait_usable: true
   sheet: metalgreymon.png
   priority: null
   status: done
@@ -256,6 +275,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -266,6 +286,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -274,8 +295,9 @@ species:
   stage: ultimate
   dot: ready
   pack: agumon
-  sprite: ultimate
+  sprite: wargreymon
   portrait: true
+  portrait_usable: true
   sheet: wargreymon.png
   priority: null
   status: done
@@ -286,6 +308,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -294,8 +317,9 @@ species:
   stage: superultimate
   dot: ready
   pack: agumon
-  sprite: superultimate
+  sprite: omegamon
   portrait: true
+  portrait_usable: true
   sheet: omegamon.png
   priority: null
   status: done
@@ -308,6 +332,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -320,6 +345,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -328,8 +354,9 @@ species:
   stage: baby2
   dot: mismatch
   pack: gabumon
-  sprite: baby
+  sprite: tsunomon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -338,8 +365,9 @@ species:
   stage: child
   dot: ready
   pack: gabumon
-  sprite: child
+  sprite: gabumon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -348,8 +376,9 @@ species:
   stage: adult
   dot: ready
   pack: gabumon
-  sprite: adult
+  sprite: garurumon
   portrait: true
+  portrait_usable: true
   sheet: garurumon.png
   priority: null
   status: done
@@ -358,8 +387,9 @@ species:
   stage: perfect
   dot: ready
   pack: gabumon
-  sprite: perfect
+  sprite: weregarurumon
   portrait: true
+  portrait_usable: true
   sheet: weregarurumon.png
   priority: null
   status: done
@@ -368,8 +398,9 @@ species:
   stage: ultimate
   dot: ready
   pack: gabumon
-  sprite: ultimate
+  sprite: metalgarurumon
   portrait: true
+  portrait_usable: true
   sheet: metalgarurumon.png
   priority: null
   status: done
@@ -380,6 +411,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -390,6 +422,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -398,8 +431,9 @@ species:
   stage: baby2
   dot: ready
   pack: falcomon
-  sprite: baby
+  sprite: tokomon
   portrait: false
+  portrait_usable: false
   sheet: tokomon.png
   priority: null
   status: done
@@ -410,6 +444,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: P0
   status: todo
@@ -417,10 +452,11 @@ species:
 - ko: 엔젤몬
   line: patamon
   stage: adult
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: angemon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: P0
   status: todo
@@ -431,16 +467,18 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: P1
   status: todo
 - ko: 토우몬
   line: patamon
   stage: perfect
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: shakkoumon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -453,6 +491,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: P1
   status: todo
@@ -463,6 +502,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -473,6 +513,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -483,6 +524,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: P1
   status: todo
@@ -494,6 +536,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -504,6 +547,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -514,6 +558,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -524,6 +569,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -534,6 +580,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -544,6 +591,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: P1
   status: todo
@@ -555,6 +603,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -565,6 +614,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -575,6 +625,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -585,6 +636,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -595,6 +647,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -605,26 +658,29 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 버드라몬
   line: piyomon
   stage: adult
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: birdramon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
 - ko: 가루다몬
   line: piyomon
   stage: perfect
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: garudamon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -635,6 +691,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -645,6 +702,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -655,6 +713,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -665,6 +724,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -675,26 +735,29 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 릴리몬
   line: palmon
   stage: perfect
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: lilimon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
 - ko: 로제몬
   line: palmon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: rosemon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -705,6 +768,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -713,8 +777,9 @@ species:
   stage: baby2
   dot: mismatch
   pack: veemon
-  sprite: baby
+  sprite: chibomon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -723,8 +788,9 @@ species:
   stage: child
   dot: ready
   pack: veemon
-  sprite: child
+  sprite: veemon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -733,8 +799,9 @@ species:
   stage: adult
   dot: ready
   pack: veemon
-  sprite: adult
+  sprite: exveemon
   portrait: true
+  portrait_usable: true
   sheet: exveemon.png
   priority: null
   status: done
@@ -745,16 +812,18 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 에어로브이드라몬
   line: v-mon
   stage: perfect
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: aerovdramon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -763,18 +832,20 @@ species:
   stage: perfect
   dot: ready
   pack: veemon
-  sprite: perfect
+  sprite: paildramon
   portrait: true
+  portrait_usable: true
   sheet: paildramon.png
   priority: null
   status: done
 - ko: 알포스브이드라몬
   line: v-mon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: ulforcevdramon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -783,8 +854,9 @@ species:
   stage: ultimate
   dot: ready
   pack: veemon
-  sprite: ultimate-imperialdramon_dm
+  sprite: imperialdramon_dm
   portrait: true
+  portrait_usable: true
   sheet: imperialdramon_dm.png
   priority: null
   status: done
@@ -793,8 +865,9 @@ species:
   stage: ultimate
   dot: ready
   pack: veemon
-  sprite: ultimate
+  sprite: imperialdramon_fm
   portrait: true
+  portrait_usable: true
   sheet: imperialdramon_fm.png
   priority: null
   status: done
@@ -803,8 +876,9 @@ species:
   stage: ultimate
   dot: ready
   pack: veemon
-  sprite: superultimate
+  sprite: imperialdramon_pm
   portrait: true
+  portrait_usable: true
   sheet: imperialdramon_pm.png
   priority: null
   status: done
@@ -815,6 +889,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -825,6 +900,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -835,16 +911,18 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 아큐라몬
   line: hawkmon
   stage: adult
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: aquilamon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -855,16 +933,18 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 발키리몬
   line: hawkmon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: valkyrimon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -875,6 +955,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -885,6 +966,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -895,6 +977,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -905,6 +988,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -915,6 +999,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -925,6 +1010,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -935,6 +1021,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: P1
   status: todo
@@ -942,10 +1029,11 @@ species:
 - ko: 스팅몬
   line: wormmon
   stage: adult
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: gabumon
+  sprite: stingmon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -956,6 +1044,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -966,6 +1055,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -976,6 +1066,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -984,8 +1075,9 @@ species:
   stage: baby2
   dot: mismatch
   pack: guilmon
-  sprite: baby
+  sprite: gigimon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -994,8 +1086,9 @@ species:
   stage: child
   dot: ready
   pack: guilmon
-  sprite: child
+  sprite: guilmon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -1004,8 +1097,9 @@ species:
   stage: adult
   dot: ready
   pack: guilmon
-  sprite: adult
+  sprite: growlmon
   portrait: true
+  portrait_usable: true
   sheet: growlmon.png
   priority: null
   status: done
@@ -1014,8 +1108,9 @@ species:
   stage: perfect
   dot: ready
   pack: guilmon
-  sprite: perfect
+  sprite: megalogrowlmon
   portrait: true
+  portrait_usable: true
   sheet: wargrowlmon.png
   priority: null
   status: done
@@ -1024,8 +1119,9 @@ species:
   stage: ultimate
   dot: ready
   pack: guilmon
-  sprite: ultimate
+  sprite: dukemon
   portrait: true
+  portrait_usable: true
   sheet: gallantmon.png
   priority: null
   status: done
@@ -1034,8 +1130,9 @@ species:
   stage: superultimate
   dot: ready
   pack: guilmon
-  sprite: superultimate
+  sprite: dukemon_crimson
   portrait: true
+  portrait_usable: true
   sheet: gallantmon_crimson.png
   priority: null
   status: done
@@ -1046,6 +1143,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1054,8 +1152,9 @@ species:
   stage: baby2
   dot: mismatch
   pack: renamon
-  sprite: baby
+  sprite: pokomon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1064,8 +1163,9 @@ species:
   stage: child
   dot: ready
   pack: renamon
-  sprite: child
+  sprite: renamon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -1074,8 +1174,9 @@ species:
   stage: adult
   dot: ready
   pack: renamon
-  sprite: adult
+  sprite: kyubimon
   portrait: true
+  portrait_usable: true
   sheet: kyubimon.png
   priority: null
   status: done
@@ -1084,8 +1185,9 @@ species:
   stage: perfect
   dot: ready
   pack: renamon
-  sprite: perfect
+  sprite: taomon
   portrait: true
+  portrait_usable: true
   sheet: taomon.png
   priority: null
   status: done
@@ -1094,8 +1196,9 @@ species:
   stage: ultimate
   dot: ready
   pack: renamon
-  sprite: ultimate
+  sprite: sakuyamon
   portrait: true
+  portrait_usable: true
   sheet: sakuyamon.png
   priority: null
   status: done
@@ -1104,8 +1207,9 @@ species:
   stage: superultimate
   dot: ready
   pack: renamon
-  sprite: ultimate-kuzuhamon
+  sprite: kuzuhamon
   portrait: true
+  portrait_usable: true
   sheet: kuzuhamon.png
   priority: null
   status: done
@@ -1116,6 +1220,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1124,8 +1229,9 @@ species:
   stage: baby2
   dot: mismatch
   pack: terriermon
-  sprite: baby
+  sprite: gummymon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1134,8 +1240,9 @@ species:
   stage: child
   dot: ready
   pack: terriermon
-  sprite: child
+  sprite: terriermon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -1144,8 +1251,9 @@ species:
   stage: adult
   dot: ready
   pack: terriermon
-  sprite: adult
+  sprite: gargomon
   portrait: true
+  portrait_usable: true
   sheet: gargomon.png
   priority: null
   status: done
@@ -1154,8 +1262,9 @@ species:
   stage: perfect
   dot: ready
   pack: terriermon
-  sprite: perfect
+  sprite: rapidmon
   portrait: true
+  portrait_usable: true
   sheet: rapidmon.png
   priority: null
   status: done
@@ -1164,8 +1273,9 @@ species:
   stage: ultimate
   dot: ready
   pack: terriermon
-  sprite: ultimate
+  sprite: saintgalgomon
   portrait: true
+  portrait_usable: true
   sheet: megagargomon.png
   priority: null
   status: done
@@ -1174,8 +1284,9 @@ species:
   stage: superultimate
   dot: ready
   pack: terriermon
-  sprite: ultimate-blacksaintgalgomon
+  sprite: blacksaintgalgomon
   portrait: true
+  portrait_usable: true
   sheet: blackmegagargomon.png
   priority: null
   status: done
@@ -1186,6 +1297,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1196,6 +1308,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1206,6 +1319,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1216,6 +1330,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1226,6 +1341,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1236,6 +1352,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1246,6 +1363,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1256,26 +1374,29 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 케루비몬(선)
   line: lopmon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: cherubimon_virtue
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
 - ko: 케루비몬(악)
   line: lopmon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: cherubimon_vice
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -1284,8 +1405,9 @@ species:
   stage: baby1
   dot: mismatch
   pack: impmon
-  sprite: baby
+  sprite: yaamon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1294,8 +1416,9 @@ species:
   stage: child
   dot: ready
   pack: impmon
-  sprite: child
+  sprite: impmon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: done
@@ -1304,8 +1427,9 @@ species:
   stage: adult
   dot: ready
   pack: impmon
-  sprite: adult
+  sprite: devimon
   portrait: true
+  portrait_usable: true
   sheet: devimon.png
   priority: null
   status: done
@@ -1316,6 +1440,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: wontfix
@@ -1325,8 +1450,9 @@ species:
   stage: ultimate
   dot: ready
   pack: impmon
-  sprite: ultimate
+  sprite: beelzebumon
   portrait: true
+  portrait_usable: true
   sheet: beelzemon.png
   priority: null
   status: done
@@ -1335,8 +1461,9 @@ species:
   stage: superultimate
   dot: ready
   pack: impmon
-  sprite: superultimate
+  sprite: beelzebumon-bm
   portrait: true
+  portrait_usable: true
   sheet: beelzemon_bm.png
   priority: null
   status: done
@@ -1347,6 +1474,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1357,6 +1485,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1367,36 +1496,40 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 도루가몬
   line: dorumon
   stage: adult
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: dorugamon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
 - ko: 도루그레몬
   line: dorumon
   stage: perfect
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: doruguremon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
 - ko: 도루고라몬
   line: dorumon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: dorugoramon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -1407,6 +1540,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1417,6 +1551,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1427,6 +1562,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1435,8 +1571,9 @@ species:
   stage: child
   dot: ready
   pack: falcomon
-  sprite: child
+  sprite: falcomon
   portrait: true
+  portrait_usable: true
   sheet: falcomon.png
   priority: null
   status: done
@@ -1447,16 +1584,18 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
 - ko: 디아트리몬
   line: falcomon
   stage: adult
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: falcomon
+  sprite: diatrymon
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1465,8 +1604,9 @@ species:
   stage: adult
   dot: ready
   pack: falcomon
-  sprite: adult
+  sprite: peckmon
   portrait: true
+  portrait_usable: true
   sheet: peckmon.png
   priority: null
   status: done
@@ -1475,8 +1615,9 @@ species:
   stage: perfect
   dot: ready
   pack: falcomon
-  sprite: perfect
+  sprite: yatagaramon
   portrait: true
+  portrait_usable: true
   sheet: yatagaramon.png
   priority: null
   status: done
@@ -1487,6 +1628,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1495,18 +1637,20 @@ species:
   stage: ultimate
   dot: ready
   pack: falcomon
-  sprite: ultimate
+  sprite: varodurumon
   portrait: true
+  portrait_usable: true
   sheet: varodurumon.png
   priority: null
   status: done
 - ko: 스피노몬
   line: falcomon
   stage: ultimate
-  dot: missing
-  pack: null
-  sprite: null
+  dot: partial
+  pack: agumon
+  sprite: spinomon
   portrait: false
+  portrait_usable: true
   sheet: null
   priority: null
   status: todo
@@ -1515,8 +1659,9 @@ species:
   stage: ultimate
   dot: ready
   pack: falcomon
-  sprite: ultimate-ravemon
+  sprite: ravemon
   portrait: false
+  portrait_usable: true
   sheet: ravemon.png
   priority: null
   status: done
@@ -1525,8 +1670,9 @@ species:
   stage: baby2
   dot: ready
   pack: gaomon
-  sprite: baby
+  sprite: wanyamon
   portrait: false
+  portrait_usable: false
   sheet: wanyamon.png
   priority: null
   status: done
@@ -1535,8 +1681,9 @@ species:
   stage: child
   dot: ready
   pack: gaomon
-  sprite: child
+  sprite: gaomon
   portrait: true
+  portrait_usable: true
   sheet: gaomon.png
   priority: null
   status: done
@@ -1545,8 +1692,9 @@ species:
   stage: adult
   dot: ready
   pack: gaomon
-  sprite: adult
+  sprite: gaogamon
   portrait: true
+  portrait_usable: true
   sheet: gaogamon.png
   priority: null
   status: done
@@ -1557,6 +1705,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1565,8 +1714,9 @@ species:
   stage: perfect
   dot: ready
   pack: gaomon
-  sprite: perfect
+  sprite: machgaogamon
   portrait: true
+  portrait_usable: true
   sheet: machgaogamon.png
   priority: null
   status: done
@@ -1577,6 +1727,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1585,8 +1736,9 @@ species:
   stage: ultimate
   dot: ready
   pack: gaomon
-  sprite: ultimate
+  sprite: miragegaogamon
   portrait: true
+  portrait_usable: true
   sheet: miragegaogamon.png
   priority: null
   status: done
@@ -1597,6 +1749,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: miragegaogamon_bm.png
   priority: null
   status: todo
@@ -1607,8 +1760,9 @@ species:
   stage: baby1
   dot: ready
   pack: keramon
-  sprite: baby
+  sprite: kuramon
   portrait: false
+  portrait_usable: true
   sheet: kuramon.png
   priority: null
   status: done
@@ -1619,6 +1773,7 @@ species:
   pack: null
   sprite: null
   portrait: false
+  portrait_usable: false
   sheet: null
   priority: null
   status: todo
@@ -1627,8 +1782,9 @@ species:
   stage: child
   dot: ready
   pack: keramon
-  sprite: child
+  sprite: keramon
   portrait: true
+  portrait_usable: true
   sheet: keramon.png
   priority: null
   status: done
@@ -1637,8 +1793,9 @@ species:
   stage: adult
   dot: ready
   pack: keramon
-  sprite: adult
+  sprite: kurisarimon
   portrait: true
+  portrait_usable: true
   sheet: kurisarimon.png
   priority: null
   status: done
@@ -1647,8 +1804,9 @@ species:
   stage: perfect
   dot: ready
   pack: keramon
-  sprite: perfect
+  sprite: infermon
   portrait: true
+  portrait_usable: true
   sheet: infermon.png
   priority: null
   status: done
@@ -1657,8 +1815,9 @@ species:
   stage: ultimate
   dot: ready
   pack: keramon
-  sprite: ultimate
+  sprite: diablomon
   portrait: true
+  portrait_usable: true
   sheet: diaboromon.png
   priority: null
   status: done
@@ -1667,17 +1826,390 @@ species:
   stage: superultimate
   dot: ready
   pack: keramon
-  sprite: superultimate
+  sprite: armagemon
   portrait: true
+  portrait_usable: true
   sheet: armagemon.png
   priority: null
   status: done
 extras:
+- ko: 에어드라몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 에이션트그레이몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 에이션트이리스몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 에이션트트로이몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 에이션트볼케몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 아누비스몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 아포카리몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 아폴로몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 할매몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 반쵸레오몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 바바몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 베리얼묘티스몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 빅콩알몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 블랙워그레이몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 브롯사몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 볼트몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 브라키몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 캐논드라몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 키메라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 크레니움몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 크로스몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 사이버드라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 드라고몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 다크티라노몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 뿌띠몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 마왕몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 디아나몬
+  pack: agumon
+  stage: ultimate
+  source: pack
 - ko: 알
   pack: agumon
   stage: digitama
   source: pack
+- ko: 다이노몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 도트샤인그레이몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 두프트몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 듀나스몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 이바몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 엑자몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 팬텀몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 화염리자몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 플레어몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 후가몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 가이오몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 가왓파몬
+  pack: agumon
+  stage: adult
+  source: pack
 - ko: 지오그레이몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 게르베몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 기가드라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 기가시드라몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 갓드라몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 록몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 그레이드몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 그란쿠와가몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 아이언레오몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 그리포몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 다이버몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 하이안드로몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 호우오우몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 황제드라몬 블랙
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 운석몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 할배몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 멧돼지몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 쥬레이몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 크로우몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 카라츠키누메몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 킹체스몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 나이트몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 큐키몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 레오몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 레비아몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 라일라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 로드나이트몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 로터스몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 루체몬 폴다운 모드
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 마메티라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 마린엔젤몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 마스터티라노몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 메가시드라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 멜쿠리몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 메탈에테몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 메탈시드라몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 밀레니아몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 미네르바몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 문밀레니아몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 파워드라몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 넵튠몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 누메몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 오거몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 팬더몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 패러사이몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 패롯몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 파라오몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 피에몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 피노키몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 프린스마메몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 푸쿠몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 청룡몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 라프타드라몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 레어몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 렛파몬
   pack: agumon
   stage: adult
   source: pack
@@ -1685,9 +2217,25 @@ extras:
   pack: agumon
   stage: perfect
   source: pack
-- ko: 블랙워그레이몬
+- ko: 로제몬 버스트 모드
   pack: agumon
-  stage: ultimate
+  stage: superultimate
+  source: pack
+- ko: 블랙버드라몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 스카몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 시드라몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 샤우진몬
+  pack: agumon
+  stage: perfect
   source: pack
 - ko: 샤인그레이몬
   pack: agumon
@@ -1697,12 +2245,136 @@ extras:
   pack: agumon
   stage: superultimate
   source: pack
+- ko: 실피몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 신드라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 스컬맘몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 슬래시엔젤몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 스타몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 선플라워몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 슈퍼스타몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 테카몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 타이거베스파몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 토게몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 토노사마게코몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 토타몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 치린몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 티라노몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 묘티스몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 베지몬
+  pack: agumon
+  stage: adult
+  source: pack
+- ko: 베놈묘티스몬
+  pack: agumon
+  stage: ultimate
+  source: pack
+- ko: 버밀리몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 볼케몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 웨어시드라몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 현무몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 지드밀레니아몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 주작몬
+  pack: agumon
+  stage: superultimate
+  source: pack
+- ko: 즈도몬
+  pack: agumon
+  stage: perfect
+  source: pack
+- ko: 고스몬
+  pack: falcomon
+  stage: adult
+  source: pack
 - ko: 크로노몬 홀리 모드
   pack: falcomon
   stage: superultimate
   source: pack
+- ko: 옐로우워매몬
+  pack: falcomon
+  stage: adult
+  source: pack
 - ko: 레이브몬 버스트 모드
   pack: falcomon
+  stage: superultimate
+  source: pack
+- ko: 에이션트가루몬
+  pack: gabumon
+  stage: ultimate
+  source: pack
+- ko: 에이션트메가테리우몬
+  pack: gabumon
+  stage: ultimate
+  source: pack
+- ko: 에이션트머메이몬
+  pack: gabumon
+  stage: ultimate
+  source: pack
+- ko: 에이션트와이즈몬
+  pack: gabumon
+  stage: ultimate
+  source: pack
+- ko: 백호몬
+  pack: gabumon
   stage: superultimate
   source: pack
 - ko: 블랙워가루몬
@@ -1713,6 +2385,94 @@ extras:
   pack: gabumon
   stage: ultimate
   source: pack
+- ko: 그리즈몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 카부테리몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 키위몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 마린데블몬
+  pack: gabumon
+  stage: perfect
+  source: pack
+- ko: 수염두리몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 루카몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 시사몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 스나이몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 가트몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 바지라몬
+  pack: gabumon
+  stage: perfect
+  source: pack
+- ko: 와이즈몬
+  pack: gabumon
+  stage: perfect
+  source: pack
+- ko: 위자몬
+  pack: gabumon
+  stage: adult
+  source: pack
+- ko: 황금무사몬
+  pack: gabumon
+  stage: ultimate
+  source: pack
+- ko: 크레세몬
+  pack: gaomon
+  stage: perfect
+  source: pack
+- ko: 도트미라쥬가오가몬
+  pack: gaomon
+  stage: ultimate
+  source: pack
+- ko: 갈고몬
+  pack: gaomon
+  stage: adult
+  source: pack
+- ko: 고키몬
+  pack: gaomon
+  stage: adult
+  source: pack
+- ko: 이카쿠몬
+  pack: gaomon
+  stage: adult
+  source: pack
+- ko: 나이트체스몬(흑)
+  pack: gaomon
+  stage: adult
+  source: pack
+- ko: 머메이몬
+  pack: gaomon
+  stage: perfect
+  source: pack
+- ko: '미라쥬가오가몬: 버스트 모드'
+  pack: gaomon
+  stage: superultimate
+  source: pack
+- ko: 퀸체스몬
+  pack: gaomon
+  stage: ultimate
+  source: pack
 - ko: 블랙메가로그라우몬
   pack: guilmon
   stage: perfect
@@ -1721,17 +2481,21 @@ extras:
   pack: guilmon
   stage: ultimate
   source: pack
-- ko: 이블몬
-  pack: impmon
-  stage: adult
+- ko: 메기드라몬
+  pack: guilmon
+  stage: superultimate
   source: pack
-- ko: 뱀파이몬
-  pack: impmon
+- ko: 스컬벌키몬
+  pack: guilmon
   stage: perfect
   source: pack
-- ko: 미이라몬
+- ko: 에이션트스핑크스몬
   pack: impmon
-  stage: perfect
+  stage: ultimate
+  source: pack
+- ko: '벨페몬: 레이지 모드'
+  pack: impmon
+  stage: superultimate
   source: pack
 - ko: 데스몬
   pack: impmon
@@ -1741,13 +2505,57 @@ extras:
   pack: impmon
   stage: superultimate
   source: pack
-- ko: 프라리몬
-  pack: terriermon
+- ko: 그란드라크몬
+  pack: impmon
+  stage: ultimate
+  source: pack
+- ko: 아이스데블몬
+  pack: impmon
+  stage: adult
+  source: pack
+- ko: 미이라몬
+  pack: impmon
+  stage: perfect
+  source: pack
+- ko: 뱀파이몬
+  pack: impmon
+  stage: perfect
+  source: pack
+- ko: 소서리몬
+  pack: impmon
+  stage: adult
+  source: pack
+- ko: 이블몬
+  pack: impmon
+  stage: adult
+  source: pack
+- ko: 가드로몬
+  pack: keramon
+  stage: adult
+  source: pack
+- ko: 플래티넘스카몬
+  pack: keramon
+  stage: adult
+  source: pack
+- ko: 에이프몬
+  pack: renamon
+  stage: adult
+  source: pack
+- ko: 마타돌몬
+  pack: renamon
+  stage: perfect
+  source: pack
+- ko: 상굴몬
+  pack: renamon
   stage: adult
   source: pack
 - ko: 블랙래피드몬
   pack: terriermon
   stage: perfect
+  source: pack
+- ko: 프라리몬
+  pack: terriermon
+  stage: adult
   source: pack
 - ko: 화염드라몬
   pack: veemon
@@ -1766,5 +2574,4 @@ extras:
   stage: null
   source: sheet:saberleomon.png
 warnings: []
-acknowledged_warnings:
-- falcomon 팩의 본류 baby 가 "토코몬" 인데 이 종은 patamon 라인 소속이다 (카탈로그와 어긋남)
+acknowledged_warnings: []

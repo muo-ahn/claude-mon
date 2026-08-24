@@ -35,6 +35,8 @@ STATUS_YAML = os.path.join(ROOT, 'docs', 'sprite-status.yaml')
 PACKS_DIR = os.path.join(ROOT, 'sprites', 'packs')
 SHARED_DIR = os.path.join(ROOT, 'sprites', 'shared')
 SHEETS_DIR = os.path.join(ROOT, 'sprites', 'sheets', 'dwds')
+GRAPH_PATH = os.path.join(ROOT, 'evolution-graph.json')
+NODES_DIR = os.path.join(ROOT, 'sprites', 'nodes')
 
 STAGES = ['baby1', 'baby2', 'child', 'adult', 'perfect', 'ultimate', 'superultimate']
 FRAMES = ('0', '1')
@@ -51,6 +53,92 @@ def load_yaml(path, default=None):
         return yaml.safe_load(fh) or default
 
 
+def load_evolution_graph():
+    """전역 진화 그래프를 로드하고 역인덱스를 구성한다.
+
+    반환: (nodes, by_id, children_of)
+      nodes       — 노드 배열 (원본)
+      by_id       — 노드 id → 노드 딕셔너리
+      children_of — 부모 id → [자식 노드] (역인접 리스트)
+    """
+    if not os.path.exists(GRAPH_PATH):
+        return [], {}, {}
+    with open(GRAPH_PATH, encoding='utf-8') as fh:
+        data = json.load(fh)
+    nodes = data.get('nodes') or []
+    by_id = {nd['id']: nd for nd in nodes}
+    children_of = {}
+    for node in nodes:
+        for link in node.get('evolvesFrom') or []:
+            parent = link['from']
+            children_of.setdefault(parent, []).append(node)
+    return nodes, by_id, children_of
+
+
+def ancestors(node_id, by_id, acc=None):
+    """노드의 모든 조상을 재귀로 수집한다 (자신 포함)."""
+    if acc is None:
+        acc = set()
+    if node_id in acc:
+        return acc
+    acc.add(node_id)
+    node = by_id.get(node_id)
+    if not node:
+        return acc
+    for link in node.get('evolvesFrom') or []:
+        ancestors(link['from'], by_id, acc)
+    return acc
+
+
+def descendants(node_id, children_of, acc=None):
+    """노드의 모든 후손을 재귀로 수집한다 (자신 포함)."""
+    if acc is None:
+        acc = set()
+    if node_id in acc:
+        return acc
+    acc.add(node_id)
+    for kid in children_of.get(node_id) or []:
+        descendants(kid['id'], children_of, acc)
+    return acc
+
+
+def nodes_for_pack(pack_name, by_id, children_of):
+    """팩이 렌더할 수 있는 노드 집합을 파생한다.
+
+    팩 디렉터리명 = 로키(child 스테이지) 노드 id. 팩이 필요한 노드 =
+    로키의 조상(알·유아기 포함) + 모든 후손.
+    scripts/materialize-sprites.js 와 같은 규칙이다.
+    """
+    rookie = by_id.get(pack_name)
+    if not rookie or rookie.get('stage') != 'child':
+        return []
+    needed = set()
+    for nid in ancestors(pack_name, by_id):
+        needed.add(nid)
+    for nid in descendants(pack_name, children_of):
+        needed.add(nid)
+    return sorted(needed)
+
+
+def legacy_sprites_from_tree(pack_dir):
+    """pack.json 의 tree(레거시 구조)에서 스프라이트 키 집합을 뽑는다.
+
+    전역 그래프로 이관한 뒤, tree 는 레거시 접두사 파일(adult-0.png 등)을
+    '알려진 스프라이트'로 인식하는 대조 용도로만 남는다.
+    """
+    pack_json = os.path.join(pack_dir, 'pack.json')
+    if not os.path.exists(pack_json):
+        return set()
+    with open(pack_json, encoding='utf-8') as fh:
+        data = json.load(fh)
+    tree = data.get('tree') or {}
+    sprites = set()
+    for nodes in tree.values():
+        for nd in nodes:
+            sprites.add(nd.get('sprite', ''))
+    return sprites
+
+
 def build_catalog(lines):
     """정본 한글명 -> [(line_id, line_ko, stage), ...]"""
     catalog = OrderedDict()
@@ -61,18 +149,22 @@ def build_catalog(lines):
     return catalog
 
 
-def pack_nodes(pack_dir):
-    """pack.json 에서 (표시명, stage, sprite key) 목록을 뽑는다.
+def pack_nodes(pack_name, by_id, children_of):
+    """전역 그래프에서 이 팩이 렌더할 수 있는 노드를 파생한다.
 
-    tree 가 있는 팩은 노드 단위로, 없는 팩은 stageNames 로 폴백한다.
+    팩 디렉터리명이 로키(child 스테이지) 노드 id 이고, 그 로키의 조상 + 모든
+    후손이 팩 멤버십이다. (표시명, stage, sprite key) 목록을 반환한다.
+    scripts/materialize-sprites.js 와 같은 규칙.
     """
-    with open(os.path.join(pack_dir, 'pack.json'), encoding='utf-8') as fh:
-        data = json.load(fh)
-    if 'tree' in data:
-        return [(nd['name'], stage, nd['sprite'])
-                for stage, nodes in data['tree'].items()
-                for nd in nodes]
-    return [(name, stage, stage) for stage, name in data['stageNames'].items()]
+    node_ids = nodes_for_pack(pack_name, by_id, children_of)
+    result = []
+    for nid in node_ids:
+        node = by_id.get(nid)
+        if not node:
+            continue
+        # 노드 id 가 스프라이트 키다 (§B-1). name 은 표시명.
+        result.append((node['name'], node['stage'], node['sprite']))
+    return result
 
 
 def frame_state(pack_dir, sprite):
@@ -92,14 +184,34 @@ def has_portrait(pack_dir, sprite):
                for i in FRAMES)
 
 
-def orphan_sprites(pack_dir, declared):
-    """pack.json 에 선언되지 않았는데 PNG 만 존재하는 스프라이트 키."""
+def has_usable_portrait(pack_dir, sprite):
+    """프레임 0 하나만 있으면 참 — has_portrait() 의 "프레임 0·1 전부"
+    기준과는 별개의, 더 약한 판정이다.
+
+    런타임(menubar/claudemon-menubar.swift:1018 portraitImage(forStage:))이
+    portraitFrames[stage]?.first 만 읽고, 그 유일한 소비자인 진화 컷인
+    (:1401)과 드롭다운 헤더(:1554) 둘 다 정적 1장만 그린다 — 프레임 1은
+    애초에 소비되지 않는다. 즉 프레임 0만 있는 초상도 런타임에서는
+    완전히 동작한다. has_portrait()/portrait_ready 는 그대로 "2프레임
+    완비" 기준을 유지하고(의미를 바꾸지 않음), 이 함수는 "지금 실제로
+    화면에 뜰 수 있는가"를 별도로 답한다.
+    """
+    return os.path.exists(os.path.join(pack_dir, f'portrait-{sprite}-0.png'))
+
+
+def orphan_sprites(pack_dir, declared, legacy_keys):
+    """그래프에 선언되지 않았는데 PNG 만 존재하는 스프라이트 키.
+
+    레거시 접두사(adult-0.png 등 — tree 에 남아있던 접두사 형태)는
+    '알려진 레거시'로 분류하여 미선언 경고 대상에서 제외한다.
+    """
     names = set()
     for fname in os.listdir(pack_dir):
         if not fname.endswith('.png') or fname.startswith('portrait-'):
             continue
         names.add(FRAME_SUFFIX.sub('', fname))
-    return sorted(names - set(declared) - NON_SPECIES_SPRITES)
+    undeclared = names - set(declared) - NON_SPECIES_SPRITES - legacy_keys
+    return sorted(undeclared)
 
 
 def duplicate_frame_sprites(pack_dir, nodes, warnings):
@@ -140,8 +252,12 @@ def record(found, name, entry):
         found[name] = entry
 
 
-def scan_packs(aliases, catalog, warnings):
-    """정본명 -> {pack, stage, sprite, frames, frames_total, portrait}"""
+def scan_packs(aliases, catalog, by_id, children_of, warnings):
+    """정본명 -> {pack, stage, sprite, frames, frames_total, portrait}
+
+    전역 그래프에서 각 팩의 노드를 파생한다. 레거시 접두사 파일(adult-0.png
+    등)은 pack.json tree 에서 추출해 '알려진 레거시'로 분류한다.
+    """
     pack_to_catalog = aliases.get('pack_to_catalog') or {}
     sprite_alias = aliases.get('pack_sprite_to_catalog') or {}
     pack_to_line = aliases.get('pack_to_line') or {}
@@ -154,8 +270,12 @@ def scan_packs(aliases, catalog, warnings):
         if not os.path.exists(os.path.join(pack_dir, 'pack.json')):
             continue
         line_id = pack_to_line.get(pack, pack)
+
+        # 레거시 접두사 집합 — tree 에서 추출한 스프라이트 키 (대조용)
+        legacy_keys = legacy_sprites_from_tree(pack_dir)
+
         declared = []
-        nodes = list(pack_nodes(pack_dir))
+        nodes = list(pack_nodes(pack, by_id, children_of))
 
         for raw_name, stage, sprite in nodes:
             declared.append(sprite)
@@ -165,10 +285,13 @@ def scan_packs(aliases, catalog, warnings):
                 'pack': pack, 'stage': stage, 'sprite': sprite,
                 'frames': have, 'frames_total': total,
                 'portrait': has_portrait(pack_dir, sprite),
+                'portrait_usable': has_usable_portrait(pack_dir, sprite),
             }
             if have == 0:
-                warnings.append(
-                    f'{pack}/pack.json 의 "{raw_name}"({sprite}) 노드에 프레임 PNG가 하나도 없음')
+                # digitama 는 예외 — sprites/shared/ 에 있다.
+                if sprite != 'digitama':
+                    warnings.append(
+                        f'{pack} 팩의 "{raw_name}"({sprite}) 노드에 프레임 PNG가 하나도 없음')
             elif shared:
                 entry['shared'] = True
             owners = {o[0] for o in catalog.get(name, [])}
@@ -186,19 +309,21 @@ def scan_packs(aliases, catalog, warnings):
 
         duplicate_frame_sprites(pack_dir, nodes, warnings)
 
-        for sprite in orphan_sprites(pack_dir, declared):
+        for sprite in orphan_sprites(pack_dir, declared, legacy_keys):
             key = f'{pack}:{sprite}'
             name = sprite_alias.get(key)
             if not name:
                 warnings.append(
-                    f'{key} 스프라이트가 pack.json 에도 없고 별칭도 없음 '
-                    f'(docs/sprite-aliases.yaml 의 pack_sprite_to_catalog 에 추가할 것)')
+                    f'{key} 스프라이트가 그래프에도 없고 별칭도 없음 '
+                    f'(docs/sprite-aliases.yaml 의 pack_sprite_to_catalog 에 추가하거나 '
+                    f'레거시 tree 잔여물이면 삭제할 것)')
                 continue
             have, total, _shared = frame_state(pack_dir, sprite)
             entry = {
                 'pack': pack, 'stage': None, 'sprite': sprite,
                 'frames': have, 'frames_total': total,
                 'portrait': has_portrait(pack_dir, sprite),
+                'portrait_usable': has_usable_portrait(pack_dir, sprite),
                 'undeclared': True,
             }
             record(found, name, entry)
@@ -274,6 +399,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
     species, by_line = [], OrderedDict()
     counts = Counter()
     portrait_ready = 0
+    portrait_usable = 0
 
     for name, occurrences in catalog.items():
         dot, hit = classify(name, packs, sheets, dot_mismatch)
@@ -284,6 +410,9 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
         portrait = bool(hit and hit['portrait'])
         if portrait:
             portrait_ready += 1
+        usable = bool(hit and hit.get('portrait_usable'))
+        if usable:
+            portrait_usable += 1
 
         line_id, line_ko, stage = occurrences[0]
         row = OrderedDict([
@@ -294,6 +423,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
             ('pack', hit['pack'] if hit else None),
             ('sprite', hit['sprite'] if hit else None),
             ('portrait', portrait),
+            ('portrait_usable', usable),
             ('sheet', sheets.get(name)),
             ('priority', item.get('priority')),
             ('status', item.get('status', 'done' if dot == 'ready' else 'todo')),
@@ -341,6 +471,7 @@ def build_report(catalog, packs, sheets, sheet_extras, pack_extras, plan, warnin
         ('missing', counts['missing']),
         ('coverage_pct', round(100 * counts['ready'] / len(catalog)) if catalog else 0),
         ('portrait_ready', portrait_ready),
+        ('portrait_usable', portrait_usable),
     ])
     return summary, list(by_line.values()), species, list(seen_extra.values())
 
@@ -362,6 +493,19 @@ HEADER = """\
 #
 # dot: ready(프레임 완비) / mismatch(프레임은 있으나 알려진 결함) / partial(프레임 일부)
 #      / source_only(dwds 시트만) / missing
+#
+# portrait vs portrait_usable — 왜 두 지표가 다른가:
+#   portrait        프레임 0·1 이 모두 존재해야 참 (portrait_ready 집계). 판정
+#                   기준을 바꾸지 않았다 — 계속 "2프레임 완비"를 의미한다.
+#   portrait_usable 프레임 0 하나만 있으면 참 (portrait_usable 집계). 런타임
+#                   (menubar/claudemon-menubar.swift:1018 portraitImage(forStage:))
+#                   이 portraitFrames[stage]?.first 만 읽고, 유일한 소비자인
+#                   진화 컷인(:1401)·드롭다운 헤더(:1554) 둘 다 정적 1장만
+#                   그리므로 프레임 1은 애초에 쓰이지 않는다 — 즉 1프레임
+#                   초상도 화면에서는 완전히 동작한다. portrait_usable 은
+#                   "지금 실제로 뜰 수 있는 초상 수"이고, portrait_ready 는
+#                   "2프레임까지 완비된 초상 수"다. 후자가 전자보다 작은 건
+#                   정상이며 stale 이 아니다.
 """
 
 
@@ -397,7 +541,8 @@ def print_summary(summary, by_line, warnings, acknowledged, species):
           f"/ mismatch {summary['mismatch']} / partial {summary['partial']} "
           f"/ source_only {summary['source_only']} / missing {summary['missing']}"
           f"  → 커버리지 {summary['coverage_pct']}%")
-    print(f"초상(portrait) 완비: {summary['portrait_ready']}종\n")
+    print(f"초상(portrait) 완비: {summary['portrait_ready']}종 "
+          f"| 런타임 가용(프레임0만): {summary['portrait_usable']}종\n")
 
     print('라인별 커버리지')
     for b in sorted(by_line, key=lambda x: (-x['pct'], x['line'])):
@@ -440,9 +585,14 @@ def main():
     aliases = load_yaml(ALIASES_YAML, {}) or {}
     plan_doc = load_yaml(PLAN_YAML, {}) or {}
 
+    # 전역 진화 그래프 로드 — Phase B 이후 선언의 정본이다
+    _nodes, by_id, children_of = load_evolution_graph()
+    if not by_id:
+        sys.exit(f'전역 진화 그래프를 읽지 못했다: {GRAPH_PATH}')
+
     warnings = []
     catalog = build_catalog(lines)
-    packs, pack_extras = scan_packs(aliases, catalog, warnings)
+    packs, pack_extras = scan_packs(aliases, catalog, by_id, children_of, warnings)
     sheets, sheet_extras = scan_sheets(aliases, warnings)
     plan = merge_plan(plan_doc.get('plan'), catalog, warnings)
     dot_mismatch = plan_doc.get('dot_mismatch') or {}

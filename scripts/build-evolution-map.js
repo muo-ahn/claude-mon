@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-// 진화 맵 HTML 렌더러. sprites/packs/*/pack.json 트리 + 32x32 도트(PNG를 base64로
-// 인라인) + docs/*.yaml 카탈로그, 이 두 데이터 층을 저장소에서 그대로 읽어 단일
-// 정적 HTML 페이지로 그린다. 화면 절반은 "지금 도는 트리"(팩 트리를 그래프로),
-// 나머지 절반은 "계보 카탈로그"(namu.wiki 진화도 + 도트 확보 현황)다.
+// Evolution map HTML renderer. Reads the global evolution-graph.json (single
+// source of truth) and renders it as a static HTML page with inline 32x32
+// dots (PNG base64) + docs/*.yaml catalogue. The graph is now global, not
+// per-pack — packs remain as display views only (names, stageNames).
 //
-// 사용법: node scripts/build-evolution-map.js [출력경로]
-//   출력경로 생략 시 docs/evolution-map.html 에 쓴다.
+// Usage: node scripts/build-evolution-map.js [output-path]
+//   Omit output-path to write docs/evolution-map.html.
 //
-// 의존성: python3 + PyYAML (docs/*.yaml 파싱을 파이썬에 위임하고, 결과를 JSON으로
-// stdout에 실어 node가 받는다 — 이 리포에 YAML 파서를 새로 들이지 않기 위함).
+// Dependencies: python3 + PyYAML (docs/*.yaml parsing delegated to Python,
+// result piped as JSON to stdout so this repo doesn't need a YAML parser).
 //
-// 산출 HTML은 도트 PNG를 base64로 통째로 인라인하므로 수백 KB 이상이 나온다.
-// 커밋 대상이 아니라 매번 재생성해서 보는 산출물이라 .gitignore 에 올린다.
+// Output HTML inlines all dots as base64, so it's several hundred KB+.
+// It's a derived artifact (gitignored), regenerated on demand.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { normalizeNode, validatePackTree } = require('../lib/daily');
+const { readGraph, graphFilePath } = require('../lib/daily');
 
 const REPO = path.join(__dirname, '..');
 const OUT = process.argv[2] || path.join(REPO, 'docs', 'evolution-map.html');
 const PACKS = path.join(REPO, 'sprites/packs');
+const NODES = path.join(REPO, 'sprites/nodes');
 const SHARED = path.join(REPO, 'sprites/shared');
 
-// docs/*.yaml are the second layer: the namu.wiki lineage catalogue and the
-// dot-status scan over it. Dumped to JSON on stdout here so the rest of the
-// build is plain node.
+// docs/*.yaml catalogue - namu.wiki lineage + dot-status scan. Dumped to
+// JSON on stdout so the rest of the build is plain node.
 const CATALOG = JSON.parse(
   execFileSync(
     'python3',
@@ -45,6 +45,13 @@ json.dump({'meta': lines['meta'], 'lines': lines['lines'], 'byLine': status['by_
   )
 );
 
+const GRAPH = readGraph(graphFilePath());
+if (!GRAPH) {
+  console.error('FATAL: cannot read evolution-graph.json');
+  process.exit(1);
+}
+
+// Read stage definitions from evolution-tree.json (same source as lib/daily.js TREE)
 const TREE = JSON.parse(fs.readFileSync(path.join(REPO, 'evolution-tree.json'), 'utf8'));
 const STAGES = TREE.stages;
 const TOP = STAGES[STAGES.length - 1].id;
@@ -56,20 +63,30 @@ const SPRITE = 64;
 const ROW = 108;
 const PAD_TOP = 14;
 const PAD_BOTTOM = 12;
-const NARROW_SCALE = 0.8; // the stage ladder shrinks rather than getting wider on phones
+
+// A stage with 97 nodes (ultimate) in one column is a 10000px scroll. Give
+// each stage its own sub-column grid instead - width grows a little, height
+// drops a lot. Cap at 6 sub-columns so dense stages don't get comically wide.
+function subcolsForCount(count) {
+  return Math.max(1, Math.min(6, Math.ceil(Math.sqrt(count))));
+}
 
 function dataUri(file) {
   if (!file || !fs.existsSync(file)) return null;
   return 'data:image/png;base64,' + fs.readFileSync(file).toString('base64');
 }
 
-function spriteFor(pack, node, stageId) {
-  const own = path.join(PACKS, pack, `${node.sprite}-0.png`);
+// Sprite source: sprites/nodes/<node-id>-0.png (portraits portrait-<node-id>-0.png).
+// Exception: digitama uses sprites/shared/digitama-0.png (species-agnostic).
+// If portrait missing, fall back to frame or render without portrait (19 nodes lack portraits).
+function spriteFor(node) {
+  if (node.id === 'digitama') return dataUri(path.join(SHARED, 'digitama-0.png'));
+  const own = path.join(NODES, `${node.id}-0.png`);
   if (fs.existsSync(own)) return dataUri(own);
-  if (stageId === 'digitama') return dataUri(path.join(SHARED, 'digitama-0.png'));
   return null;
 }
 
+// Read pack.json files for display names only (tree field is now ignored)
 function readPacks() {
   return fs
     .readdirSync(PACKS, { withFileTypes: true })
@@ -78,119 +95,192 @@ function readPacks() {
     .sort()
     .map((dir) => {
       const j = JSON.parse(fs.readFileSync(path.join(PACKS, dir, 'pack.json'), 'utf8'));
-      const rawTree = j.tree || {};
-      // Same next-to-evolutions normalization lib/daily.js's readTree applies,
-      // reused directly rather than re-derived so the two can't drift. Unlike
-      // readTree this doesn't require every TREE.stages to be present - a
-      // partial pack (가오몬) still needs a tree to render its lane.
-      const tree = {};
-      for (const stageId of Object.keys(rawTree)) {
-        tree[stageId] = rawTree[stageId].map(normalizeNode);
-      }
-      const stages = STAGES.map((s) => s.id).filter((id) => Array.isArray(tree[id]) && tree[id].length);
-      const nodes = new Map();
-      for (const stageId of stages) {
-        tree[stageId].forEach((n, i) => {
-          nodes.set(n.id, {
-            ...n,
-            stageId,
-            row: i,
-            spine: i === 0,
-            dot: spriteFor(dir, n, stageId),
-            next: n.evolutions.map((e) => e.to),
-          });
-        });
-      }
-      const topDeclared = stages[stages.length - 1];
-      // Rotation eligibility mirrors lib/daily.js listRotationPacks's D7 pool
-      // (plan §2.5): a pack.json tree, however far it reaches, is enough --
-      // a lineage that ends before superultimate (가오몬) declares that via
-      // `terminal: true` on its last node rather than by sitting out the
-      // rotation. Only a tree-less legacy pack still needs the old
-      // stageNames[전역최상위] check. This intentionally does not validate
-      // the tree (decision E) -- an incomplete/invalid tree still counts as
-      // "has a tree" here and shows up as an INVALID chip instead.
-      const hasTree = stages.length > 0;
-      const rotation = hasTree
-        ? true
-        : Boolean(j.stageNames && typeof j.stageNames[TOP] === 'string' && j.stageNames[TOP].trim());
-      const invalid = validatePackTree(tree);
-      return { dir, name: j.name || dir, tree, stages, nodes, topDeclared, rotation, invalid };
+      return { dir, name: j.name || dir, stageNames: j.stageNames || {} };
     });
 }
 
-// A node counts as reachable if it has a dot AND either an evolutions chain
-// carries it to the pack's last declared stage, or it is itself a declared
-// lineage end (`terminal: true`, D7) -- checked the same strict way
-// lib/daily.js's isTerminal does, so a terminal node below topDeclared
-// (a pack whose tree keeps going for other branches) still counts, instead
-// of reading as stalled because its own `evolutions` list is empty.
-function markReachable(pack) {
-  const order = [...pack.stages].reverse();
-  for (const stageId of order) {
-    for (const node of pack.tree[stageId].map((n) => pack.nodes.get(n.id))) {
-      if (!node.dot) {
-        node.reaches = false;
-        continue;
-      }
-      if (node.terminal === true || stageId === pack.topDeclared) {
-        node.reaches = true;
-        continue;
-      }
-      node.reaches = node.next.some((id) => pack.nodes.get(id)?.reaches);
-    }
+const packs = readPacks();
+
+// Build stage-indexed node lists from global graph
+const nodesByStage = new Map();
+for (const stage of STAGES) {
+  nodesByStage.set(stage.id, []);
+}
+for (const node of GRAPH.nodes) {
+  if (nodesByStage.has(node.stage)) {
+    nodesByStage.get(node.stage).push(node);
   }
 }
 
-// A node with no incoming edge from anywhere in the pack can never be drawn
-// (no path from the egg reaches it), even though it's declared and may have
-// a dot. validatePackTree doesn't check this - it walks each node's own
-// outgoing edges, not who points at it - so orphans are a map-only concern.
-function markOrphans(pack) {
-  const seen = new Set();
-  const visit = (id) => {
-    if (seen.has(id)) return;
-    seen.add(id);
-    for (const next of pack.nodes.get(id).next) if (pack.nodes.has(next)) visit(next);
-  };
-  visit(pack.tree[pack.stages[0]][0].id);
-  for (const node of pack.nodes.values()) node.orphan = !seen.has(node.id);
+// Each stage gets its own sub-column count (subcolsForCount) and its own
+// horizontal offset (stageX), computed left-to-right so stage order
+// (digitama -> superultimate) is preserved. Within a stage, nodes fill a
+// row-major grid (arbitrary stable order, same order as nodesByStage).
+const stageSubcols = new Map();
+const stageX = new Map();
+const stageWidth = new Map();
+{
+  let x = 0;
+  for (const stage of STAGES) {
+    const count = (nodesByStage.get(stage.id) || []).length;
+    const subcols = subcolsForCount(count);
+    stageSubcols.set(stage.id, subcols);
+    stageX.set(stage.id, x);
+    const w = subcols * COL_W;
+    stageWidth.set(stage.id, w);
+    x += w;
+  }
 }
 
-// Every node's own evolutions list, flattened to {from, to, when} triples.
-// No more synthetic edges here - decision C retired the spine-return
-// fallback lib/daily.js used to synthesize for dead ends, so what a pack
-// declares is exactly what the rotation walks.
-function edgesFor(pack) {
+const nodeGeomCache = new Map();
+for (const [stageId, nodes] of nodesByStage.entries()) {
+  const subcols = stageSubcols.get(stageId);
+  const baseX = stageX.get(stageId);
+  nodes.forEach((node, i) => {
+    const col = i % subcols;
+    const row = Math.floor(i / subcols);
+    const x = baseX + col * COL_W + (COL_W - NODE_W) / 2;
+    const y = PAD_TOP + row * ROW;
+    nodeGeomCache.set(node.id, {
+      x, y,
+      cx: x + NODE_W / 2,
+      cy: y + SPRITE / 2,
+      left: x + (NODE_W - SPRITE) / 2,
+      right: x + (NODE_W + SPRITE) / 2,
+      idx: i,
+      row
+    });
+  });
+}
+
+function nodeGeom(nodeId) {
+  return nodeGeomCache.get(nodeId);
+}
+
+// All edges in the graph: { from, to, when } triples derived from evolvesFrom
+function allEdges() {
   const edges = [];
-  for (const stageId of pack.stages) {
-    for (const n of pack.tree[stageId]) {
-      for (const e of n.evolutions) {
-        if (pack.nodes.get(e.to)) edges.push({ from: n.id, to: e.to, when: e.when });
-      }
+  for (const node of GRAPH.nodes) {
+    if (!Array.isArray(node.evolvesFrom)) continue;
+    for (const edge of node.evolvesFrom) {
+      edges.push({ from: edge.from, to: node.id, when: edge.when });
     }
   }
   return edges;
 }
 
-function countRoutes(pack) {
+const edges = allEdges();
+
+// Diagnostics computation
+
+// Nodes with evolvesFrom.length >= 2 (convergence points)
+function convergenceNodes() {
+  return GRAPH.nodes.filter(n => Array.isArray(n.evolvesFrom) && n.evolvesFrom.length >= 2);
+}
+
+// Nodes with no children (terminals) - derived from childrenOf
+function terminalNodes() {
+  return GRAPH.nodes.filter(n => {
+    const children = GRAPH.childrenOf.get(n.id);
+    return !children || children.length === 0;
+  });
+}
+
+// Nodes with childrenOf[nodeId].length >= 2 (branch points)
+function branchPoints() {
+  const branches = [];
+  for (const [parentId, children] of GRAPH.childrenOf.entries()) {
+    if (children.length >= 2) branches.push(parentId);
+  }
+  return branches;
+}
+
+// Conditional edges: when !== null
+function conditionalEdges() {
+  return edges.filter(e => e.when !== null && e.when !== undefined);
+}
+
+// Root nodes: evolvesFrom.length === 0
+function rootNodes() {
+  return GRAPH.nodes.filter(n => !Array.isArray(n.evolvesFrom) || n.evolvesFrom.length === 0);
+}
+
+// Count all routes from digitama to superultimate terminals
+function countRoutes() {
   const out = new Map();
-  for (const e of edgesFor(pack)) {
+  for (const e of edges) {
     if (!out.has(e.from)) out.set(e.from, []);
     out.get(e.from).push(e.to);
   }
   const memo = new Map();
   const walk = (id) => {
     if (memo.has(id)) return memo.get(id);
-    const node = pack.nodes.get(id);
-    let n;
-    if (node.stageId === pack.topDeclared) n = 1;
-    else n = (out.get(id) || []).reduce((sum, next) => sum + walk(next), 0);
+    const node = GRAPH.byId.get(id);
+    if (!node) return 0;
+    // Terminal nodes count as 1 route ending here
+    const children = out.get(id) || [];
+    if (children.length === 0) {
+      memo.set(id, 1);
+      return 1;
+    }
+    const n = children.reduce((sum, next) => sum + walk(next), 0);
     memo.set(id, n);
     return n;
   };
-  return walk(pack.tree[pack.stages[0]][0].id);
+  return walk('digitama');
 }
+
+// Count routes that reach superultimate stage
+function countMegaRoutes() {
+  const superultimates = nodesByStage.get('superultimate') || [];
+  const out = new Map();
+  for (const e of edges) {
+    if (!out.has(e.from)) out.set(e.from, []);
+    out.get(e.from).push(e.to);
+  }
+  const memo = new Map();
+  const walk = (id) => {
+    if (memo.has(id)) return memo.get(id);
+    const node = GRAPH.byId.get(id);
+    if (!node) return 0;
+    // If this node is a superultimate, count it
+    if (superultimates.some(s => s.id === id)) {
+      memo.set(id, 1);
+      return 1;
+    }
+    const children = out.get(id) || [];
+    if (children.length === 0) {
+      memo.set(id, 0);
+      return 0;
+    }
+    const n = children.reduce((sum, next) => sum + walk(next), 0);
+    memo.set(id, n);
+    return n;
+  };
+  return walk('digitama');
+}
+
+// Orphan detection: nodes not reachable from digitama (except digitama itself)
+function markOrphans() {
+  const seen = new Set();
+  const visit = (id) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const children = GRAPH.childrenOf.get(id) || [];
+    for (const { node } of children) visit(node.id);
+  };
+  visit('digitama');
+  const orphans = [];
+  for (const node of GRAPH.nodes) {
+    if (!seen.has(node.id) && node.id !== 'digitama') {
+      orphans.push(node.id);
+    }
+  }
+  return orphans;
+}
+
+const orphans = markOrphans();
+const orphanSet = new Set(orphans);
 
 // Short human label for an edge's `when`, for the map only - not a full
 // restatement of conditionMet's semantics. `all`/`and` join with '·';
@@ -236,74 +326,64 @@ function wrapName(name) {
   return lines.slice(0, 2).map((l) => (l.length > 12 ? l.slice(0, 11) + '…' : l));
 }
 
-function colX(i) {
-  return i * COL_W + (COL_W - NODE_W) / 2;
-}
-
-function nodeGeom(pack, node) {
-  const i = pack.stages.indexOf(node.stageId);
-  const x = colX(i);
-  const y = PAD_TOP + node.row * ROW;
-  return { x, y, cx: x + NODE_W / 2, cy: y + SPRITE / 2, left: x + (NODE_W - SPRITE) / 2, right: x + (NODE_W + SPRITE) / 2 };
-}
-
-function renderPack(pack) {
-  markReachable(pack);
-  markOrphans(pack);
-  const edges = edgesFor(pack);
-  const maxRow = Math.max(...[...pack.nodes.values()].map((n) => n.row));
+function renderGraph() {
+  const maxRow = Math.max(...GRAPH.nodes.map(n => nodeGeom(n.id)?.row || 0));
   const height = PAD_TOP + maxRow * ROW + SPRITE + 30 + PAD_BOTTOM;
-  const width = STAGES.length * COL_W;
+  const width = STAGES.reduce((sum, s) => sum + stageWidth.get(s.id), 0);
 
   const edge = (e) => {
-    const A = nodeGeom(pack, pack.nodes.get(e.from));
-    const B = nodeGeom(pack, pack.nodes.get(e.to));
+    const fromNode = GRAPH.byId.get(e.from);
+    const toNode = GRAPH.byId.get(e.to);
+    if (!fromNode || !toNode) return '';
+    const A = nodeGeom(e.from);
+    const B = nodeGeom(e.to);
+    if (!A || !B) return '';
     const x1 = A.right + 5;
     const x2 = B.left - 5;
     const mid = x1 + (x2 - x1) / 2;
     const label = conditionLabel(e.when);
-    const path = `<path class="${label ? 'e-cond' : 'e-real'}" d="M${x1} ${A.cy} C${mid} ${A.cy} ${mid} ${B.cy} ${x2} ${B.cy}" />`;
+    const isCond = label !== null;
+    const path = `<path class="${isCond ? 'e-cond' : 'e-real'}" d="M${x1} ${A.cy} C${mid} ${A.cy} ${mid} ${B.cy} ${x2} ${B.cy}" />`;
     const text = label ? `<text class="e-label" x="${mid}" y="${(A.cy + B.cy) / 2 - 4}">${esc(label)}</text>` : '';
-    return path + text;
+    // Wrapped in a <g data-from/data-to/class="cond"|"uncond"> so the focus
+    // and filter JS can toggle visibility/emphasis without re-deriving the
+    // adjacency server-side. See <script> at end of body.
+    return `<g class="edge ${isCond ? 'cond' : 'uncond'}" data-from="${esc(e.from)}" data-to="${esc(e.to)}">${path}${text}</g>`;
   };
 
   const nodeSvg = (node) => {
-    const g = nodeGeom(pack, node);
-    const cls = ['node', node.reaches ? 'reaches' : 'stalls', node.spine ? 'spine' : 'branch', node.orphan ? 'orphan' : ''].join(' ');
-    const frame = node.dot
+    const g = nodeGeom(node.id);
+    if (!g) return '';
+    const isOrphan = orphanSet.has(node.id);
+    const isSpine = g.idx === 0; // First node listed in the stage is considered spine
+    const dot = spriteFor(node);
+    const cls = ['node', isSpine ? 'spine' : 'branch', isOrphan ? 'orphan' : ''].join(' ');
+    const frame = dot
       ? `<rect class="cell" x="${g.left - 5}" y="${g.y - 5}" width="${SPRITE + 10}" height="${SPRITE + 10}" rx="3" />
-         <image href="${node.dot}" x="${g.left}" y="${g.y}" width="${SPRITE}" height="${SPRITE}" />`
+         <image href="${dot}" x="${g.left}" y="${g.y}" width="${SPRITE}" height="${SPRITE}" />`
       : `<rect class="cell empty" x="${g.left - 5}" y="${g.y - 5}" width="${SPRITE + 10}" height="${SPRITE + 10}" rx="3" />
          <text class="nodot" x="${g.cx}" y="${g.y + SPRITE / 2 + 4}">도트 없음</text>`;
     const lines = wrapName(node.name)
       .map((l, i) => `<tspan x="${g.cx}" dy="${i === 0 ? 0 : 12}">${esc(l)}</tspan>`)
       .join('');
-    return `<g class="${cls}">${frame}<text class="name" x="${g.cx}" y="${g.y + SPRITE + 15}">${lines}</text></g>`;
+    return `<g class="${cls}" data-id="${esc(node.id)}" data-name="${esc(node.name)}" tabindex="0">${frame}<text class="name" x="${g.cx}" y="${g.y + SPRITE + 15}">${lines}</text></g>`;
   };
-
-  const nodes = [...pack.nodes.values()];
-  const dotless = nodes.filter((n) => !n.dot).length;
-  const orphans = nodes.filter((n) => n.orphan).length;
-  const chips = [
-    pack.rotation
-      ? '<span class="chip on">로테이션 후보</span>'
-      : `<span class="chip off">제외 · ${esc(STAGES.find((s) => s.id === pack.topDeclared).label.split(' (')[0])}까지</span>`,
-    `<span class="chip q">루트 ${countRoutes(pack)}</span>`,
-    pack.invalid.length ? `<span class="chip bad">INVALID ${pack.invalid.length}</span>` : '',
-    dotless ? `<span class="chip warn">도트 ${dotless}개 미비</span>` : '',
-    orphans ? `<span class="chip warn">부모 없음 ${orphans}</span>` : '',
-  ].join('');
 
   return `<section class="lane">
     <div class="lane-head">
-      <h3>${esc(pack.name)}</h3>
-      <p class="slug">${esc(pack.dir)}</p>
-      <div class="chips">${chips}</div>
+      <h3>전역 진화 그래프</h3>
+      <p class="slug">evolution-graph.json</p>
+      <div class="chips">
+        <span class="chip on">노드 ${GRAPH.nodes.length}</span>
+        <span class="chip on">엣지 ${edges.length}</span>
+        <span class="chip q">루트 ${countRoutes()}</span>
+        ${orphans.length ? `<span class="chip warn">부모 없음 ${orphans.length}</span>` : ''}
+      </div>
     </div>
-    <svg class="graph" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
-         aria-label="${esc(pack.name)} 진화 트리">
+    <svg class="graph" id="evo-graph" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img"
+         aria-label="전역 진화 그래프">
       <g class="edges">${edges.map(edge).join('')}</g>
-      ${nodes.map(nodeSvg).join('\n      ')}
+      ${GRAPH.nodes.map(nodeSvg).join('\n      ')}
     </svg>
 </section>`;
 }
@@ -319,12 +399,61 @@ const CAT_STAGES = [
 ];
 
 // Every dot the repo has, keyed pack/sprite - the join between the catalogue
-// (docs/*.yaml, names) and what a pack tree actually walks (sprite prefixes).
+// (docs/*.yaml, names) and what the graph makes available per pack.
+// A pack needs: rookie's ancestors + all descendants (same rule as materialize-sprites.js).
 function treeSpriteIndex(packs) {
   const index = new Map();
-  for (const pack of packs) {
-    for (const node of pack.nodes.values()) index.set(`${pack.dir}/${node.sprite}`, node);
+
+  // Helper: collect all ancestors of a node (including itself)
+  function ancestors(nodeId, acc = new Set()) {
+    if (acc.has(nodeId)) return acc;
+    acc.add(nodeId);
+    const node = GRAPH.byId.get(nodeId);
+    if (!node || !Array.isArray(node.evolvesFrom)) return acc;
+    for (const link of node.evolvesFrom) {
+      ancestors(link.from, acc);
+    }
+    return acc;
   }
+
+  // Helper: collect all descendants of a node (including itself)
+  function descendants(nodeId, acc = new Set()) {
+    if (acc.has(nodeId)) return acc;
+    acc.add(nodeId);
+    const kids = GRAPH.childrenOf.get(nodeId) || [];
+    for (const kid of kids) {
+      descendants(kid.node.id, acc);
+    }
+    return acc;
+  }
+
+  for (const pack of packs) {
+    // Pack directory name = rookie (child stage) node id
+    const rookie = GRAPH.byId.get(pack.dir);
+    if (!rookie || rookie.stage !== 'child') continue;
+
+    // Nodes needed by this pack = rookie's ancestors + all descendants
+    const needed = new Set();
+    for (const id of ancestors(pack.dir)) needed.add(id);
+    for (const id of descendants(pack.dir)) needed.add(id);
+
+    // Check if dot actually exists for each needed node
+    for (const nodeId of needed) {
+      const node = GRAPH.byId.get(nodeId);
+      if (!node) continue;
+      // Check if sprite file exists in pack directory OR nodes directory
+      const packDot = path.join(PACKS, pack.dir, `${nodeId}-0.png`);
+      const nodeDot = path.join(NODES, `${nodeId}-0.png`);
+      const sharedDot = nodeId === 'digitama' ? path.join(SHARED, 'digitama-0.png') : null;
+
+      if (fs.existsSync(packDot) || fs.existsSync(nodeDot) || (sharedDot && fs.existsSync(sharedDot))) {
+        // Key format matches sprite-status.yaml: <pack>/<sprite>
+        // sprite field in status yaml is the node id
+        index.set(`${pack.dir}/${nodeId}`, node);
+      }
+    }
+  }
+
   return index;
 }
 
@@ -349,9 +478,9 @@ function formState(lineId, name, species, treeSprites) {
 }
 
 const STATE_TITLE = {
-  wired: '팩 트리에 편입 · 화면에 나옴',
+  wired: '그래프에 편입 · 화면에 나옴',
   mismatch: '도트는 있으나 그림이 다른 종',
-  dot: '도트만 있음 · 트리 미편입',
+  dot: '도트만 있음 · 그래프 미편입',
   sheet: 'DWDS 시트만 확보',
   none: '아직 없음',
   untracked: '스캐너 대상 밖 (아머체·조그레스)',
@@ -417,27 +546,30 @@ function renderCatalog(packs) {
   return { html: `${head}\n    ${rows}`, treeSprites, species };
 }
 
-const packs = readPacks();
-packs.forEach(markReachable);
+const totalNodes = GRAPH.nodes.length;
+const totalEdges = edges.length;
+const condEdges = conditionalEdges();
+const branches = branchPoints();
+const terminals = terminalNodes();
+const convergence = convergenceNodes();
+const roots = rootNodes();
+const totalRoutes = countRoutes();
+const megaRoutes = countMegaRoutes();
 
-const totalNodes = packs.reduce((n, p) => n + p.nodes.size, 0);
-const dotless = packs.reduce((n, p) => n + [...p.nodes.values()].filter((x) => !x.dot).length, 0);
-packs.forEach(markOrphans);
-const orphanTotal = packs.reduce((n, p) => n + [...p.nodes.values()].filter((x) => x.orphan).length, 0);
+// Line filter dropdown options: only packs whose dir is an actual child-stage
+// node id in the graph (same rule renderCatalog/treeSpriteIndex uses to
+// decide a pack "roots" a rookie line).
+const linePacks = packs.filter((p) => {
+  const rookie = GRAPH.byId.get(p.dir);
+  return rookie && rookie.stage === 'child';
+});
+
 const catalog = renderCatalog(packs);
 const catalogued = new Set(CATALOG.species.filter((x) => x.pack && x.sprite).map((x) => `${x.pack}/${x.sprite}`));
-const offCatalog = packs.flatMap((p) =>
-  [...p.nodes.values()].filter((n) => n.stageId !== 'digitama' && !catalogued.has(`${p.dir}/${n.sprite}`))
-);
+const offCatalog = GRAPH.nodes.filter(n => n.id !== 'digitama' && !catalogued.has(`nodes/${n.sprite}`));
 const wiredSpecies = CATALOG.species.filter(
   (x) => x.pack && x.sprite && catalog.treeSprites.has(`${x.pack}/${x.sprite}`)
 ).length;
-const rotationPacks = packs.filter((p) => p.rotation);
-const totalRoutes = rotationPacks.reduce((n, p) => n + countRoutes(p), 0);
-const invalidTotal = packs.reduce((n, p) => n + p.invalid.length, 0);
-const orphanNodes = packs.flatMap((p) =>
-  [...p.nodes.values()].filter((n) => n.orphan).map((n) => ({ pack: p.name, name: n.name }))
-);
 
 // A stage's `condition` used to be a single flat { type, gte } - the rail
 // label just read .gte off it directly. The sage-day gate wrapped it in
@@ -457,15 +589,160 @@ const railCols = STAGES.map((s, i) => {
   const [ko, en] = s.label.split(' (');
   const gte = stageTokenGte(s.condition);
   const th = s.condition && s.condition.type === 'always' ? '기본' : gte >= 1000 ? `${(gte / 1000).toLocaleString('en-US')}K` : `${gte}`;
-  return `<div class="rail-col">
+  const count = (nodesByStage.get(s.id) || []).length;
+  return `<div class="rail-col" style="width:${stageWidth.get(s.id)}px">
     <span class="rail-idx">${i + 1}</span>
     <span class="rail-ko">${esc(ko)}</span>
     <span class="rail-en">${esc((en || '').replace(')', ''))}</span>
-    <span class="rail-th">${th}</span>
+    <span class="rail-th">${th} · ${count}종</span>
   </div>`;
 }).join('');
 
-const html = `<title>claudemon 진화 맵</title>
+// Client-side behaviour for the map: focus mode (click a node -> highlight
+// its full lineage), the line filter (select a rookie -> keep only its
+// reachable subgraph), a name search, and the conditional-only toggle. Kept
+// as a plain string (no backticks/no template interpolation) because it's
+// spliced into the outer `html` template literal below - a stray backtick
+// or "${" in here would break that literal.
+const GRAPH_SCRIPT = [
+  '(function () {',
+  '  var svg = document.getElementById("evo-graph");',
+  '  if (!svg) return;',
+  '  var nodeEls = Array.prototype.slice.call(svg.querySelectorAll(".node"));',
+  '  var edgeEls = Array.prototype.slice.call(svg.querySelectorAll(".edge"));',
+  '  var parentsOf = new Map();',
+  '  var childrenOf = new Map();',
+  '  edgeEls.forEach(function (g) {',
+  '    var from = g.getAttribute("data-from"), to = g.getAttribute("data-to");',
+  '    if (!childrenOf.has(from)) childrenOf.set(from, []);',
+  '    childrenOf.get(from).push(to);',
+  '    if (!parentsOf.has(to)) parentsOf.set(to, []);',
+  '    parentsOf.get(to).push(from);',
+  '  });',
+  '',
+  '  function closure(startId, adj) {',
+  '    var seen = new Set([startId]);',
+  '    var stack = [startId];',
+  '    while (stack.length) {',
+  '      var id = stack.pop();',
+  '      var next = adj.get(id) || [];',
+  '      for (var i = 0; i < next.length; i++) {',
+  '        if (!seen.has(next[i])) { seen.add(next[i]); stack.push(next[i]); }',
+  '      }',
+  '    }',
+  '    return seen;',
+  '  }',
+  '',
+  '  var focusedId = null;',
+  '',
+  '  function clearFocus() {',
+  '    focusedId = null;',
+  '    nodeEls.forEach(function (el) { el.classList.remove("in-focus", "dimmed"); });',
+  '    edgeEls.forEach(function (el) { el.classList.remove("in-focus", "dimmed"); });',
+  '  }',
+  '',
+  '  function setFocus(id) {',
+  '    focusedId = id;',
+  '    var anc = closure(id, parentsOf);',
+  '    var desc = closure(id, childrenOf);',
+  '    var lineage = new Set(anc);',
+  '    desc.forEach(function (x) { lineage.add(x); });',
+  '    nodeEls.forEach(function (el) {',
+  '      var on = lineage.has(el.getAttribute("data-id"));',
+  '      el.classList.toggle("in-focus", on);',
+  '      el.classList.toggle("dimmed", !on);',
+  '    });',
+  '    edgeEls.forEach(function (el) {',
+  '      var f = el.getAttribute("data-from"), t = el.getAttribute("data-to");',
+  '      var on = (anc.has(f) && anc.has(t)) || (desc.has(f) && desc.has(t));',
+  '      el.classList.toggle("in-focus", on);',
+  '      el.classList.toggle("dimmed", !on);',
+  '    });',
+  '  }',
+  '',
+  '  svg.addEventListener("click", function (e) {',
+  '    var g = e.target.closest ? e.target.closest(".node") : null;',
+  '    if (!g) { clearFocus(); return; }',
+  '    var id = g.getAttribute("data-id");',
+  '    if (focusedId === id) clearFocus(); else setFocus(id);',
+  '  });',
+  '  svg.addEventListener("keydown", function (e) {',
+  '    if (e.key !== "Enter" && e.key !== " ") return;',
+  '    var g = e.target.closest ? e.target.closest(".node") : null;',
+  '    if (!g) return;',
+  '    e.preventDefault();',
+  '    var id = g.getAttribute("data-id");',
+  '    if (focusedId === id) clearFocus(); else setFocus(id);',
+  '  });',
+  '',
+  '  var clearBtn = document.getElementById("clear-focus");',
+  '  if (clearBtn) clearBtn.addEventListener("click", clearFocus);',
+  '',
+  '  function applyLineFilter(rootId) {',
+  '    clearFocus();',
+  '    if (!rootId || rootId === "all") {',
+  '      nodeEls.forEach(function (el) { el.classList.remove("filtered-out"); });',
+  '      edgeEls.forEach(function (el) { el.classList.remove("filtered-out"); });',
+  '      return;',
+  '    }',
+  '    var anc = closure(rootId, parentsOf);',
+  '    var desc = closure(rootId, childrenOf);',
+  '    var keep = new Set(anc);',
+  '    desc.forEach(function (x) { keep.add(x); });',
+  '    nodeEls.forEach(function (el) {',
+  '      el.classList.toggle("filtered-out", !keep.has(el.getAttribute("data-id")));',
+  '    });',
+  '    edgeEls.forEach(function (el) {',
+  '      var f = el.getAttribute("data-from"), t = el.getAttribute("data-to");',
+  '      el.classList.toggle("filtered-out", !(keep.has(f) && keep.has(t)));',
+  '    });',
+  '  }',
+  '',
+  '  var lineSelect = document.getElementById("line-filter");',
+  '  if (lineSelect) lineSelect.addEventListener("change", function () {',
+  '    applyLineFilter(lineSelect.value);',
+  '    updateCount();',
+  '  });',
+  '',
+  '  var condOnly = document.getElementById("cond-only");',
+  '  if (condOnly) condOnly.addEventListener("change", function () {',
+  '    svg.classList.toggle("cond-only", condOnly.checked);',
+  '    updateCount();',
+  '  });',
+  '',
+  '  var searchInput = document.getElementById("node-search");',
+  '  if (searchInput) searchInput.addEventListener("input", function () {',
+  '    var q = searchInput.value.trim().toLowerCase();',
+  '    if (!q) return;',
+  '    var hit = nodeEls.find(function (el) {',
+  '      return (el.getAttribute("data-name") || "").toLowerCase().indexOf(q) !== -1 &&',
+  '        !el.classList.contains("filtered-out");',
+  '    });',
+  '    if (!hit) return;',
+  '    var id = hit.getAttribute("data-id");',
+  '    setFocus(id);',
+  '    hit.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });',
+  '  });',
+  '',
+  '  var countEl = document.getElementById("live-count");',
+  '  function updateCount() {',
+  '    if (!countEl) return;',
+  '    var condActive = svg.classList.contains("cond-only");',
+  '    var visNodes = 0, visEdges = 0;',
+  '    nodeEls.forEach(function (el) { if (!el.classList.contains("filtered-out")) visNodes++; });',
+  '    edgeEls.forEach(function (el) {',
+  '      if (el.classList.contains("filtered-out")) return;',
+  '      if (condActive && !el.classList.contains("cond")) return;',
+  '      visEdges++;',
+  '    });',
+  '    countEl.textContent = "표시 중 · 노드 " + visNodes + "/" + nodeEls.length + " · 엣지 " + visEdges + "/" + edgeEls.length;',
+  '  }',
+  '  updateCount();',
+  '})();'
+].join('\n');
+
+const html = `<meta charset="utf-8">
+<title>claudemon 진화 맵</title>
 <style>
   :root {
     --paper: #E3E7DD;
@@ -551,7 +828,7 @@ const html = `<title>claudemon 진화 맵</title>
   }
   .rail-label span { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   .rail-col {
-    flex: none; width: ${COL_W}px; padding: 8px 10px 9px;
+    flex: none; padding: 8px 10px 9px; /* width set inline per stage - a dense stage gets more sub-columns */
     display: flex; flex-direction: column; gap: 1px; border-left: 1px solid var(--line-soft);
   }
   .rail-idx { font-family: var(--mono); font-size: 10px; color: var(--muted); }
@@ -578,24 +855,41 @@ const html = `<title>claudemon 진화 맵</title>
   .chip.off { border-color: var(--line); color: var(--muted); }
   .chip.warn { border-color: var(--signal-soft); color: var(--signal); }
   .chip.bad { border-color: var(--signal); color: var(--signal); font-weight: 700; }
+  .chip.q { border-color: var(--accent-soft); color: var(--ink-2); }
 
   /* nodes */
-  .cell { fill: var(--sunken); stroke: var(--line-soft); }
+  .cell { fill: var(--sunken); stroke: var(--line-soft); transition: opacity .15s; }
   .cell.empty { fill: none; stroke: var(--line); stroke-dasharray: 3 3; }
+  .node { cursor: pointer; }
   .node image { image-rendering: pixelated; }
   .node .name { font-family: var(--display); font-size: 11.5px; font-weight: 600; fill: var(--ink); text-anchor: middle; }
   .node .nodot { font-family: var(--mono); font-size: 8.5px; fill: var(--muted); text-anchor: middle; }
   .node.spine .cell { stroke: var(--accent-soft); }
   .node.orphan .cell { stroke: var(--signal); stroke-dasharray: 3 3; }
   .node.orphan image { opacity: .5; }
-  .node.stalls image { opacity: .38; }
-  .node.stalls .name { fill: var(--muted); font-weight: 500; }
+  .node.dimmed { opacity: .16; }
+  .node.dimmed .cell { stroke: var(--line-soft); }
+  .node.in-focus .cell { stroke: var(--accent); stroke-width: 2.2; }
+  .node.in-focus .name { font-weight: 800; fill: var(--accent); }
+  .node.filtered-out { display: none; }
 
-  /* edges */
-  .edges path { fill: none; stroke-linecap: round; }
-  .e-real { stroke: var(--accent); stroke-width: 1.6; opacity: .75; }
-  .e-cond { stroke: var(--signal); stroke-width: 1.4; stroke-dasharray: 2 4; opacity: .8; }
-  .e-label { font-family: var(--mono); font-size: 8px; fill: var(--signal); text-anchor: middle; letter-spacing: .01em; }
+  /* edges - default view kills the hairball: unconditional edges (e-real)
+     stay near-invisible, conditional edges (e-cond) stay legible since
+     there are only a handful and they're the one part of this graph that's
+     actually decided at runtime. Focus mode (click a node) and the line
+     filter (select a rookie) toggle .in-focus/.dimmed/.filtered-out via the
+     <script> at the end of body - see setFocus()/applyLineFilter(). */
+  .edges path { fill: none; stroke-linecap: round; transition: opacity .15s, stroke-width .15s; }
+  .e-real { stroke: var(--accent); stroke-width: 1; opacity: .06; }
+  .e-cond { stroke: var(--signal); stroke-width: 1.5; stroke-dasharray: 2 4; opacity: .85; }
+  .e-label { font-family: var(--mono); font-size: 8px; fill: var(--signal); text-anchor: middle; letter-spacing: .01em; opacity: .85; }
+  .edge.in-focus .e-real { stroke-width: 2; opacity: .9; }
+  .edge.in-focus .e-cond { stroke-width: 2.2; opacity: 1; }
+  .edge.dimmed .e-real { opacity: .02; }
+  .edge.dimmed .e-cond { opacity: .12; }
+  .edge.dimmed .e-label { opacity: .12; }
+  .edge.filtered-out { display: none; }
+  .graph.cond-only .edge.uncond { display: none; }
 
   /* ---- section heads ---- */
   .section-head { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; }
@@ -670,8 +964,8 @@ const html = `<title>claudemon 진화 맵</title>
     .scroll-hint span { color: var(--ink-2); }
 
     .lane-head, .rail-label { width: 118px; }
-    .graph { width: ${STAGES.length * COL_W * NARROW_SCALE}px; height: auto; }
-    .rail-col { width: ${COL_W * NARROW_SCALE}px; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .controls .field { width: 100%; }
     .lane-head { padding: 13px 10px 12px 13px; }
     .lane-head h3 { font-size: 15px; }
     .rail-label { padding: 9px 10px 10px 13px; }
@@ -700,6 +994,30 @@ const html = `<title>claudemon 진화 맵</title>
     .bar { max-width: 220px; }
   }
 
+  /* ---- controls (focus/filter/search bar above the graph) ---- */
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface);
+  }
+  .controls .field { display: flex; align-items: center; gap: 6px; }
+  .controls label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--muted); white-space: nowrap; }
+  .controls input[type="text"], .controls select {
+    font-family: var(--display); font-size: 12.5px; color: var(--ink); background: var(--sunken);
+    border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; min-width: 150px;
+  }
+  .controls input[type="checkbox"] { accent-color: var(--signal); }
+  .controls .check { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+  .controls .spacer { flex: 1 1 auto; }
+  .controls .live-count {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .controls button {
+    font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--ink-2);
+    background: var(--sunken); border: 1px solid var(--line); border-radius: 3px; padding: 5px 10px; cursor: pointer;
+  }
+  .controls button:hover { color: var(--accent); border-color: var(--accent-soft); }
+
   /* ---- legend + notes ---- */
   .legend { display: flex; flex-wrap: wrap; gap: 10px 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
   .legend div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
@@ -723,36 +1041,57 @@ const html = `<title>claudemon 진화 맵</title>
 
 <div class="wrap">
   <header>
-    <p class="eyebrow">claudemon · sprites/packs/*/pack.json</p>
+    <p class="eyebrow">claudemon · evolution-graph.json</p>
     <h1>진화 맵</h1>
     <p class="lede">하루 output 토큰이 임계치를 넘을 때마다 한 칸 진화한다. 데이터는 두 층이다 —
-      지금 화면에 나오는 <b>팩 트리</b>(<code>sprites/packs/*/pack.json</code>)와, 도트를 채워 넣을
+      지금 화면에 나오는 <b>전역 그래프</b>(<code>evolution-graph.json</code>)와, 도트를 채워 넣을
       대상 목록인 <b>계보 카탈로그</b>(<code>docs/digimon-evolution-lines.yaml</code> +
       <code>docs/sprite-status.yaml</code>). 아래는 두 층을 순서대로, 저장소 실측으로 그렸다.</p>
     <div class="stats">
-      <div class="stat"><b>${packs.length}</b><span>팩 · 트리 노드 ${totalNodes}</span></div>
-      <div class="stat"><b>${rotationPacks.length}/${packs.length}</b><span>로테이션 후보</span></div>
-      <div class="stat hi"><b>${totalRoutes}</b><span>하루 루트 (로테이션 후보 합)</span></div>
-      <div class="stat${invalidTotal ? ' hi' : ''}"><b>${invalidTotal}</b><span>INVALID</span></div>
-      <div class="stat"><b>${CATALOG.lines.length}</b><span>카탈로그 계보</span></div>
-      <div class="stat"><b>${CATALOG.summary.ready + CATALOG.summary.mismatch}/${CATALOG.summary.total}</b><span>도트 확보 종</span></div>
+      <div class="stat"><b>${totalNodes}</b><span>노드</span></div>
+      <div class="stat"><b>${totalEdges}</b><span>엣지</span></div>
+      <div class="stat"><b>${condEdges.length}</b><span>조건부 엣지 (${Math.round(condEdges.length / totalEdges * 100)}%)</span></div>
+      <div class="stat"><b>${branches.length}</b><span>분기점 (fan-out≥2)</span></div>
+      <div class="stat"><b>${totalRoutes}</b><span>경로 총수</span></div>
+      <div class="stat"><b>${megaRoutes}</b><span>초궁극체 도달 경로</span></div>
+      <div class="stat"><b>${terminals.length}</b><span>종점 (out-deg 0)</span></div>
+      <div class="stat"><b>${convergence.length}</b><span>수렴 노드 (in-deg≥2)</span></div>
+      <div class="stat"><b>${roots.length}</b><span>루트 (in-deg 0)</span></div>
     </div>
   </header>
 
   <div class="section-head">
-    <p class="eyebrow">layer 1 · sprites/packs/*/pack.json</p>
-    <h2>지금 도는 트리</h2>
-    <p>매일 이 그래프에서 하루 루트 하나를 뽑는다. 가로가 스테이지, 상단 레일이 임계치다.</p>
-    <p class="scroll-hint">좌우로 밀어서 다음 단계 → <span>팩 이름은 왼쪽에 고정된다</span></p>
+    <p class="eyebrow">layer 1 · evolution-graph.json</p>
+    <h2>전역 진화 그래프</h2>
+    <p>단일 그래프에서 모든 진화가 결정된다. 가로가 스테이지, 상단 레일이 임계치다.</p>
+    <p class="scroll-hint">좌우로 밀어서 다음 단계 →</p>
   </div>
 
   <div class="legend">
-    <div><i class="swatch real"></i> 무조건 엣지 (<code>when: null</code>)</div>
-    <div><i class="swatch cond"></i> 조건부 엣지 (라벨 = 오늘 이 분기를 여는 조건)</div>
+    <div><i class="swatch real"></i> 무조건 엣지 (기본은 희미하게 숨김)</div>
+    <div><i class="swatch cond"></i> 조건부 엣지 (항상 표시 · 라벨 = 오늘 이 분기를 여는 조건)</div>
     <div><i class="box"></i> spine (스테이지 첫 노드)</div>
-    <div><i class="box faded"></i> 최상위 미달 · 추첨 제외</div>
-    ${dotless ? '<div><i class="box dashed"></i> 도트 없음</div>' : ''}
-    <div><i class="box orphan"></i> 부모 엣지 없음 · 도달 불가</div>
+    ${orphans.length ? '<div><i class="box orphan"></i> 부모 엣지 없음 · 도달 불가</div>' : ''}
+  </div>
+
+  <div class="controls" id="graph-controls">
+    <div class="field">
+      <label for="node-search">검색</label>
+      <input type="text" id="node-search" placeholder="한글 이름…" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="line-filter">라인</label>
+      <select id="line-filter">
+        <option value="all" selected>전체</option>
+        ${linePacks.map((p) => `<option value="${esc(p.dir)}">${esc(p.name)}</option>`).join('')}
+      </select>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="cond-only" /> 조건부만 보기
+    </label>
+    <button type="button" id="clear-focus">선택 해제</button>
+    <div class="spacer"></div>
+    <div class="live-count" id="live-count">표시 중 · 노드 ${totalNodes}/${totalNodes} · 엣지 ${totalEdges}/${totalEdges}</div>
   </div>
 
   <div class="map">
@@ -761,9 +1100,11 @@ const html = `<title>claudemon 진화 맵</title>
         <div class="rail-label"><span>일일 output 토큰 →</span></div>
         ${railCols}
       </div>
-      ${packs.map(renderPack).join('\n      ')}
+      ${renderGraph()}
     </div>
   </div>
+
+  <p class="section-head" style="margin-top:0"><span class="scroll-hint" style="display:block">노드를 클릭하면 그 종의 조상(알까지)과 후손 전체가 강조되고 나머지는 흐려진다. 다시 클릭하면 해제.</span></p>
 
   <div class="section-head">
     <p class="eyebrow">layer 2 · docs/digimon-evolution-lines.yaml</p>
@@ -793,14 +1134,9 @@ const html = `<title>claudemon 진화 맵</title>
   <div class="notes">
     <div class="note calm">
       <h4>점선은 조건부 엣지다</h4>
-      <p>부모 노드의 <code>evolutions</code> 목록을 순서대로 검사해 오늘의 신호(<code>sessionCount</code>
+      <p>진화 판단은 <code>evolvesFrom</code>을 역인덱스로 조회해 후보를 찾고, 오늘의 신호(<code>sessionCount</code>
         · <code>topSharePct</code> · <code>failureRatioPct</code> 등)로 조건이 먼저 걸린 분기를
-        먼저 시도하고, 실선(<code>when: null</code>)이 도달을 보장하는 폴백이다. 후속이 없는
-        분기를 다음 스테이지의 spine으로 되돌리는 합성 엣지는 없다 — 각 노드는 엣지로 다음
-        스테이지에 도달하거나, <code>terminal: true</code>로 계보가 여기서 끝난다고 스스로
-        선언해야 한다. <span class="path">validatePackTree</span>가 그 계약(엣지 부재 시
-        <code>missing-terminal</code>, 종점인데 엣지가 있으면 <code>terminal-with-edges</code>)을
-        검사한다.</p>
+        먼저 시도한다. 실선(<code>when: null</code>)이 도달을 보장하는 폴백이다.</p>
     </div>
     <div class="note calm">
       <h4>지연 진화가 들어왔다</h4>
@@ -809,48 +1145,55 @@ const html = `<title>claudemon 진화 맵</title>
         아직 도달하지 않은 분기를 바꾸면서도 화면의 모습은 흔들리지 않는다.</p>
     </div>
     <div class="note calm">
-      <h4>로테이션에 드는 조건</h4>
-      <p><span class="path">idle-0.png</span>이 있고, 알 도트에 닿고, <code>pack.json</code>에 진화
-        트리가 있어야 매일 추첨에 든다(트리가 없는 레거시 팩은 여전히 <span class="path">stageNames</span>가
-        전역 최상위 스테이지를 이름 붙여야 한다). 가오몬처럼 초궁극체 없이 끝나는 계보도 마지막
-        노드가 <code>terminal: true</code>를 선언하면 후보에 든다 — 더 이상 하드코딩된 예외가
-        아니다.</p>
-    </div>
-    <div class="note">
-      <h4>두 층이 겹치지 않는 자리</h4>
-      <p>팩 트리에는 있는데 카탈로그에는 없는 노드가 ${offCatalog.length}개다 — 지오그레이몬·샤인그레이몬처럼
-        DWDS(세이버즈) 계열 분기다. 카탈로그는 namu의 정사 진화도라 이쪽을 <span class="path">stages</span>에
-        담지 않는다.</p>
+      <h4>전역 그래프의 이점</h4>
+      <p>팩 경계가 소멸해 케라몬 라인이 임프몬 팩의 베르제브몬 블래스트 모드로 이어진다. 공유 노드(오메가몬·베르제브몬·파일드라몬)가
+        한 번만 나타난다. 도트 0장으로 분기점을 추가할 수 있다 — 엣지 한 줄이면 된다.</p>
     </div>
     ${
-      orphanNodes.length
+      orphans.length
         ? `<div class="note">
-      <h4>부모가 없는 노드 (${orphanNodes.length})</h4>
-      <p>${orphanNodes.map((n) => `${esc(n.pack)}/${esc(n.name)}`).join(', ')} — 트리에 있고 도트도
-        있지만 알에서 출발하는 어떤 경로에도 닿지 않는다. 정사 근거(<span class="path">docs/evolution-routes.md</span>,
-        <span class="path">docs/digimon-evolution-lines.yaml</span>) 없이 부모 엣지를 지어내지 않았다.</p>
+      <h4>부모가 없는 노드 (${orphans.length})</h4>
+      <p>${orphans.map(esc).join(', ')} — 그래프에 있지만 알에서 출발하는 어떤 경로에도 닿지 않는다.
+        전역 그래프 모델에서는 이것이 데이터 오류다(<code>unreachable-node</code>).</p>
     </div>`
         : `<div class="note calm">
       <h4>부모 없는 노드 0개</h4>
-      <p>모든 노드가 알에서 시작하는 경로 위에 있다. 지난 판(가오몬 도입 이전)에 있던
-        블랙워가루몬·레이브몬 고아는 각각 D4·<code>docs/digimon-evolution-lines.yaml</code> 근거로
-        부모 엣지를 이어 해소했다.</p>
+      <p>모든 노드가 알에서 시작하는 경로 위에 있다.</p>
     </div>`
     }
   </div>
 
-  <footer>저장소 실측 · pack.json ${totalNodes} 노드 · 카탈로그 ${CATALOG.summary.total} 종 (fetched ${esc(CATALOG.meta.fetched)}) · 규칙은 docs/evolution-routes.md</footer>
+  <footer>저장소 실측 · 노드 ${totalNodes} · 엣지 ${totalEdges} · 조건부 ${condEdges.length} · 분기점 ${branches.length} · 경로 ${totalRoutes} · 초궁극체 ${megaRoutes} · 종점 ${terminals.length} · 수렴 ${convergence.length} · 루트 ${roots.length} · 규칙은 docs/global-graph-plan.md</footer>
 </div>
+<script>
+${GRAPH_SCRIPT}
+</script>
 `;
 
 fs.writeFileSync(OUT, html);
-console.log('wrote', OUT, (fs.statSync(OUT).size / 1024).toFixed(0) + 'KB');
-for (const p of packs) {
-  console.log(
-    p.name.padEnd(7),
-    'rotation:' + (p.rotation ? 'Y' : 'N'),
-    'routes:' + countRoutes(p),
-    'INVALID:' + p.invalid.length,
-    'stalls:' + [...p.nodes.values()].filter((n) => !n.reaches).map((n) => n.name).join(',')
-  );
+const kb = (fs.statSync(OUT).size / 1024).toFixed(0);
+console.log('wrote', OUT, kb + 'KB');
+console.log('');
+// Phase B baseline (pack-tree → global-graph migration, 2026-08-20).
+// Growth beyond baseline is intentional — new edges added via §B-6.
+// Baseline is NOT an expectation; it's a reference point for measuring growth.
+const baseline = { nodes: 79, edges: 90, condEdges: 13, branches: 14, routes: 27, megaRoutes: 26, terminals: 12, convergence: 8, roots: 1 };
+const delta = (current, base) => {
+  const diff = current - base;
+  return diff > 0 ? ` (+${diff})` : diff < 0 ? ` (${diff})` : '';
+};
+console.log('=== DIAGNOSTICS ===');
+console.log('Phase B baseline (2026-08-20) → Current');
+console.log(`Nodes:                   ${baseline.nodes} → ${totalNodes}${delta(totalNodes, baseline.nodes)}`);
+console.log(`Edges:                   ${baseline.edges} → ${totalEdges}${delta(totalEdges, baseline.edges)}`);
+console.log(`Conditional edges:       ${baseline.condEdges} (14%) → ${condEdges.length} (${Math.round(condEdges.length / totalEdges * 100)}%)${delta(condEdges.length, baseline.condEdges)}`);
+console.log(`Branch points (≥2 out):  ${baseline.branches} → ${branches.length}${delta(branches.length, baseline.branches)}`);
+console.log(`Total routes:            ${baseline.routes} → ${totalRoutes}${delta(totalRoutes, baseline.routes)}`);
+console.log(`Superultimate routes:    ${baseline.megaRoutes} → ${megaRoutes}${delta(megaRoutes, baseline.megaRoutes)}`);
+console.log(`Terminals (0 out):       ${baseline.terminals} → ${terminals.length}${delta(terminals.length, baseline.terminals)}`);
+console.log(`Convergence (≥2 in):     ${baseline.convergence} → ${convergence.length}${delta(convergence.length, baseline.convergence)}`);
+console.log(`Roots (0 in):            ${baseline.roots} → ${roots.length}${delta(roots.length, baseline.roots)}`);
+console.log('');
+if (orphans.length) {
+  console.log(`WARN: ${orphans.length} orphan nodes: ${orphans.join(', ')}`);
 }

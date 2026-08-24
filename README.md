@@ -150,7 +150,7 @@ launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
 node --test
 ```
 
-Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 셔플 덱 로테이션(`selectMon` — 사이클 내 1회씩 배치·멱등·에폭 이전 음수 `dayIndex`·풀 크기 변경·N배수 일수 분포 균등성)과 연속 중복 방지(`prevMon` 가드), 분기 루트 추첨(`selectRoute` — 하루 고정·조건 게이트·lazy binding), 팩 트리 검증(`validatePackTree`), 몬 등장 이력(`mon-history.json` — append/제자리 갱신/쓰기 생략/60개 트림/degrade) — 과 조건 엔진(`lib/evolve.js`의 `checkCondition`/`conditionMet` — 조건 타입 전체 + `all` 합성), 그리고 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
+Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현재 커버 범위는 `lib/daily.js`의 몬 로테이션 — 팩 유효성(`listValidPacks`), 로테이션 후보 판정(`listRotationPacks`), 해시 분산(`hashString`), 셔플 덱 로테이션(`selectMon` — 사이클 내 1회씩 배치·멱등·에폭 이전 음수 `dayIndex`·풀 크기 변경·N배수 일수 분포 균등성)과 연속 중복 방지(`prevMon` 가드), 분기 루트 추첨(`selectRoute` — 하루 고정·조건 게이트·lazy binding), 전역 그래프 검증(`validateGraph` — 역인덱스 구성·종점 파생·골든 스냅샷 동등성), 몬 등장 이력(`mon-history.json` — append/제자리 갱신/쓰기 생략/60개 트림/degrade) — 과 조건 엔진(`lib/evolve.js`의 `checkCondition`/`conditionMet` — 조건 타입 전체 + `all` 합성), 그리고 토큰 집계(transcript 신원 dedupe, 서브에이전트 합산, 단계 임계값)다. 실제로 났던 버그를 재현하는 테스트들이라, 각 방어 장치를 하나씩 되돌리면 대응하는 테스트가 실패하는 것까지 확인했다.
 
 ## 진화 단계 (일일 KST 토큰 소모량 기준)
 
@@ -171,7 +171,7 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 
 - 매일 KST 자정에 합계가 0으로 리셋된다(고정 오프셋 UTC+9, DST 없음).
 - `superultimate`(초궁극체, 2M) 임계값은 실측으로 정했다. 집계를 고친 뒤 16일치를 재계산했을 때 1M+는 4일, 2M+는 1일(최고 2.75M)이었다 — 1M이 4일에 한 번꼴이 되면서 궁극체의 희소성이 사라진 자리를 메우는 단계다.
-- **최상위 단계에 도달하지 못하는 팩은 로테이션 후보에서 빠진다 — 단, 계보상 그 위가 없어 `terminal: true`로 명시된 종점 노드는 예외다(D7, 아래 [랜덤 진화](#랜덤-진화-분기-루트) 참고).** 종점에 닿은 라인은 그 스테이지에서 머무는 것 자체가 "도달"이라 로테이션에서 빠지지 않는다.
+- **최상위 단계에 도달하지 못하는 팩은 로테이션 후보에서 빠진다 — 단, 계보가 그보다 아래에서 끝나는 종점 라인은 예외다(D7).** 전역 그래프(`evolution-graph.json`)에서 종점은 "다음 칸의 노드 중 나를 부모(`evolvesFrom`)로 지목한 것이 없음"으로 파생된다. 종점에 닿은 라인은 그 스테이지에서 머무는 것 자체가 "도달"이라 로테이션에서 빠지지 않는다.
 - `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
 - `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
 
@@ -291,14 +291,14 @@ node daily-tokens.js
 
 `listValidPacks`(팩이 로드 가능한가)와 `listRotationPacks`(오늘의 몬으로 뽑을 후보인가)는 다른 질문이다. 후자는 전자에 조건 하나를 더 얹는다 — 다음 둘 중 하나를 만족해야 한다.
 
-1. **트리가 읽히는 팩** — `readTree`가 트리를 반환하는 팩(사다리 앞쪽부터 연속으로 스테이지가 선언돼 있으면 된다. 중간 구멍이 없는 한 전 스테이지를 다 채울 필요는 없다). 이 경로는 더 이상 `stageNames`의 최상위 이름을 요구하지 않는다 — 트리 위의 종점 판정(`terminal: true`, D7)이 그 역할을 대신한다.
-2. **트리가 없는 레거시 팩** — `pack.json`의 `stageNames`에 전역 최상위 단계(현재 `superultimate`)의 이름이 있어야 한다. 트리 없이 `stageNames`만으로 동작하던 예전 방식 그대로다.
+1. **전역 그래프에 로키 노드가 있는 팩** — `evolution-graph.json`의 `byId`에 팩 디렉터리 이름과 같은 `id`를 가진 child-stage 노드가 있으면 된다. 그 노드에서 역방향으로 `evolvesFrom`을 따라 digitama까지 도달하거나, 전방으로 최상위 또는 종점까지 도달하면 로테이션 후보다.
+2. **레거시 팩(그래프에 없는 경우)** — `pack.json`의 `stageNames`에 전역 최상위 단계(현재 `superultimate`)의 이름이 있어야 한다. 그래프에 없이 `stageNames`만으로 동작하던 예전 방식 그대로다.
 
-트리도 없고 `stageNames` 최상위 이름도 없는 팩은 로테이션에 들지 않는다 — 이것이 커스텀 팩 저작의 공개 계약이다.
+그래프에 로키 노드도 없고 `stageNames` 최상위 이름도 없는 팩은 로테이션에 들지 않는다 — 이것이 커스텀 팩 저작의 공개 계약이다.
 
-- **(D7, 2026-08-19)** 예전에는 "최상위 단계까지 진화하지 못하는 계보는 로테이션에서 뺀다"는 조건이 전역 최상위(`superultimate`) 도달을 뜻했다. 정사에서 초궁극체를 가진 계보는 소수라 이 조건이 편입 가능한 갈래를 구조적으로 제한했다(가오몬·레나몬처럼 분기가 0개인 팩이 그 결과다). 지금은 노드에 `terminal: true`를 명시해 "이 계보는 여기가 최종형"이라고 선언할 수 있고, 그 종점에 닿은 라인은 로테이션 자격을 그대로 유지한다. 근거와 기각된 대안은 `docs/evolution-routes.md` §8 D7 참고.
+- **(D7, 2026-08-19)** 예전에는 "최상위 단계까지 진화하지 못하는 계보는 로테이션에서 뺀다"는 조건이 전역 최상위(`superultimate`) 도달을 뜻했다. 정사에서 초궁극체를 가진 계보는 소수라 이 조건이 편입 가능한 갈래를 구조적으로 제한했다(가오몬·레나몬처럼 분기가 0개인 팩이 그 결과다). D7이 그 계약을 완화해 궁극체 이하 종점도 인정했고, Phase B(2026-08-20)에서 전역 그래프로 전환하면서 종점 판정이 `terminal: true` 플래그에서 **"다음 칸에서 나를 부모로 지목한 노드가 없음"**(역인덱스 `childrenOf`에서 파생)으로 바뀌었다. 종점에 닿은 라인은 로테이션 자격을 그대로 유지한다. 근거와 기각된 대안은 `docs/evolution-routes.md` §8 D7, `docs/global-graph-plan.md` §B-1 참고.
 - 후보에서 빠져도 팩 자체는 유효하다 — 명시적으로 지정하거나 `guilmon` 폴백으로 걸리면 그대로 렌더된다.
-- **가오몬이 D7로 로테이션에 복귀했다.** 미라지가오가몬 궁극체 노드에 `terminal: true`를 달아 "여기서 계보가 끝난다"고 선언했다(초궁극체 시트가 photobucket 워터마크 리핑이라 여전히 확보 못한 상태 — §10.2). 화면에서는 `stageId`가 그 스테이지 위로 올라가지 않고(clamp), `daily.json`의 `terminalFrom`이 라인이 끝난 지점을 알린다.
+- **가오몬이 D7로 로테이션에 복귀했다.** 미라지가오가몬 궁극체 노드가 종점으로 판정된다("다음 칸에 나를 부모로 지목한 노드가 없음" — 초궁극체 시트가 photobucket 워터마크 리핑이라 여전히 확보 못한 상태). 화면에서는 `stageId`가 그 스테이지 위로 올라가지 않고(clamp, `lib/daily.js:1158-1162`), `daily.json`의 `terminalFrom`이 라인이 끝난 지점을 알린다.
 - **부수효과: 로테이션 풀 크기가 9 → 10으로 바뀐다.** 셔플 덱의 시드가 `hashString(\`${cycle}|${N}\`)`이라(아래 [매일 랜덤 몬 선택](#매일-랜덤-몬-선택-libdailyjs) 참고) N이 바뀌면 향후 모든 사이클이 재셔플된다 — 설계된 동작이지만 사용자 체감은 로테이션 순서 전면 변경이다.
 - 후보가 늘어나는 만큼 반대 방향도 열려 있다: 초궁극체까지 이어지는 계보를 새로 추가하면 그대로 후보가 된다. 케라몬 팩(→ 아마게몬)과 팔코몬 팩(→ 크로노몬 홀리 모드)이 그렇게 들어왔다.
 
@@ -306,33 +306,34 @@ node daily-tokens.js
 
 디지몬은 같은 종족이라도 성장 배경에 따라 다른 형태로 진화한다. claudemon도 하루 단위로 **루트**를 뽑는다 — 오늘의 마스코트는 (팩, 루트) 쌍이다.
 
-**트리는 `pack.json`의 `tree`에 있다.** stage id → 노드 배열이고, 각 노드는 `{ id, name, sprite, evolutions }`다. 각 단계 배열의 **첫 노드가 그 단계의 spine**(아무 것도 개입하지 않을 때의 형태)이다. `sprite`가 그대로 파일 prefix라서 분기 도트는 `adult-geogreymon-0.png`처럼 저장되고, spine은 기존 `adult-0.png`를 그대로 쓴다.
+**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(314개, 2026-08-20 Wikimon `Digimon Story` 오버월드 립 235종 편입 이후)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
 
-**`evolutions`는 우선순위가 있는 조건 목록이다.**
+**`evolvesFrom`은 부모별로 조건을 갖는다.**
 
 ```json
 {
-  "id": "geogreymon",
-  "name": "지오그레이몬",
-  "sprite": "adult-geogreymon",
-  "evolutions": [
-    { "to": "rizegreymon",  "when": { "type": "sessionCount", "gte": 5 } },
-    { "to": "metalgreymon", "when": null }
+  "id": "beelzebumon", "name": "베르제브몬", "stage": "ultimate", "sprite": "beelzebumon",
+  "evolvesFrom": [
+    { "from": "myotismon", "when": null },
+    { "from": "mummymon",  "when": { "type": "topSharePct", "gte": 60 } },
+    { "from": "infermon",  "when": null }
   ]
 }
 ```
 
-- **순서 = 우선순위, 첫 매칭 승리.** 위에서부터 조건을 검사해 처음 만족하는 엣지로 넘어간다.
-- **`when: null`(또는 필드 자체가 없음)은 무조건 엣지다.** 전역 최상위 단계도 아니고 **종점(`terminal: true`)도 아닌** 모든 노드는 **마지막 엣지가 반드시 `when: null`**이어야 한다 — 이게 도달 보장이다("갈 곳이 있는 라인이면 2M 토큰을 찍었을 때 반드시 다음 스테이지에 닿는다"). `validatePackTree`(`lib/daily.js`, `node --test`에 포함)가 이 규칙과 함께 존재하지 않는 `to`, 단계 스킵, 알 수 없는 조건 `type`을 검사한다. 위반이 있어도 런타임은 죽지 않고 조용히 전체 후보로 폴백한다 — 검증은 여기서 잡는다.
-- **`terminal: true`(D7, 2026-08-19) — "이 계보는 여기가 최종형"이라는 명시적 선언.** 정사에서 초궁극체를 가진 계보는 소수이고, 예전 계약("최상위 단계가 아닌 모든 노드는 마지막 엣지가 반드시 `when: null`")은 궁극체에서 끝나는 라인을 전부 로테이션 밖으로 밀어냈다(가오몬·레나몬이 분기 0개인 이유). D7은 그 계약을 완화해 종점 노드에 한해 마지막 엣지 = `when: null` 규칙을 면제한다. `evolutions: []`는 종점 표시로 쓸 수 없다 — `normalizeNode`가 `next`가 아예 없는 레거시 노드도 빈 배열로 정규화하므로, "의도된 종점"과 "후속을 깜빡한 데이터 오류"를 구분할 방법이 없어진다. 그래서 종점은 반드시 `terminal: true`로 명시해야 하고, `validatePackTree`가 이를 두 방향으로 강제한다 — 종점인데 엣지가 남아 있으면(`terminal-with-edges`) 모순, 마지막 선언 스테이지의 비-전역최상위 노드가 종점도 아니고 무조건 엣지도 없으면(`missing-terminal`) 계약 위반이다. 무조건 면제는 여전히 **전역 최상위 스테이지**에만 적용된다 — 그 아래 스테이지에서 종점을 선언하려면 반드시 플래그를 달아야 새 계약이 실제로 강제된다.
-- **종점 도달 시 화면 표시.** `route`의 종점 이후 칸은 같은 종점 노드로 채워지지만, `daily.json`의 `stageId`는 그 스테이지 위로 올라가지 않는다(clamp) — 그래야 메뉴바가 종점 노드로 "진화!" 컷인을 반복 재생하지 않는다. `outputTokens`는 clamp와 무관하게 그날 실제로 쓴 토큰량을 그대로 기록한다("얼마나 일했는가"의 진실은 보존된다). 최상위 키 `terminalFrom: "<stageId>"`가 라인이 끝난 지점(정사 단계 기준)을 알려준다 — route 안의 노드 값은 여전히 전부 문자열이라 메뉴바 쪽 route 캐스트(`[String: [String: String]]`)에 영향이 없다.
-- **같은 우선순위에서 조건을 통과한 후보가 둘 이상이면** `hashString(dateKST|팩|단계)` tie-break로 결정적으로 하나를 고른다(둘 다 `when: null`이면 둘 다 동률로 참여한다) — 이것 때문에 재실행해도 그날은 같은 결과가 나온다.
-- **`when`이 지원하는 조건 타입** (`lib/evolve.js` `checkCondition`): `sessionCount`(그날 세션 수, `gte`), `topSharePct`(최다 세션이 그날 output에서 차지하는 %, `gte`/`lte`), `failureRatioPct`(`global.json`의 **누적** 도구 실패율 %, `gte`/`lte` — 일일 값이 아니다), `dailyOutputTokens`, `toolSuccessCount`, `globalToolSuccessCount`, `errorRatePct`, `consecutiveDaysActive`, `milestone`. 여러 조건을 한꺼번에 걸려면 `"when": { "all": [ {...}, {...} ] }`(중첩 가능) — 옛 2항 `and` 문법도 계속 동작한다.
-- **`next: ["id", ...]`도 계속 지원한다** — 하위 호환용이며, 각 항목이 `{ to: id, when: null }`로 정규화된다(무조건 엣지만 표현 가능). 기존 팩은 무수정으로 그대로 동작한다. 한 노드에 `evolutions`가 있으면 `next`는 무시된다.
+런타임(`lib/daily.js`)은 로드 시 **역인덱스 `childrenOf: 부모 id → [{ node, when }]`** 를 구성한다. 다음 칸 후보는 "현재 노드를 `evolvesFrom`의 부모로 지목한 노드들"이다(파생).
+
+- **조건 게이트.** 역인덱스 배열을 순서대로 검사해 조건(`when`)을 만족하는 첫 엣지의 조건 그룹을 승자로 삼는다. 같은 조건 그룹 안에서 후보가 여럿이면 `hashString(dateKST|rookie|stage)` 타이브레이크로 결정적으로 하나를 고른다.
+- **`when: null`은 무조건 엣지다.** 조건을 만족한 엣지가 없으면 전체 후보로 폴백한다 — 나를 부모로 지목한 노드가 1개 이상이면 반드시 진화한다. 이것이 도달 보장이다.
+- **종점 판정은 파생된다.** "다음 칸에 나를 부모로 지목한 노드가 없음"(`childrenOf`에 없거나 빈 배열)이 종점이다. 플래그가 필요 없다.
+- **순서 = 우선순위.** `evolution-graph.json`의 **노드 배열 순서**가 분기 우선순위 정본이다. 역인덱스 구성 시 조건부 엣지(`when !== null`)를 무조건 엣지보다 앞으로 안정 정렬해, 무조건 엣지가 항상 조건을 충족해 조건부 분기를 죽이는 것을 막는다(자세한 이유는 `docs/global-graph-plan.md` 결정 1번).
+- **종점 도달 시 화면 표시.** `route`의 종점 이후 칸은 같은 종점 노드로 채워지지만, `daily.json`의 `stageId`는 그 스테이지 위로 올라가지 않는다(clamp). `terminalFrom: "<stageId>"`가 라인이 끝난 지점을 알려준다.
+- **`when`이 지원하는 조건 타입** (`lib/evolve.js` `checkCondition`): `sessionCount`(그날 세션 수, `gte`), `topSharePct`(최다 세션이 그날 output에서 차지하는 %, `gte`/`lte`), `failureRatioPct`(`global.json`의 **누적** 도구 실패율 %, `gte`/`lte` — 일일 값이 아니다), `dailyOutputTokens`, 기타. 여러 조건을 한꺼번에 걸려면 `"when": { "all": [ {...}, {...} ] }`(중첩 가능).
+- **팩 경계를 넘는 엣지를 추가한 뒤에는 `node scripts/materialize-sprites.js --write`를 실행한다.** 스프라이트는 `sprites/nodes/`에 있지만 메뉴바는 `sprites/packs/<pack>/`에서 읽으므로, 팩이 새로 렌더하게 된 노드의 파일을 복사해야 한다. 안 돌리면 조건이 발동하는 날 프레임이 없어 한 단계 아래로 폴백한다. `python3 scripts/sprite_status.py --check` (exit code 0 확인)가 이 누락을 잡는다.
 
 **Lazy binding.** 오늘 이미 도달한 단계는 그날 안에 절대 바뀌지 않는다(눈앞의 형태가 흔들리지 않는다). 아직 도달하지 않은 상위 단계는 30초마다 도는 재계산 때마다 **그 시점의 신호**로 다시 평가된다 — 아직 오르지 않은 단계라면, 거기 도달하기 전까지 조건을 채우기만 하면 그 분기가 반영된다. 재계산은 결정론적이라 신호가 그대로면 결과도 바이트 단위로 그대로다.
 
-`daily.json`에 `route`(단계별 `{id, name, sprite}`)가 추가된다. 메뉴바 앱은 `route[단계].sprite`를 프레임 prefix로, `route[단계].name`을 표시 이름으로 쓰고, 루트가 바뀌면 프레임 세트를 다시 읽는다. 트리가 없는 팩은 `route: null`이라 기존 `stageNames` 경로로 그대로 동작한다.
+`daily.json`에 `route`(단계별 `{id, name, sprite}`)가 추가된다. 메뉴바 앱은 `route[단계].sprite`를 프레임 prefix로, `route[단계].name`을 표시 이름으로 쓰고, 루트가 바뀌면 프레임 세트를 다시 읽는다. 그래프에 없는 팩은 `route: null`이라 기존 `stageNames` 경로로 그대로 동작한다.
 
 
 ### 팩 메타데이터 (`pack.json`, 선택)
@@ -367,12 +368,38 @@ node daily-tokens.js
 
 ### 새 팩 등록하기
 
-1. `sprites/packs/<새팩이름>/` 디렉터리를 만든다.
-2. 최소 `idle-0.png`를 넣는다 — 팩 자체의 `digitama-0.png` 없이도 `sprites/shared/digitama-0.png`(공용 알)가 있으면 로테이션 후보 + 전환이 동작한다. 공용 알을 아직 안 만들었다면 `python3 scripts/make_shared_digitama.py`로 먼저 생성한다. 이후 나머지 단계·프레임을 채워나가면 된다.
-3. `pack.json`을 추가한다 — 표시 이름 지정용이지만 완전히 선택은 아니다. **트리(`tree`)가 있는 팩은 `stageNames` 최상위 이름이 없어도 로테이션 후보가 된다** — 대신 트리의 각 라인이 전역 최상위까지 이어지거나 `terminal: true`로 명시된 종점에서 끝나야 한다(D7, 위 [랜덤 진화](#랜덤-진화-분기-루트) 참고). **트리가 없는 팩**은 여전히 `stageNames`에 최상위 단계(`superultimate`) 이름이 있어야 후보가 된다. 트리도 없고 `stageNames` 최상위도 없는 팩은 로테이션에 들지 않는다.
-4. 별도 등록 명령은 없다 — 다음 `daily-tokens.js` 실행(메뉴바 앱이 ~30초 주기로 호출)부터 자동으로 후보에 들어간다.
+1. **전역 그래프에 노드를 추가한다.** `evolution-graph.json`에 로키(성장기, `stage: "child"`) 노드와 그 계보(유아기·유년기·알 역방향, 성숙기 이상 전방)를 추가한다. 최소 예시(궁극체 종점 라인):
+   ```json
+   {
+     "id": "rookie_name", "name": "로키이름", "stage": "child", "sprite": "rookie_name",
+     "evolvesFrom": [{ "from": "baby_name", "when": null }]
+   },
+   {
+     "id": "adult_name", "name": "성숙기이름", "stage": "adult", "sprite": "adult_name",
+     "evolvesFrom": [{ "from": "rookie_name", "when": null }]
+   }
+   ```
+   조건은 `evolvesFrom` 항목마다 붙인다. 부모가 여럿이면 `[{ from: "a", when: null }, { from: "b", when: {...} }]`.
+   종점은 명시 플래그 없이 "다음 칸에서 나를 부모로 지목한 노드가 없음"으로 파생된다.
+
+2. **도트 파일을 `sprites/nodes/`에 넣는다.** 최소 `<노드 id>-0.png`. 초상도 함께 넣으면(`portrait-<노드 id>-0.png`) 메뉴바 드롭다운 헤더가 원본 해상도로 표시된다.
+
+3. **`sprites/packs/<새팩이름>/` 디렉터리를 만든다.** 팩 디렉터리 이름은 로키 노드의 `id`와 같아야 한다(이것이 `selectMon`이 오늘의 팩을 고르는 방법이다). 최소 `idle-0.png`를 넣는다. `pack.json`에 `stageNames`로 표시 이름을 지정한다.
+
+4. **`scripts/materialize-sprites.js`를 실행한다.** 전역 `sprites/nodes/`의 파일을 각 팩 디렉터리로 복사(또는 하드링크)한다. 메뉴바가 실제로 읽는 것은 `<pack>/<id>-N.png`이므로 이 단계를 건너뛰면 프레임이 없어 폴백한다.
+
+5. 별도 등록 명령은 없다 — 다음 `daily-tokens.js` 실행(메뉴바 앱이 ~30초 주기로 호출)부터 자동으로 후보에 들어간다.
+
+**기존 그래프에 엣지만 추가하는 경우에도 4단계(materialize)를 다시 돌려야 한다.** 도트를 새로 만들지 않아도, 팩 경계를 넘는 엣지(`evolvesFrom`에 다른 팩의 노드를 부모로 추가)는 그 팩이 렌더할 수 있는 노드 집합을 넓히므로 프레임이 그 팩 디렉터리에 없다. 건너뛰면 **조건이 발동하는 날에만** 프레임이 없어 한 단계 아래로 폴백한다 — 평소에는 정상으로 보이고 특정 조건의 날에만 퇴화처럼 보이는, 재현이 어려운 형태로 나타난다. `python3 scripts/sprite_status.py --check` (exit code 확인)가 이 누락을 잡는다. 엣지를 추가했으면 이 검사를 돌려라.
 
 > 갖고 있는 스프라이트 시트를 잘라 프레임을 만들 때는 `scripts/extract_pack_*.py`를 참고 예시로 쓸 수 있다(시트 크롭 좌표를 팩 규격 PNG로 변환).
+
+### 새 노드 대량 편입 도구 (2026-08-20)
+
+도트 부족이 아니라 **어떤 종을 편입할지 정사대로 판정하는 것**이 병목이 되면서, 위 1~4단계를 대량으로 돌리기 위한 도구 둘이 추가됐다.
+
+- **`scripts/harvest-wikimon-canon.js`** — 종 목록(또는 `--from-graph`로 현재 그래프 전체)에 대해 Wikimon raw wikitext에서 세대·한글명·`Evolves From` 부모 목록과 각 부모의 출처 게임을 뽑아 JSON으로 산출한다. 신규 노드를 `evolution-graph.json`에 편입할 때의 입력 자료다. `--roster-mode strict|relaxed`로 로스터 게이트 완화 여부를 조절하며, 어느 모드든 각 엣지에 `games`와 `passesStrictGate`(항상 strict 기준)를 같이 남겨 사후 소급 적용/철회가 가능하다(§ [Q5 참고](docs/evolution-routes.md)).
+- **`scripts/fetch-wikimon-dots.py`** — Wikimon이 종별로 호스팅하는 Digimon Story 오버월드 도트(`<Title>_dst_map.png`, 없으면 `_dsle_map.png` 폴백)를 내려받아 이 레포의 노드 도트 규격(`sprites/nodes/<id>-0.png`, 32×32 RGBA)으로 정규화한다. 파일 존재 여부와 실제 다운로드 URL은 MediaWiki API(`wikimon.net/api.php`)로만 확인하며, 없는 파일을 추측해서 만들지 않는다. `source: "vpet_*"`를 지정하면 컬러 vpet 도트 세트(848종)로 확장할 수도 있다 — dst/dsle_map 337종보다 큰 풀이 필요할 때의 경로다.
 
 ### ROM에서 직접 립하기 (`scripts/rip_dwds_sprites.py`)
 
@@ -538,7 +565,7 @@ python3 scripts/extract_pack_evolved_dwds.py agumon gabumon
 
 #### ③의 커버리지
 
-`portrait-*`는 원래 spine 4단계(`adult`/`perfect`/`ultimate`/`superultimate`)에만 있었다. [랜덤 진화](#랜덤-진화-분기-루트)는 매일 루트를 다시 뽑으므로 분기가 3개인 팩은 대부분의 날을 spine이 아닌 형태로 보내는데, 그 형태들에는 초상이 하나도 없어 아이콘을 눌러도 뻥튀긴 32px가 나왔다 — 큰 화면이 "종종" 깨져 보이던 경로가 이것이다. 지금은 **`pack.json` 트리에 있는 모든 분기 노드**가 자기 초상을 갖는다 (53쌍 / 51시트).
+`portrait-*`는 원래 spine 4단계(`adult`/`perfect`/`ultimate`/`superultimate`)에만 있었다. [랜덤 진화](#랜덤-진화-분기-루트)는 매일 루트를 다시 뽑으므로 분기가 3개인 팩은 대부분의 날을 spine이 아닌 형태로 보내는데, 그 형태들에는 초상이 하나도 없어 아이콘을 눌러도 뻥튀긴 32px가 나왔다 — 큰 화면이 "종종" 깨져 보이던 경로가 이것이다. 지금은 **전역 그래프(`evolution-graph.json`)에 있는 모든 분기 노드**가 자기 초상을 갖는다 (53쌍 / 51시트).
 
 남은 폴백 구간과 그 이유:
 
