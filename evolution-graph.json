@@ -2916,7 +2916,10 @@
         },
         {
           "from": "numemon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "orgemon",
@@ -2924,7 +2927,10 @@
         },
         {
           "from": "raremon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "redvegimon",
@@ -2932,7 +2938,10 @@
         },
         {
           "from": "scumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "sunflowmon",
@@ -4868,71 +4877,122 @@
       "evolvesFrom": [
         {
           "from": "agumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "betamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "falcomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gabumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gaomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "goburimon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gomamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gottsumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "guilmon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "hagurumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "impmon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "lalamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "patamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "piyomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "renamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "tentomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "toyagumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         }
       ]
     },
@@ -5388,35 +5448,59 @@
       "evolvesFrom": [
         {
           "from": "agumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gabumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gizamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "gomamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "hagurumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "patamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "piyomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "tentomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         }
       ]
     },
@@ -5660,27 +5744,45 @@
       "evolvesFrom": [
         {
           "from": "agumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "betamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "hagurumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "patamon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "tentomon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         },
         {
           "from": "toyagumon",
-          "when": null
+          "when": {
+            "type": "outputPerTurn",
+            "gte": 15000
+          }
         }
       ]
     },

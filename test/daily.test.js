@@ -1297,6 +1297,130 @@ test('validateGraph finds zero violations in the global evolution graph', () => 
   assert.deepStrictEqual(violations, [], `violations: ${JSON.stringify(violations)}`);
 });
 
+// --- 케어미스 게이트 (쓰레기 계열 성숙기) --------------------------------
+//
+// 캐논에서 누메몬·레어몬·스카몬은 "케어미스 진화" - 돌보지 않은 결과다. 이
+// 앱에서 방치를 읽는 축은 outputPerTurn 이다: 턴당 산출이 크다 = 사용자
+// 프롬프트 없이 혼자 굴러간 날. sage 특성(턴 많고 ≤6000/턴, 잘 돌본 날)의
+// 정반대 극이라 의미가 겹치지 않고, 기존 조건부 엣지 17개 중 이 축을 쓰는
+// 것은 초궁극체 한 곳뿐이라 성숙기·완전체 칸에서 충돌하지 않는다.
+//
+// 게이팅은 in-edge 전량이다. childrenOf 가 조건부 엣지를 무조건 엣지보다
+// 앞에 놓으므로(readGraph 정렬 규칙 2), 조건이 참이면 pool[0] 이 케어미스
+// 엣지가 되어 무조건 형제들이 tied 에서 빠지고, 거짓이면 케어미스 엣지가
+// met 필터에서 빠진다. 조건 하나로 "방치한 날엔 확정, 평소엔 추첨에서 제외"
+// 가 동시에 성립한다.
+//
+// 축 선정 기각 기록:
+//   failureRatioPct - 블랙 계열의 축이고 gabumon 스파인 상류에서 충돌한다.
+//     조건 참일 때 성숙기가 레어몬으로 새면 가루몬을 우회하므로 완전체
+//     블랙워가루몬이 도달 불가가 된다 (docs/global-graph-plan.md 다크드라몬
+//     사례와 동형).
+//   sessionCount 를 포함한 all[] - 기존 sessionCount≥5 엣지의 부분집합이
+//     되어 agumon·impmon 스파인에서 노드 배열 순서에 항상 져 사문화된다.
+//   dailyOutputTokens lte - 성숙기 도달 조건이 이미 ≥100k 이라 sage 날에만
+//     참이 되어 sage 축과 중복된다.
+const CARE_MISS_ADULTS = ['numemon', 'raremon', 'scumon'];
+
+function careMissDates(count) {
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    out.push(new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+function careMissRookies(graph) {
+  return [...graph.byId.values()]
+    .filter((n) => n.stage === 'child' && (graph.childrenOf.get(n.id) || []).length > 0)
+    .map((n) => n.id);
+}
+
+// 임계 바로 아래(14999)를 포함한다 - 경계에서 새면 게이트가 무의미하다.
+const TENDED_CTXS = [
+  { dailyOutputTokens: 150000, dailyUserTurns: 20, outputPerTurn: 7500, sessionCount: 5, topSharePct: 58, failureRatioPct: 0, global: {} },
+  { dailyOutputTokens: 400000, dailyUserTurns: 60, outputPerTurn: 6600, sessionCount: 8, topSharePct: 25, failureRatioPct: 8, global: {} },
+  { dailyOutputTokens: 1200000, dailyUserTurns: 200, outputPerTurn: 6000, sessionCount: 2, topSharePct: 95, failureRatioPct: 2, global: {} },
+  { dailyOutputTokens: 120000, dailyUserTurns: 9, outputPerTurn: 14999, sessionCount: 1, topSharePct: 100, failureRatioPct: 0, global: {} }
+];
+
+const NEGLECTED_CTX = {
+  dailyOutputTokens: 150000, dailyUserTurns: 6, outputPerTurn: 25000,
+  sessionCount: 2, topSharePct: 80, failureRatioPct: 0, global: {}
+};
+
+test('케어미스 성숙기는 돌본 날의 추첨 풀에서 완전히 빠진다', () => {
+  const graph = readGraph(graphFilePath());
+  const rookies = careMissRookies(graph);
+  const dates = careMissDates(30);
+  const leaks = [];
+  for (const ctx of TENDED_CTXS) {
+    for (const rookie of rookies) {
+      for (const dateKST of dates) {
+        const route = selectRoute(dateKST, rookie, graph, ctx, null);
+        for (const stage of ['adult', 'perfect', 'ultimate', 'superultimate']) {
+          const entry = route[stage];
+          if (entry && CARE_MISS_ADULTS.includes(entry.id)) {
+            leaks.push(`${rookie}/${dateKST}/${stage}=${entry.id} (opt=${ctx.outputPerTurn})`);
+          }
+        }
+      }
+    }
+  }
+  assert.deepStrictEqual(leaks.slice(0, 5), [], `${leaks.length} leaks of ${CARE_MISS_ADULTS.join('/')}`);
+});
+
+test('방치한 날에는 케어미스 성숙기가 확정되고 게르베몬으로 이어진다', () => {
+  const graph = readGraph(graphFilePath());
+  const dates = careMissDates(30);
+  let checked = 0;
+  for (const rookie of careMissRookies(graph)) {
+    const hasCareMiss = (graph.childrenOf.get(rookie) || [])
+      .some((edge) => CARE_MISS_ADULTS.includes(edge.node.id));
+    if (!hasCareMiss) continue;
+    for (const dateKST of dates) {
+      const route = selectRoute(dateKST, rookie, graph, NEGLECTED_CTX, null);
+      assert.ok(CARE_MISS_ADULTS.includes(route.adult.id),
+        `${rookie}/${dateKST}: adult=${route.adult.id}, 케어미스여야 한다`);
+      assert.strictEqual(route.perfect.id, 'gerbemon',
+        `${rookie}/${dateKST}: ${route.adult.id} 다음은 게르베몬이어야 한다`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 0, '케어미스 자식을 가진 로키가 하나도 없다 - 게이트가 사라졌다');
+});
+
+// 게르베몬은 부분 게이팅이다. 케어미스 성숙기에서 오는 3개 엣지만 조건부고
+// 나머지(아큐라몬·가오가몬·지오그레이몬 등)는 무조건으로 남는다 - 캐논상
+// 정규 부모의 완전체 풀을 평일에 줄이지 않기 위해서다.
+test('게르베몬은 케어미스 부모에게만 조건부고 정규 부모에게는 무조건이다', () => {
+  const graph = readGraph(graphFilePath());
+  const gerbemon = graph.byId.get('gerbemon');
+  assert.ok(gerbemon, '게르베몬 노드가 있어야 한다');
+  const conditioned = gerbemon.evolvesFrom.filter((e) => e.when !== null && e.when !== undefined);
+  const unconditional = gerbemon.evolvesFrom.filter((e) => e.when === null || e.when === undefined);
+  assert.deepStrictEqual(
+    conditioned.map((e) => e.from).sort(),
+    [...CARE_MISS_ADULTS].sort()
+  );
+  assert.ok(unconditional.length > 0, '정규 부모가 남아 있어야 평일에도 게르베몬에 닿는다');
+});
+
+// 알려진 부분 그림자. agumon·impmon 은 이미 sessionCount≥5 조건부 자식을
+// 가지고 있고 그 노드의 배열 인덱스가 케어미스 노드보다 앞이라, 두 조건이
+// 동시에 참인 날에는 기존 분기가 이긴다. 방치한 날은 턴 수가 적어 세션이
+// 5개까지 벌어질 확률이 낮으므로 실질 영향은 작다 - 사문화가 아니라
+// 우선순위다. 이 테스트는 그 우선순위가 뒤집히면 알려주는 감시선이다.
+test('기존 sessionCount 분기는 케어미스보다 우선한다 (알려진 그림자)', () => {
+  const graph = readGraph(graphFilePath());
+  const bothMet = { ...NEGLECTED_CTX, sessionCount: 5 };
+  assert.strictEqual(selectRoute('2026-09-15', 'agumon', graph, bothMet, null).adult.id, 'geogreymon');
+  assert.strictEqual(selectRoute('2026-09-15', 'impmon', graph, bothMet, null).adult.id, 'vilemon');
+  // 조건부 자식이 없는 스파인은 그림자 없이 케어미스로 간다.
+  assert.ok(CARE_MISS_ADULTS.includes(
+    selectRoute('2026-09-15', 'gabumon', graph, bothMet, null).adult.id));
+});
+
 test('activeTraits reads the day rather than luck', () => {
   assert.deepStrictEqual(activeTraits({ failureRatio: 0, sessionCount: 1, topShare: 0.2 }), []);
   assert.deepStrictEqual(activeTraits({ failureRatio: 0.2, sessionCount: 1, topShare: 0.1 }), ['dark']);
