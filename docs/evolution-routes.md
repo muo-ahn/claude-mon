@@ -182,9 +182,12 @@ Imperialdramon = 황제드라몬. 한국 위키 사이트(나무위키·우만�
   대체됐다(`docs/global-graph-plan.md` §B-1).
 - **Q3.** 블랙워그레이몬 도트는 감지된 필드 행이 뒷모습이다. 다른 행을 잡는 방법을 찾을지,
   현재 도트로 둘지.
-- **Q4.** 조건 축 상한. 하루 단위로 의미 있는 조건 축은 5개다(`dailyOutputTokens`·
-  `sessionCount`·`topSharePct`·`dailyUserTurns`·`outputPerTurn`). `failureRatioPct`·
-  `globalToolSuccessCount`·`consecutiveDaysActive`는 누적값이라 하루 안에서 움직이지
+- **Q4.** 조건 축 상한. 하루 단위로 의미 있는 조건 축은 6개다(`dailyOutputTokens`·
+  `sessionCount`·`topSharePct`·`dailyUserTurns`·`outputPerTurn`·`failureRatioPct`).
+  `failureRatioPct`는 원래 `global.json`(생애 누적, 분모가 오염됨)을 읽어 하루 안에서
+  못 움직였으나, 2026-08-24 배선 수정으로 오늘 세션들의 상태 파일(`toolSuccessCount`/
+  `toolFailureCount`)을 합산하는 일일 축으로 바뀌었다(`lib/daily.js`의 `sessionToolCounts`).
+  `globalToolSuccessCount`·`consecutiveDaysActive`는 여전히 누적값이라 하루 안에서 움직이지
   않는다. 한 노드의 갈래(fan-out)가 축보다 많아지면 `hashString(날짜|팩|단계)` 타이브레이크로
   떨어져 다시 제비뽑기가 된다. 재검 트리거는 날짜가 아니라 **한 노드의 fan-out ≥ 4**(현재
   최대 2)다. 사용자 판단으로 충분한 확장 이후 고려하기로 보류. 상세는
@@ -259,14 +262,21 @@ Imperialdramon = 황제드라몬. 한국 위키 사이트(나무위키·우만�
 (실패율 ≥5 → 상류가 blackweregarurumon으로 새어 weregarurumon 우회, <5 → darkdramon
 조건 미충족). `sessionCount >= 3`으로 수정 후 28일 × {2,3,5} = 84 조합 전수에서
 `weregarurumon → darkdramon` 56회 + `weregarurumon → metalgarurumon` 28회 — 두 경로
-모두 도달 가능 확인. 누적 축(`failureRatioPct` 등)은 실사용 데이터에서 아예 안 움직일 수
-있다 (2026-08-20 실측 `toolFailureCount: 0` = 영원히 0%). **축의 의미와 도달 가능성이
-충돌하면 도달 가능성이 이긴다** — 의미가 맞아도 도달할 수 없으면 값이 0이다.
+모두 도달 가능 확인. 당시 `failureRatioPct`는 실사용 데이터에서 아예 안 움직였다
+(2026-08-20 실측 `toolFailureCount: 0` = 영원히 0%) — 원인은 축의 성질이 아니라 배선
+누락이었다: `PostToolUse`는 성공에만 발화하고 실패는 `PostToolUseFailure`가 담당하는데
+그 배선이 빠져 있었다(`hook.js`의 `tool-failure` 핸들러가 죽은 코드). **축의 의미와 도달
+가능성이 충돌하면 도달 가능성이 이긴다** — 의미가 맞아도 도달할 수 없으면 값이 0이다.
+2026-08-24에 `PostToolUseFailure` 배선과 `lib/daily.js`의 세션 합산(`sessionToolCounts`)이
+들어가 `failureRatioPct`는 더 이상 이 범주(영구 미도달 누적 축)가 아니다 — 아래 참고.
 
-**조건 축 부하 (2026-08-20 실측)**: 하루 안에서 의미 있게 움직이는 조건 축은 5개다
-(`dailyOutputTokens` · `sessionCount` · `topSharePct` · `dailyUserTurns` · `outputPerTurn`.
-`failureRatioPct` · `globalToolSuccessCount` · `consecutiveDaysActive`는 누적값이라 하루
-안에서 안 움직인다). 현재 최대 fan-out은 digitama 10이고(조건 0개), 그 다음이 브이몬 3
+**조건 축 부하 (2026-08-24 갱신, 최초 실측 2026-08-20)**: 하루 안에서 의미 있게 움직이는
+조건 축은 6개다(`dailyOutputTokens` · `sessionCount` · `topSharePct` · `dailyUserTurns` ·
+`outputPerTurn` · `failureRatioPct`). `failureRatioPct`는 2026-08-20 실측 당시
+`global.json`(생애 누적) 배선 누락으로 하루 안에서 안 움직였으나, 2026-08-24 배선 수정
+(`PostToolUseFailure` 연결 + 오늘 세션 상태 파일 합산)으로 일일 축에 합류했다.
+`globalToolSuccessCount` · `consecutiveDaysActive`는 여전히 누적값이라 하루 안에서 안
+움직인다. 현재 최대 fan-out은 digitama 10이고(조건 0개), 그 다음이 브이몬 3
 (`sessionCount`·`topSharePct`·무조건 각 1). fan-out이 축보다 많아지면 타이브레이크가
 `hashString(날짜|팩|단계)` = 제비뽑기로 떨어져 §0 목표("모든 진화 분기가 그 순간의
 조건으로 결정")와 정면으로 어긋난다. 재검 트리거는 **한 노드의 fan-out ≥ 4**다

@@ -4,6 +4,7 @@
 //        notification | session-end | subagent-end | notify-awaiting | notify-agent-done
 // Intended to be wired into .claude/settings.json hooks, e.g.:
 //   "PostToolUse": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js tool-success" }] }]
+//   "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js tool-failure" }] }]
 //   "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js turn-start" }] }]
 //   "Stop": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js turn-end" }] }]
 //   "SubagentStop": [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js subagent-end" }] }]

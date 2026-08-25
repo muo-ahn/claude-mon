@@ -23,6 +23,7 @@ const {
   validateGraph,
   graphFilePath,
   activeTraits,
+  daySignals,
   hashString,
   selectMon,
   computeDailyTokens,
@@ -1428,6 +1429,82 @@ test('activeTraits reads the day rather than luck', () => {
     activeTraits({ failureRatio: 0, sessionCount: 7, topShare: 0.9 }),
     ['swarm', 'focus']
   );
+});
+
+// --- daySignals: failureRatio from today's session state files ---------
+//
+// Regression coverage for the wiring fix in lib/daily.js (see the comment
+// above sessionToolCounts): failureRatio used to read global.json, a
+// lifetime counter stuck at 0 failures because PostToolUse never fires on
+// failure. daySignals now sums toolSuccessCount/toolFailureCount straight
+// out of <claudemonDir>/sessions/<id>.json for exactly the sessions that
+// produced output today (sessionTokens' keys) - no test previously touched
+// this path at all.
+
+// Writes a session state file the way hook.js would, at
+// <claudemonDir>/sessions/<sessionId>.json.
+function writeSessionState(claudemonDir, sessionId, counts) {
+  const dir = path.join(claudemonDir, 'sessions');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, `${sessionId}.json`),
+    JSON.stringify({ toolSuccessCount: counts.ok || 0, toolFailureCount: counts.bad || 0 }, null, 2)
+  );
+}
+
+test('daySignals sums toolSuccessCount/toolFailureCount across today\'s sessions', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeSessionState(claudemonDir, 'session-a', { ok: 18, bad: 1 });
+  writeSessionState(claudemonDir, 'session-b', { ok: 1, bad: 1 });
+  const sessionTokens = { 'session-a': 1000, 'session-b': 500 };
+  const signals = daySignals(claudemonDir, sessionTokens, 10, 5000);
+  // ok = 18 + 1 = 19, bad = 1 + 1 = 2, attempted = 21
+  assert.strictEqual(signals.failureRatio, 2 / 21);
+});
+
+test('daySignals ignores a session state file outside today\'s sessionTokens', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeSessionState(claudemonDir, 'session-today', { ok: 9, bad: 1 });
+  // Not in sessionTokens - e.g. yesterday's session, still on disk.
+  writeSessionState(claudemonDir, 'session-yesterday', { ok: 0, bad: 100 });
+  const signals = daySignals(claudemonDir, { 'session-today': 1000 }, 5, 1000);
+  assert.strictEqual(signals.failureRatio, 1 / 10);
+});
+
+test('daySignals treats a missing session state file as unknown, not zero-risk', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeSessionState(claudemonDir, 'session-a', { ok: 4, bad: 4 });
+  // session-b never wrote a state file (e.g. crashed before the first tool
+  // call landed) - it must drop out of both sides of the ratio, not count
+  // as 0 attempted/0 failed which would dilute session-a's real signal.
+  const signals = daySignals(claudemonDir, { 'session-a': 100, 'session-b': 100 }, 3, 500);
+  assert.strictEqual(signals.failureRatio, 4 / 8);
+});
+
+test('daySignals skips a sessionTokens key that fails sanitizeSessionId', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeSessionState(claudemonDir, 'session-a', { ok: 0, bad: 10 });
+  const sessionTokens = { 'session-a': 100, '../../etc/passwd': 100 };
+  // The traversal-shaped key must not be read from outside sessions/, and
+  // must not silently resolve to some other file's counts either.
+  const signals = daySignals(claudemonDir, sessionTokens, 1, 100);
+  assert.strictEqual(signals.failureRatio, 10 / 10);
+});
+
+test('daySignals is 0 (not NaN) when no session in sessionTokens has state on disk', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const signals = daySignals(claudemonDir, { 'session-a': 100 }, 1, 100);
+  assert.strictEqual(signals.failureRatio, 0);
+});
+
+test('daySignals treats a corrupt session state file as unknown, not zero-risk', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const dir = path.join(claudemonDir, 'sessions');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'session-a.json'), '{ not json');
+  writeSessionState(claudemonDir, 'session-b', { ok: 5, bad: 5 });
+  const signals = daySignals(claudemonDir, { 'session-a': 100, 'session-b': 100 }, 1, 100);
+  assert.strictEqual(signals.failureRatio, 5 / 10);
 });
 
 // --- activeTraits: sage (설계 날) ---------------------------------------
