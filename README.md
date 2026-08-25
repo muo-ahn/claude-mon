@@ -36,6 +36,9 @@ cd claude-mon
     "PostToolUse": [
       { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js tool-success" }] }
     ],
+    "PostToolUseFailure": [
+      { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js tool-failure" }] }
+    ],
     "UserPromptSubmit": [
       { "hooks": [{ "type": "command", "command": "node /절대/경로/claude-mon/hook.js turn-start" }] }
     ],
@@ -50,7 +53,7 @@ cd claude-mon
 ```
 
 - `PostToolUse`만 등록해도 진화는 동작한다. `UserPromptSubmit`/`Stop`/`SessionStart`는 [working 플래그](#working-플래그)(작업 중/대기 중 표시)를 정확히 하기 위한 것으로 선택 사항이다.
-- 실패한 도구 호출도 세고 싶으면 `PostToolUse`에 `hook.js tool-failure` 훅을 하나 더 추가한다.
+- 실패한 도구 호출도 세고 싶으면 `PostToolUseFailure`에 `hook.js tool-failure` 훅을 등록한다(`PostToolUse`가 아니다 — Claude Code는 도구 호출 성공에만 `PostToolUse`를 발화하고, 실패는 별도 이벤트 `PostToolUseFailure`로 보낸다. `PostToolUse`에 걸면 성공할 때마다 실패로 집계된다). 블랙 계열 진화(`failureRatioPct` 게이트)가 이 값에 의존하므로 위 설치 스니펫에 기본 포함했다.
 - 새 세션부터 적용된다. 등록 후 Claude Code 세션을 새로 열면 statusline에 마스코트가 나타난다.
 
 ### 3. (선택) 메뉴바 앱 빌드 — macOS
