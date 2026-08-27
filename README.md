@@ -1,6 +1,6 @@
 # ClaudeMon (프로토타입)
 
-> **도트 이미지는 이 레포에 포함되지 않는다.** 스프라이트는 각자 준비해서 `sprites/packs/`에 넣는다 — 아래 [스프라이트 팩](#스프라이트-팩-spritespacks) 참고.
+> **도트 이미지가 레포에 포함된다.** 클론 직후 `node scripts/materialize-sprites.js --write` 한 번이면 팩이 채워진다 — 아래 [스프라이트 팩](#스프라이트-팩-spritespacks) 참고. 도트의 출처와 저작권은 [에셋 출처](#에셋-출처)를 읽어라.
 
 그날 사용한 토큰량에 따라 성장·진화하는 Claude Code 마스코트. statusline과 macOS 메뉴바 앱 두 곳에서 렌더링된다. 스프라이트는 팩(pack) 단위로 교체·확장할 수 있다.
 
@@ -10,14 +10,17 @@
 
 - **Node.js** (LTS 권장) — `hook.js`, `statusline.js`, `daily-tokens.js` 실행용. 외부 의존성 없이 stdlib만 쓰므로 `npm install`은 필요 없다.
 - **macOS + Swift 툴체인** — 메뉴바 앱을 쓸 경우에만. Xcode 또는 Command Line Tools(`xcode-select --install`)에 포함된 `swiftc`가 필요하다. statusline만 쓸 거라면 생략 가능하다.
-- **스프라이트 도트 이미지** — 레포에 포함되지 않는다. [스프라이트 팩](#스프라이트-팩-spritespacks)을 참고해 직접 준비한다.
+- **스프라이트 도트 이미지** — 레포에 포함된다(`sprites/nodes/`). 별도 준비 없이 [클론](#1-클론) 단계의 materialize 명령만 실행하면 된다.
 
 ### 1. 클론
 
 ```bash
 git clone https://github.com/muo-ahn/claude-mon.git
 cd claude-mon
+node scripts/materialize-sprites.js --write
 ```
+
+마지막 줄이 정본 도트(`sprites/nodes/`)를 각 팩 디렉터리로 복사한다. 메뉴바와 statusline이 실제로 읽는 것은 `sprites/packs/<pack>/<노드 id>-N.png`이므로, 이 단계를 건너뛰면 프레임이 없어 한 단계 아래로 폴백한다. 복사본은 `.gitignore`가 차단하므로 커밋되지 않는다.
 
 아래 예시에서 `/절대/경로/claude-mon`은 클론한 디렉터리의 절대 경로(`pwd`로 확인)로 바꾼다.
 
@@ -69,7 +72,7 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 - 빌드 산출물(`menubar/claudemon-menubar`)은 `.gitignore`로 제외되어 있으므로 각자 빌드해야 한다.
 - 앱은 accessory(백그라운드 상주) 모드로 뜨며 Dock 아이콘 없이 메뉴바에만 나타난다. `active-session.sh`로 현재 포커스된 세션을 추적하고, 30초마다 `daily-tokens.js`를 호출해 토큰 집계를 갱신한다.
 - 로그인 시 자동 실행은 아래 [LaunchAgent 등록](#로그인-시-자동-실행-launchagent) 참고.
-- 스프라이트가 하나도 없으면 표시가 비거나 fallback되므로, 먼저 [스프라이트 팩](#스프라이트-팩-spritespacks)을 최소 하나 채운다.
+- 팩 디렉터리가 비어 있으면 표시가 비거나 fallback되므로, [클론](#1-클론) 단계의 `node scripts/materialize-sprites.js --write`를 먼저 실행한다.
 
 ### 로그인 시 자동 실행 (LaunchAgent)
 
@@ -257,7 +260,11 @@ node daily-tokens.js
 
 ## 스프라이트 팩 (`sprites/packs/`)
 
-**레포에는 도트 이미지가 들어있지 않다.** 스프라이트 PNG는 커밋하지 않으며(`.gitignore`가 `*.png`/`*.gif`를 차단), 각자 원하는 도트를 준비해서 로컬에 넣는다 — 자작 픽셀아트든 라이선스를 확보한 에셋이든, 아래 규격만 맞추면 된다. 리포지토리에는 규격 정의(`pack.json`)와 추출 스크립트 예시(`scripts/`)만 포함된다.
+**도트 이미지가 레포에 들어있다.** 커밋되는 것은 정본뿐이다 — 전역 그래프 노드 도트 `sprites/nodes/`(750장), 공용 알 `sprites/shared/`, 그리고 `sprites/nodes/`로 재생성할 수 없는 팩 전용 도트(`pack.json`의 레거시 `tree`가 쓰는 스테이지 프레임, `idle-*`/`limit80-*`/`limit95-*` 오버라이드, `portrait-*` 컷인).
+
+`sprites/packs/` 안의 나머지 `<노드 id>-N.png`는 `scripts/materialize-sprites.js`가 `sprites/nodes/`에서 복사한 산출물이라 커밋하지 않는다(`.gitignore`가 `*.png`/`*.gif`를 차단하고 `sprites/nodes/`·`sprites/shared/`만 예외로 뺀다). 노드 id와 팩 역할 이름이 접두를 공유하기 때문에(예: 노드 id `ultimate-chaosdukemon`) glob으로는 둘을 가를 수 없다 — 그래서 **팩 전용 도트를 새로 추가할 때는 `git add -f`가 필요하다.** 이미 추적 중인 파일은 영향을 받지 않는다.
+
+ROM 립 원본 시트(`sprites/sheets/`)도 커밋하지 않는다. 자작 픽셀아트나 별도 라이선스 에셋으로 팩을 갈아끼우고 싶다면 아래 규격만 맞추면 된다.
 
 마스코트는 팩(pack) 단위로 스프라이트를 묶는다. 팩 하나는 `sprites/packs/<팩이름>/` 디렉터리이고, `<팩이름>`이 곧 팩의 식별자(예: `daily.json`의 `mon` 값)가 된다. 폴더 이름은 소문자 영문·숫자·하이픈을 권장한다.
 
@@ -702,6 +709,15 @@ rm ~/.claude/claudemon/global.json
 # 일일 토큰 집계 결과 + 증분 스캔 캐시 (다음 실행 시 처음부터 재집계됨)
 rm ~/.claude/claudemon/daily.json ~/.claude/claudemon/token-scan-cache.json
 ```
+
+## 에셋 출처
+
+이 레포의 코드는 MIT(`LICENSE`)다. **도트 이미지는 그 라이선스의 대상이 아니다.**
+
+- `sprites/nodes/` — [Wikimon](https://wikimon.net)이 호스팅하는 `Digimon Story` 오버월드 도트를 `scripts/fetch-wikimon-dots.py`로 내려받아 32×32 RGBA로 정규화한 것이다.
+- `sprites/packs/`의 팩 전용 도트와 `portrait-*` — 닌텐도 DS `Digimon World DS` ROM에서 `scripts/rip_dwds_sprites.py`로 추출했다.
+
+두 출처 모두 원저작권은 **반다이남코(Bandai Namco)**에 있다. 개인적으로 쓰는 마스코트 표시 용도로 포함했을 뿐이며, 재배포·상업적 이용을 허락하지 않는다. 권리자의 요청이 있으면 삭제한다.
 
 ## 알려진 제한
 
