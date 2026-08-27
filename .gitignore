@@ -6,9 +6,22 @@ menubar/claudemon-menubar
 .omx/
 .playwright-mcp/
 
-# 도트 이미지는 커밋하지 않는다 — 각자 준비 (README '스프라이트 팩' 참고)
+# 도트 이미지
+# 정본은 sprites/nodes/ (전역 그래프 노드 도트) 와 sprites/shared/ 다 — 커밋한다.
+#
+# sprites/packs/ 는 대부분 materialize-sprites.js 가 sprites/nodes/ 에서 복사한
+# 산출물이라 커밋하지 않는다. 다만 nodes 로 재생성할 수 없는 팩 전용 도트
+# (pack.json 의 레거시 tree 가 쓰는 스테이지 프레임, idle-*/limit80-*/limit95-*
+# 오버라이드, portrait-* 컷인)는 이미 추적 중이다. 추적 중인 파일은 이 규칙의
+# 영향을 받지 않으므로 그대로 커밋되고, 팩 전용 도트를 새로 추가할 때만
+# `git add -f` 가 필요하다. 노드 id 와 팩 역할 이름이 같은 접두를 공유해서
+# (예: 노드 id `ultimate-chaosdukemon`) glob 으로는 둘을 가를 수 없다.
+#
+# sprites/sheets/ 는 ROM 립 원본 시트라 커밋하지 않는다.
 *.png
 *.gif
+!sprites/nodes/*.png
+!sprites/shared/*.png
 
 # 진화 맵 HTML은 도트를 base64로 인라인한 산출물이라 매번 재생성해서 본다
 docs/evolution-map.html
