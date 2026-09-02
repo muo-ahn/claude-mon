@@ -10268,6 +10268,19 @@
           "Vital Bracelet Digital Monster"
         ],
         "passesStrictGate": false
+      },
+      {
+        "from": "aerovdramon",
+        "games": [
+          "Pendulum Progress 1.0",
+          "Digimon Crusader",
+          "Digimon New Century",
+          "Digimon Super Rumble",
+          "Pendulum COLOR 4 Wind Guardians",
+          "Digimon Story: Time Stranger",
+          "Digimon Story: Super Xros Wars"
+        ],
+        "via": "evolves-from-bold"
       }
     ]
   },
@@ -10609,6 +10622,14 @@
           "[[Digimon Story: Super Xros Wars]]"
         ],
         "passesStrictGate": true
+      },
+      {
+        "from": "vamdemon",
+        "games": [
+          "Digimon Adventure ep.38 (Revival! The Devil Venom Vamdemon)",
+          "Digimon Story: Super Xros Wars"
+        ],
+        "via": "evolves-from-bold"
       }
     ]
   },
@@ -11125,6 +11146,39 @@
           "Digimon World 2"
         ],
         "passesStrictGate": false
+      }
+    ]
+  },
+  {
+    "id": "lucemon_satanmode",
+    "title": "Lucemon: Satan Mode",
+    "koSource": "manual",
+    "dotSource": "Lucemon_Satan_vpet_xloader.png",
+    "edges": [
+      {
+        "from": "lucemon_falldownmode",
+        "games": [
+          "Digimon Story: Cyber Sleuth",
+          "Digimon World -next 0rder-",
+          "Digimon World -next 0rder- International Edition",
+          "Digimon Story: Time Stranger"
+        ],
+        "via": "evolves-from-bold"
+      }
+    ]
+  },
+  {
+    "id": "tengumon",
+    "title": "Tengumon",
+    "koSource": "manual",
+    "dotSource": "Tengumon_vpet_dpc.gif (2x NEAREST upscale)",
+    "edges": [
+      {
+        "from": "karatenmon",
+        "games": [
+          "Pendulum COLOR 7 Toho Braves"
+        ],
+        "via": "evolves-from-bold"
       }
     ]
   }

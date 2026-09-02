@@ -6639,6 +6639,10 @@
         {
           "from": "paildramon",
           "when": null
+        },
+        {
+          "from": "aerovdramon",
+          "when": null
         }
       ]
     },
@@ -6802,6 +6806,10 @@
         },
         {
           "from": "myotismon",
+          "when": null
+        },
+        {
+          "from": "vamdemon",
           "when": null
         }
       ]
@@ -7002,6 +7010,30 @@
         },
         {
           "from": "vajramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "lucemon_satanmode",
+      "name": "루체몬 사탄모드",
+      "stage": "ultimate",
+      "sprite": "lucemon_satanmode",
+      "evolvesFrom": [
+        {
+          "from": "lucemon_falldownmode",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "tengumon",
+      "name": "텐구몬",
+      "stage": "ultimate",
+      "sprite": "tengumon",
+      "evolvesFrom": [
+        {
+          "from": "karatenmon",
           "when": null
         }
       ]

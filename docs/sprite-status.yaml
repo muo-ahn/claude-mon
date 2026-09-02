@@ -2109,6 +2109,10 @@ extras:
   pack: agumon
   stage: perfect
   source: pack
+- ko: 루체몬 사탄모드
+  pack: agumon
+  stage: ultimate
+  source: pack
 - ko: 마메티라몬
   pack: agumon
   stage: perfect
@@ -2276,6 +2280,10 @@ extras:
 - ko: 테카몬
   pack: agumon
   stage: perfect
+  source: pack
+- ko: 텐구몬
+  pack: agumon
+  stage: ultimate
   source: pack
 - ko: 타이거베스파몬
   pack: agumon
