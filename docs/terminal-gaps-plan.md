@@ -1,7 +1,7 @@
 # 계획: 완전체 종점 해소 — 정본 계열 후계 편입
 
-> 상태: **T-1 · T-2 · T-3 완료 (2026-09-02).** 완전체 종점 11.0% → **0.0%**,
-> 초궁극체 도달률 33.3% → **40.5%**. 남은 것은 T-4(감사 확장)뿐이다.
+> 상태: **T-1 ~ T-4 전부 완료 (2026-09-02).** 완전체 종점 11.0% → **0.0%**,
+> 초궁극체 도달률 33.3% → **40.5%**. 감사 확장까지 들어가 재발이 막힌다.
 > **다른 두 계획(`gate-weighting-plan.md`, `lazy-route-plan.md`)과 선후 관계 없이 병행 가능** —
 > 독립성은 §6 에서 실측으로 확인했다.
 > 이 문서는 자립적이다. 다른 문서를 읽지 않아도 착수할 수 있다.
@@ -109,14 +109,83 @@
 하베스트 로스터 게이트를 거치지 않은 수기 정본 엣지이므로 `passesStrictGate` 대신
 `"via": "evolves-from-bold"` 로 표기한다.
 
-### T-4 재발 방지 — `audit-canon-edges.js` 확장 — ⬜ 미착수
+### T-4 재발 방지 — `audit-canon-edges.js` 확장 — ✅ 완료
 
-현재 감사는 **incoming 엣지만** 대조해서 이 부류(나가는 엣지 누락)를 구조적으로 못 잡는다.
-추가할 것:
-- 스테이지별 out-degree 0 노드 집계
-- 최상위(`superultimate`)가 아닌 종점에 대해 **정본(볼드+`refd`) 후계가 그래프에 있는지** 대조
-- 스테이지 인접 필터 내장 (`parent-stage-mismatch` 사전 차단)
-- 하베스트 시 `wikimon-names.yaml` 별칭 역방향 충돌 검사 (§5 재발 방지)
+새 플래그 `--terminals`(종점 검사만) · `--check`(CI 용 exit code) · `--verbose`.
+
+**종점 검사 (T 절)** — 정본 판정은 볼드+`refd`, 방향은 **양방향 교차검증**이다.
+§B-6 이 정본으로 정한 방향은 자식의 `Evolves From` 이지만 종점 노드는 자식이
+없어 후보를 알 수 없다. 그래서 둘 다 본다:
+
+```
+forward : 종점 노드 자신의 Evolves To 볼드      → 후보 도출
+reverse : 캐시 917개의 Evolves From 볼드 역참조 → 후보 도출
+교차     : 양쪽 = 양방향(확정) / 한쪽 = 단방향(후보)
+```
+
+분류: **T-A** 엣지 한 줄이면 됨 / **T-B** 노드 편입 필요 / **T-C** 스테이지 불인접
+(`parent-stage-mismatch` 사전 차단) / **T-J** 조그레스 전용(편입 불가).
+단방향은 기본 접힘 — forward 단독은 조그레스 파트너 오탐이 섞이는 방향이라
+신뢰도가 낮다.
+
+**조그레스 판정이 필수다.** Wikimon 은 파트너 요구를 괄호 수식어로 쓰는데
+세 형태의 의미가 전혀 다르다:
+
+```
+(with X)                  → X 가 반드시 필요 = 조그레스 전용
+(with or without X)       → 단독 진화도 된다
+(including or not ... X)  → 단독 진화도 된다
+```
+
+`evolvesFrom: [{from, when}]` 는 부모가 하나뿐이라 "둘 다 필요"를 표현할 수 없고
+`global-graph-plan.md` §7 이 조그레스를 범위 밖으로 뒀다. 따라서 조그레스 전용
+엣지는 편입 방법이 없으며 조치 가능 후보로 보고해서는 안 된다.
+
+초판은 이 판정이 없어 **그레이스노바몬을 T-B 양방향 확정으로 올렸다.** 실제로는
+`Apollomon (with Dianamon)` / `Dianamon (with Apollomon)` 로 양쪽을 동시에
+요구하는 조그레스 전용이다 (부모 두 노드는 그래프에 있다 — 없는 건 편입 경로다).
+
+같은 원인의 두 번째 오탐: `'''[[Apollomon]]''' (with '''[[Dianamon]]''')` 에서
+**파트너인 Dianamon 도 볼드**라 후보로 잡혔다. `Evolves From` 방향은 줄 머리의
+볼드만 부모이므로 headOnly 로 파싱한다. 단 `Evolves To` 방향은 괄호 안 볼드도
+후계일 수 있어(루체몬 사탄모드 사례) 전부 본다. **이 두 수정으로 T-B 단방향이
+45건 → 8건으로 줄었다.**
+
+**별칭 충돌 검사 (E 절)** — `wikimon-names.yaml` 의 별칭 정본 id 와 같은 제목의
+slug id 가 **둘 다** 노드로 있으면 같은 종이 갈린 것이다. §5 의 `vamdemon`/
+`myotismon` 을 부모·자식 엣지 수까지 정확히 잡는다.
+
+**부수로 고친 결함 — 감사가 69개 노드를 조용히 건너뛰고 있었다.**
+`nodeIdToWikimonTitle` 이 노드 id 의 띄어쓰기를 복원하지 못한다. Wikimon 은
+`Geo Greymon`/`War Greymon` 인데 id 는 `geogreymon`/`wargreymon` 이라, 캐시가
+있는데도 `[미조회]` 로 빠졌다. 예외 표에 69줄을 손으로 넣는 대신 캐시 파일명을
+normalize 한 인덱스를 폴백으로 붙였다(`resolveCacheFile`).
+**결과: 미조회 105 → 36, 조회 211 → 280.**
+
+같은 원인의 두 번째 결함 — `findNodeIdByTitle` 이 공백만 지우고 하이픈을 남겨
+`Ulforce V-dramon` → `ulforcev-dramon` 이 되어 실제 노드를 못 찾았다.
+T-A 가 T-B 로 오분류되는 경로이고, **T-A 가 `--check` 의 게이트이므로 과소보고가
+곧 CI 통과**였다. `resolveTerminalTarget` 이 normalize 폴백으로 흡수한다.
+
+**회귀 검증** — 수정 전 그래프(완전체 종점 4건)를 넣으면:
+
+```
+T-A: aerovdramon → Ulforce V-dramon  양방향
+     vamdemon    → Venom Vamdemon    양방향
+--check exit = 1
+```
+
+엣지만 필요한 2건은 T-A, 노드가 필요한 2건(karatenmon·lucemon_falldownmode)은
+T-B 로 정확히 갈린다. **이 감사가 있었다면 이번 결함을 잡았다.**
+
+현재 그래프에서는 **T-A 0건**. 남은 양방향 확정 후보는 궁극체 종점의 노드 편입
+**4건** — `chaosmon`(← 반쵸레오몬), `death-x-dorugoramon`(← 도루고라몬),
+`grandiskuwagamon`(← 그란쿠와가몬), `mervamon`(← 미네르바몬). 넷 다 정본 라인에
+`with or without` 이거나 수식어가 없어 단독 진화가 가능하다.
+
+**`--check` 는 현재 exit 1 이다** — T-A 0건이지만 §5 의 `vamdemon`/`myotismon`
+별칭 충돌이 남아 있다. 감사가 사실을 말하는 것이므로 면제하지 않았다.
+CI 를 초록으로 만들려면 중복을 병합해야 한다.
 
 ## 4. 검증
 

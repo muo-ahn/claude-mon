@@ -3,6 +3,7 @@
 //
 // 사용법:
 //   node scripts/audit-canon-edges.js [--offline] [--fetch] [--stage <stage>] [--refresh]
+//                                     [--terminals] [--check]
 //
 // 모드:
 //   --offline  (기본값) 캐시만 사용, 네트워크 미접촉. 캐시 없으면 "미조회"로 집계.
@@ -11,6 +12,9 @@
 //              차단되면 기다린다 — 재시도로 뚫지 않는다.
 //   --stage <id>  지정 칸만 대조
 //   --refresh   캐시 무효화 (fetch 모드에서만 작동)
+//   --terminals 종점 검사만 돌린다 (나가는 엣지 누락 + 별칭 충돌). 오프라인 전용 로직.
+//   --check     지금 고칠 수 있는 결함(T-A·별칭 충돌)이 있으면 exit 1. CI 용.
+//   --verbose   종점 검사의 단방향 후보까지 펼친다 (기본은 양방향 확정만).
 //
 // 로스터 판정:
 //   태그 약어가 아니라 ref 정의의 **게임 제목 문자열**로 판정한다.
@@ -42,13 +46,47 @@ const EXCLUDED_GAMES = [
   'Digimon Story: ReArise',
 ];
 
+// Evolves To/From 줄에서 볼드로 등장하지만 **종이 아닌** Wikimon 문서들.
+// 진화 조건 수식어로 쓰인다 — "with the X-Antibody", "one of the Seven Great
+// Demon Lords" 같은 식으로 볼드가 붙는다. 종점 검사에서 후보로 잡으면
+// T-B(노드 편입 필요)가 실제로 필요 없는 항목으로 오염된다.
+// 실측 2026-09-02: 고유 후보 55건 중 6종 17건이 이 부류였다.
+// "Whispered" 는 "Apollomon: Whispered" 로 가는 리다이렉트라 중복이다.
+const NON_SPECIES_TITLES = [
+  'X-Antibody',
+  'Seven Great Demon Lords',
+  'System Omega',
+  'Whispered',
+];
+
+// 위 목록 + 문서 제목 패턴을 걸러낸다.
+//
+// (X-Antibody) 접미 종은 별도 종이지만 이 그래프에 없다. 그런데
+// findNodeIdByTitle 이 괄호 접미사를 떼므로 "Barbamon (X-Antibody)" 가
+// 기반 노드 barbamon 으로 해석되고, 같은 스테이지라 자기 자신을 가리키는
+// T-C 로 잡힌다 (실측: barbamon·demon·duftmon·dynasmon·ebemon·examon·
+// leviamon·minervamon 8건이 전부 이 오탐이었다). 편입하려면 별개 노드를
+// 만들어야 하므로 종점 검사의 관심사가 아니다.
+function isNonSpeciesTitle(name) {
+  if (NON_SPECIES_TITLES.includes(name)) return true;
+  if (/^Digimon\s/.test(name)) return true;      // 게임·매체 문서 (Digimon Chronicle X 등)
+  if (/^V-\d+$/.test(name)) return true;         // 카드 번호
+  if (/\(X-Antibody\)\s*$/.test(name)) return true;
+  return false;
+}
+
 function parseArgs() {
   const args = process.argv.slice(2);
   const stage = args.includes('--stage') ? args[args.indexOf('--stage') + 1] : null;
   const refresh = args.includes('--refresh');
   const fetch = args.includes('--fetch');
   const offline = args.includes('--offline') || !fetch;
-  return { stage, refresh, offline };
+  // --terminals: 종점 검사만 돌린다 (캐시만 쓰므로 네트워크 무관).
+  // --check: 지금 고칠 수 있는 결함이 있으면 exit 1 (CI 용).
+  const terminalsOnly = args.includes('--terminals');
+  const check = args.includes('--check');
+  const verbose = args.includes('--verbose');
+  return { stage, refresh, offline, terminalsOnly, check, verbose };
 }
 
 function loadGraph() {
@@ -133,13 +171,15 @@ function sleep(ms) {
 
 async function fetchWikitext(title, refresh, depth = 0, retryCount = 0) {
   const cacheFile = path.join(CACHE_DIR, `${title.replace(/[:/]/g, '_')}.wikitext`);
+  // 읽기는 표기 폴백을 허용하고, 쓰기는 항상 정확한 제목으로 한다.
+  const readFile = resolveCacheFile(title);
 
-  if (!refresh && fs.existsSync(cacheFile)) {
-    const content = fs.readFileSync(cacheFile, 'utf8');
+  if (!refresh && fs.existsSync(readFile)) {
+    const content = fs.readFileSync(readFile, 'utf8');
     if (content.trim().toLowerCase().startsWith('#redirect')) {
       const redirectMatch = content.match(/#redirect\s*\[\[([^\]]+)\]\]/i);
       if (redirectMatch && depth < 3) {
-        fs.unlinkSync(cacheFile);
+        fs.unlinkSync(readFile);
         await sleep(3000);
         return fetchWikitext(redirectMatch[1], false, depth + 1, 0);
       }
@@ -360,6 +400,41 @@ function normalize(str) {
   return str.toLowerCase().replace(/[\s\-:]/g, '');
 }
 
+// 캐시 파일명은 Wikimon 페이지 제목(콜론·슬래시만 _ 치환)이다. 그런데
+// nodeIdToWikimonTitle 은 노드 id 의 첫 글자만 대문자로 올릴 뿐 띄어쓰기를
+// 복원하지 못한다 — Wikimon 은 "Geo Greymon"/"War Greymon" 처럼 띄어쓰는데
+// 노드 id 는 geogreymon/wargreymon 으로 붙여쓴다.
+//
+// 실측 2026-09-02: 이 불일치로 **69개 노드**가 캐시를 갖고 있는데도
+// "[미조회] (캐시 없음)" 으로 조용히 건너뛰어졌다. 감사가 통과한 것처럼
+// 보이던 이유의 상당 부분이 이것이다.
+//
+// 예외 표(docs/wikimon-names.yaml)에 69줄을 손으로 넣는 대신, 캐시 디렉터리의
+// 파일명을 normalize 해 인덱스를 만들어 폴백으로 쓴다. 표기 규칙이 바뀌어도
+// 따라간다.
+let _cacheIndex = null;
+function cacheTitleIndex() {
+  if (_cacheIndex) return _cacheIndex;
+  _cacheIndex = new Map();
+  if (!fs.existsSync(CACHE_DIR)) return _cacheIndex;
+  for (const fname of fs.readdirSync(CACHE_DIR)) {
+    if (!fname.endsWith('.wikitext')) continue;
+    const title = fname.slice(0, -'.wikitext'.length);
+    const key = normalize(title.replace(/_/g, ''));
+    if (!_cacheIndex.has(key)) _cacheIndex.set(key, fname);
+  }
+  return _cacheIndex;
+}
+
+// 제목으로 캐시 파일 경로를 찾는다. 정확한 이름이 없으면 normalize 기준으로
+// 한 번 더 찾는다. 쓰기 경로는 항상 정확한 이름을 쓴다 (writeCacheFile).
+function resolveCacheFile(title) {
+  const exact = path.join(CACHE_DIR, `${title.replace(/[:/]/g, '_')}.wikitext`);
+  if (fs.existsSync(exact)) return exact;
+  const alt = cacheTitleIndex().get(normalize(title));
+  return alt ? path.join(CACHE_DIR, alt) : exact;
+}
+
 function findNodeIdByTitle(title, byId, nameMap) {
   const aliases = nameMap.aliases || {};
   if (aliases[title]) {
@@ -396,7 +471,7 @@ async function auditNode(node, graph, indices, nameMap, opts) {
   const title = nodeIdToWikimonTitle(node.id, nameMap.exceptions || {});
 
   let wikitext = null;
-  const cacheFile = path.join(CACHE_DIR, `${title.replace(/[:/]/g, '_')}.wikitext`);
+  const cacheFile = resolveCacheFile(title);
   
   if (opts.offline) {
     if (fs.existsSync(cacheFile)) {
@@ -508,6 +583,416 @@ async function auditNode(node, graph, indices, nameMap, opts) {
   };
 }
 
+// --- 종점(terminal) 검사 -------------------------------------------------
+//
+// 기존 감사는 노드의 `Evolves From`(들어오는 엣지)만 대조한다. 그래서 계보가
+// 최상위 아닌 칸에서 끊기는 결함 — 나가는 엣지 누락 — 을 구조적으로 못 잡는다.
+// 실측 2026-09-02: 완전체 종점 4건이 감사를 통과한 채 남아 있었고, 도달 루트의
+// 11.0% 가 완전체에서 끊겼다.
+//
+// 판정 기준은 **정본 계열 후계**다. Wikimon 은 그 디지몬 자신의 계열 후계를
+// 볼드(+refd 템플릿)로 표시하고, 나머지는 게임별 파생 교차 진화다. 실측상
+// 파생이 압도적으로 많아(에어로브이드라몬 27건 중 정본 2건) 구분하지 않으면
+// 계열 후계가 파묻힌다 — 정본 엣지 2줄이 파생 36줄보다 초궁극체 도달률이 높았다.
+//
+// 방향은 둘 다 본다. docs/global-graph-plan.md §B-6 이 정본으로 정한 방향은
+// **자식의 Evolves From** 이지만(부모의 Evolves To 는 조그레스 파트너 오탐이
+// 절반), 종점 노드는 자식이 없으므로 그 방향만으로는 후보를 알 수 없다. 그래서:
+//
+//   forward : 종점 노드 자신의 Evolves To 볼드 → 후보 도출
+//   reverse : 캐시 전수의 Evolves From 볼드 역참조 → 후보 도출
+//   교차     : 양쪽에 다 나오면 양방향(확정), 한쪽만이면 단방향(후보)
+//
+// reverse 는 캐시 파일을 전수 읽지만 네트워크를 쓰지 않으므로 오프라인에서 돈다.
+
+// 조그레스(합체 진화) 판정.
+//
+// Wikimon 은 파트너 요구를 괄호 수식어로 쓴다. 세 형태가 의미가 전혀 다르다:
+//
+//   (with X)                 → X 가 반드시 필요 = 조그레스 전용
+//   (with or without X)      → 단독 진화도 된다
+//   (including or not ... X) → 단독 진화도 된다
+//
+// evolvesFrom: [{from, when}] 모델은 부모가 하나뿐이라 "둘 다 필요"를 표현할 수
+// 없고, global-graph-plan.md §7 이 조그레스를 범위 밖으로 뒀다("하루에 마스코트가
+// 1마리라 발동 조건이 존재하지 않는다"). 그래서 조그레스 전용 엣지는 편입
+// 불가능하며, 조치 가능 후보로 보고하면 안 된다.
+//
+// 실측 2026-09-02: 이 판정이 없던 초판은 Grace Novamon 을 T-B 양방향 확정으로
+// 올렸다. 실제로는 Apollomon 과 Dianamon 을 **동시에** 요구하는 조그레스 전용이라
+// 편입할 방법이 없다.
+function isJogressOnly(line) {
+  if (!/\(\s*(?:with|including)\b/i.test(line)) return false;
+  if (/\bor\s+without\b/i.test(line)) return false;
+  if (/\bor\s+not\s+including\b/i.test(line)) return false;
+  return true;
+}
+
+// 한 줄에서 볼드 위키링크를 뽑는다.
+//
+// headOnly=true (Evolves From 방향): 줄 머리의 볼드만 부모다. 괄호 안의 볼드는
+// 조그레스 **파트너**이므로 후보가 아니다 — 실측: Grace Novamon 의
+// "'''[[Apollomon]]''' (with '''[[Dianamon]]''')" 에서 Dianamon 을 후보로 잡으면
+// 안 된다.
+//
+// headOnly=false (Evolves To 방향): 괄호 안의 볼드도 후계일 수 있으므로 전부
+// 본다 — 실측: Lucemon: Falldown Mode 의 정본 후계 Lucemon: Satan Mode 는
+// "'''[[Lucemon: Larva]]''' ... (including or not including
+//  '''[[Lucemon: Satan Mode]]''')" 처럼 괄호 안에 있다.
+function boldLinksInLine(line, headOnly) {
+  const out = [];
+  const re = /'''\s*\[\[\s*([^\]|#]+?)\s*(?:\|[^\]]*)?\]\]\s*'''/g;
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    const name = m[1].trim();
+    if (!name || name.includes('Digimon Card Game')) continue;
+    if (isNonSpeciesTitle(name)) continue;
+    out.push(name);
+    if (headOnly) break; // 머리 하나만
+  }
+  return out;
+}
+
+function extractSectionLines(wikitext, sectionName) {
+  const lines = wikitext.split('\n');
+  let inSection = false;
+  const result = [];
+  for (const line of lines) {
+    if (new RegExp('^==\\s*' + sectionName + '\\s*==', 'i').test(line)) {
+      inSection = true;
+      continue;
+    }
+    if (inSection && /^==/.test(line)) break;
+    if (inSection && line.trim().startsWith('*')) result.push(line);
+  }
+  return result;
+}
+
+function cacheFileFor(title) {
+  return resolveCacheFile(title);
+}
+
+// 캐시된 모든 페이지의 Evolves From 을 훑어, 어느 부모가 볼드로 지목됐는지
+// 역인덱스를 만든다. 키는 normalize(부모 위키 제목), 값은 자식 위키 제목 배열.
+// 캐시가 없는 페이지는 빠진다 — 오프라인 감사의 알려진 한계다.
+function buildReverseBoldIndex() {
+  const index = new Map();
+  let scanned = 0;
+  if (!fs.existsSync(CACHE_DIR)) return { index, scanned };
+  for (const fname of fs.readdirSync(CACHE_DIR)) {
+    if (!fname.endsWith('.wikitext')) continue;
+    let text;
+    try {
+      text = fs.readFileSync(path.join(CACHE_DIR, fname), 'utf8');
+    } catch (e) {
+      continue; // 읽기 실패는 그 파일만 건너뛴다
+    }
+    scanned++;
+    const childTitle = fname.slice(0, -'.wikitext'.length);
+    for (const line of extractSectionLines(text, 'Evolves From')) {
+      const jogress = isJogressOnly(line);
+      // headOnly: 괄호 안 볼드는 조그레스 파트너이므로 부모가 아니다.
+      for (const parent of boldLinksInLine(line, true)) {
+        const key = normalize(parent);
+        if (!index.has(key)) index.set(key, []);
+        const list = index.get(key);
+        const hit = list.find((e) => e.title === childTitle);
+        // 같은 자식이 여러 줄에 나오면 하나라도 단독 가능하면 단독으로 본다.
+        if (hit) hit.jogressOnly = hit.jogressOnly && jogress;
+        else list.push({ title: childTitle, jogressOnly: jogress });
+      }
+    }
+  }
+  return { index, scanned };
+}
+
+// 종점 후보 위키 제목 → 노드 id.
+//
+// findNodeIdByTitle 은 공백만 제거하고 하이픈·콜론을 남긴다. 그래서
+// "Ulforce V-dramon" 이 ulforcev-dramon 으로 나와 실제 노드 ulforcevdramon 을
+// 못 찾고, 엣지 한 줄이면 되는 결함(T-A)이 노드 편입 필요(T-B)로 오분류된다
+// (실측 2026-09-02: aerovdramon → ulforcevdramon 이 이 경로로 누락됐다.
+//  T-A 는 --check 가 게이트하는 범주이므로 과소보고가 곧 CI 통과다).
+//
+// 그래서 실패 시 normalize(공백·하이픈·콜론 제거) 기준으로 한 번 더 찾는다.
+// 이 인덱스는 노드 id 를 normalize 한 것이라 제목 표기 차이를 흡수한다.
+function resolveTerminalTarget(name, byId, normalizedIds, nameMap) {
+  const direct = findNodeIdByTitle(name, byId, nameMap);
+  if (direct.id && byId.has(direct.id)) return direct.id;
+  const fallback = normalizedIds.get(normalize(name));
+  if (fallback) return fallback;
+  return direct.id || null;
+}
+
+// 종점 노드 하나를 판정한다. 네트워크를 쓰지 않는다 (캐시만).
+//
+// 분류:
+//   T-A  노드가 있고 스테이지가 인접 → 엣지 한 줄만 추가하면 된다 (즉시 조치 가능)
+//   T-B  정본이지만 노드가 없다 → 노드 편입 필요 (도트 확보 선행)
+//   T-C  스테이지 불인접 → validateGraph 의 parent-stage-mismatch 가 거부한다
+function auditTerminal(node, indices, nameMap, reverseIndex, normalizedIds) {
+  const { byId, stageIndex } = indices;
+  const title = nodeIdToWikimonTitle(node.id, nameMap.exceptions || {});
+  const cacheFile = cacheFileFor(title);
+
+  const forward = [];
+  let cached = false;
+  if (fs.existsSync(cacheFile)) {
+    cached = true;
+    const text = fs.readFileSync(cacheFile, 'utf8');
+    for (const line of extractSectionLines(text, 'Evolves To')) {
+      const jogress = isJogressOnly(line);
+      for (const name of boldLinksInLine(line, false)) forward.push({ name, jogressOnly: jogress });
+    }
+  }
+
+  const reverse = reverseIndex.get(normalize(title)) || [];
+
+  // 방향별 인덱스. jogressOnly 는 **양쪽 모두** 조그레스일 때만 참으로 본다 —
+  // 한 방향이라도 단독 진화를 허용하면 편입 가능하다.
+  const fwdBy = new Map();
+  for (const f of forward) {
+    const k = normalize(f.name);
+    if (fwdBy.has(k)) fwdBy.get(k).jogressOnly = fwdBy.get(k).jogressOnly && f.jogressOnly;
+    else fwdBy.set(k, { name: f.name, jogressOnly: f.jogressOnly });
+  }
+  const revBy = new Map();
+  for (const r of reverse) {
+    // 캐시 파일명은 콜론이 _ 로 치환돼 있으므로 되돌린다.
+    revBy.set(normalize(r.title), { name: r.title.replace(/_\s*/g, ': '), jogressOnly: r.jogressOnly });
+  }
+
+  const names = new Set([
+    ...[...fwdBy.values()].map((v) => v.name),
+    ...[...revBy.values()].map((v) => v.name)
+  ]);
+  const seenFwd = new Set(fwdBy.keys());
+  const seenRev = new Set(revBy.keys());
+
+  const candidates = [];
+  for (const name of names) {
+    const key = normalize(name);
+    const dirs = [];
+    if (seenFwd.has(key)) dirs.push('forward');
+    if (seenRev.has(key)) dirs.push('reverse');
+
+    const id = resolveTerminalTarget(name, byId, normalizedIds, nameMap);
+    const target = id ? byId.get(id) : null;
+    const myIdx = stageIndex.get(node.stage);
+
+    let category;
+    let targetStage = null;
+    if (!target) {
+      category = 'T-B';
+    } else {
+      targetStage = target.stage;
+      category = stageIndex.get(target.stage) - myIdx === 1 ? 'T-A' : 'T-C';
+    }
+    const f = fwdBy.get(key);
+    const r = revBy.get(key);
+    const sources = [f, r].filter(Boolean);
+    const jogressOnly = sources.length > 0 && sources.every((x) => x.jogressOnly);
+
+    candidates.push({
+      name,
+      id: id || null,
+      targetStage,
+      category,
+      bidirectional: dirs.length === 2,
+      dirs,
+      jogressOnly
+    });
+  }
+
+  return { node: node.id, name: node.name, stage: node.stage, title, cached, candidates };
+}
+
+// docs/wikimon-names.yaml 의 별칭이 선언한 정본 id 와, 같은 위키 제목을 slug 로
+// 바꾼 id 가 **둘 다** 노드로 존재하면 같은 종이 두 노드로 갈린 것이다.
+//
+// 실측 근거 (2026-09-02): "Vamdemon": "myotismon" 별칭이 있는데도 #24 의 235종
+// 하베스트가 vamdemon 노드를 새로 만들었다. 들어오는 엣지 11개는 vamdemon,
+// 나가는 엣지 9개는 myotismon 으로 갈려 계보가 완전체에서 끊겼다. 한글명이
+// 서로 달라서(묘티스몬 vs 뱀파이몬) 이름 중복 검사로는 안 잡힌다.
+function auditAliasCollisions(indices, nameMap) {
+  const { byId } = indices;
+  const slugToId = new Map();
+  for (const id of byId.keys()) slugToId.set(normalize(id), id);
+
+  const collisions = [];
+  for (const [title, canonicalId] of Object.entries(nameMap.aliases || {})) {
+    const slugId = slugToId.get(normalize(title));
+    if (!slugId || !byId.has(canonicalId) || slugId === canonicalId) continue;
+    collisions.push({
+      title,
+      canonicalId,
+      canonicalNode: byId.get(canonicalId),
+      duplicateId: slugId,
+      duplicateNode: byId.get(slugId)
+    });
+  }
+  return collisions;
+}
+
+// 최상위가 아닌 스테이지에서 out-degree 0 인 노드를 모은다.
+// 최상위(초궁극체)와 D7 로 인정된 궁극체 종점은 설계상 정상이므로 구분해 센다.
+function collectTerminals(graph, indices, stages) {
+  const { childrenOf } = indices;
+  const topStage = stages[stages.length - 1];
+  const byStage = new Map(stages.map((s) => [s, []]));
+  for (const node of graph.nodes) {
+    if ((childrenOf.get(node.id) || []).length > 0) continue;
+    byStage.get(node.stage).push(node);
+  }
+  return { byStage, topStage };
+}
+
+function reportTerminals(graph, indices, nameMap, stages, opts) {
+  const { byStage, topStage } = collectTerminals(graph, indices, stages);
+  const { index: reverseIndex, scanned } = buildReverseBoldIndex();
+  // 노드 id 를 normalize 해둔 인덱스 — 제목 표기 차이(하이픈·콜론) 흡수용.
+  const normalizedIds = new Map();
+  for (const id of indices.byId.keys()) normalizedIds.set(normalize(id), id);
+
+  console.log('\n========================================');
+  console.log('T. 종점 검사 (나가는 엣지 누락)');
+  console.log('========================================');
+  console.log(`  캐시 역스캔: ${scanned}개 페이지의 Evolves From 볼드 참조\n`);
+
+  console.log('  스테이지별 out-degree 0:');
+  for (const stage of stages) {
+    const list = byStage.get(stage) || [];
+    if (list.length === 0) continue;
+    const note =
+      stage === topStage ? ' (최상위 — 정상)' :
+      stage === 'ultimate' ? ' (D7 로 인정된 궁극체 종점 포함)' : '';
+    console.log(`    ${stage.padEnd(14)} ${String(list.length).padStart(3)}개${note}`);
+  }
+
+  // 검사 대상: 최상위가 아닌 종점. --stage 가 주어지면 그 칸만.
+  const targets = [];
+  for (const stage of stages) {
+    if (stage === topStage) continue;
+    if (opts.stage && stage !== opts.stage) continue;
+    targets.push(...(byStage.get(stage) || []));
+  }
+
+  const tA = [];
+  const tB = [];
+  const tC = [];
+  const tJ = [];
+  const noCanon = [];
+  const noCache = [];
+
+  for (const node of targets) {
+    const r = auditTerminal(node, indices, nameMap, reverseIndex, normalizedIds);
+    const cands = r.candidates;
+    if (!r.cached && cands.length === 0) {
+      noCache.push(r);
+      continue;
+    }
+    if (cands.length === 0) {
+      noCanon.push(r);
+      continue;
+    }
+    for (const c of cands) {
+      const entry = { ...r, cand: c };
+      // 조그레스 전용은 편입 방법이 없으므로 조치 가능 범주에서 빼낸다.
+      if (c.jogressOnly) {
+        tJ.push(entry);
+        continue;
+      }
+      if (c.category === 'T-A') tA.push(entry);
+      else if (c.category === 'T-B') tB.push(entry);
+      else tC.push(entry);
+    }
+  }
+
+  const fmt = (e) => {
+    const c = e.cand;
+    const dir = c.bidirectional ? '양방향' : `단방향(${c.dirs.join('')})`;
+    return `    ${e.node} (${e.stage}) → ${c.name}${c.id ? ` [${c.id}]` : ''}` +
+           `${c.targetStage ? ` (${c.targetStage})` : ''}  ${dir}`;
+  };
+
+  console.log('\n  T-A 엣지만 추가하면 됨 (노드 존재 + 스테이지 인접):');
+  if (tA.length === 0) console.log('    (없음)');
+  else tA.forEach((e) => console.log(fmt(e)));
+
+  // T-B/T-C 는 조치가 이 감사 밖(도트 확보·노드 설계)이라 길어지기만 한다.
+  // 양방향 교차검증을 통과한 것만 펼치고 단방향은 접는다 — 단방향 forward 는
+  // 조그레스 파트너 오탐이 섞이는 방향이라(§B-6) 신뢰도가 낮다.
+  // --verbose 로 전부 펼친다.
+  const showGroup = (label, list) => {
+    console.log(`\n  ${label}`);
+    if (list.length === 0) {
+      console.log('    (없음)');
+      return;
+    }
+    const both = list.filter((e) => e.cand.bidirectional);
+    const one = list.filter((e) => !e.cand.bidirectional);
+    if (both.length > 0) both.forEach((e) => console.log(fmt(e)));
+    else if (!opts.verbose) console.log('    (양방향 확정 없음)');
+    if (opts.verbose) {
+      one.forEach((e) => console.log(fmt(e)));
+    } else if (one.length > 0) {
+      const nodes = [...new Set(one.map((e) => e.node))];
+      console.log(`    단방향 ${one.length}건 (노드 ${nodes.length}개) — --verbose 로 펼침`);
+    }
+  };
+  showGroup('T-B 노드 편입 필요 (정본이지만 노드 없음):', tB);
+  showGroup('T-C 스테이지 불인접 (넣으면 parent-stage-mismatch):', tC);
+  showGroup('T-J 조그레스 전용 (편입 불가 — §7 범위 밖):', tJ);
+
+  if (noCanon.length > 0) {
+    console.log('\n  정본 후계 없음 — 진짜 종점으로 판단:');
+    console.log(`    ${noCanon.map((r) => `${r.node}(${r.stage})`).join(', ')}`);
+  }
+  if (noCache.length > 0) {
+    console.log('\n  미조회 (캐시 없음 — 판정 보류):');
+    console.log(`    ${noCache.map((r) => `${r.node}(${r.stage})`).join(', ')}`);
+  }
+
+  // 별칭 충돌
+  const collisions = auditAliasCollisions(indices, nameMap);
+  console.log('\n========================================');
+  console.log('E. 별칭 역방향 충돌 (같은 종이 두 노드로 갈림)');
+  console.log('========================================');
+  if (collisions.length === 0) {
+    console.log('  (없음)');
+  } else {
+    for (const c of collisions) {
+      console.log(`\n  "${c.title}" 별칭 정본 = ${c.canonicalId}`);
+      console.log(`    정본  ${c.canonicalId} (${c.canonicalNode.name}) ` +
+                  `부모 ${c.canonicalNode.evolvesFrom.length} / 자식 ${(indices.childrenOf.get(c.canonicalId) || []).length}`);
+      console.log(`    중복  ${c.duplicateId} (${c.duplicateNode.name}) ` +
+                  `부모 ${c.duplicateNode.evolvesFrom.length} / 자식 ${(indices.childrenOf.get(c.duplicateId) || []).length}`);
+    }
+  }
+
+  return { tA, tB, tC, tJ, noCanon, noCache, collisions };
+}
+
+// --check 의 종료코드. 지금 바로 고칠 수 있는 결함만 실패로 본다:
+//   T-A (엣지 한 줄이면 되는 종점) 과 별칭 충돌.
+// T-B(도트 확보 선행)·T-C(스테이지 불인접)·미조회는 조치가 이 감사 밖이라
+// 경고로만 남긴다 — 실패로 만들면 CI 가 영구히 빨간불이 된다.
+function finishCheck(t, opts) {
+  if (!opts.check) return;
+  const blockers = t.tA.length + t.collisions.length;
+  console.log('\n========================================');
+  console.log('--check 판정');
+  console.log('========================================');
+  console.log(`  T-A (엣지만 추가하면 되는 종점): ${t.tA.length}건`);
+  console.log(`  E   (별칭 역방향 충돌):          ${t.collisions.length}건`);
+  if (blockers > 0) {
+    console.log('  → 실패 (exit 1)');
+    process.exitCode = 1;
+  } else {
+    console.log('  → 통과');
+  }
+}
+
 async function main() {
   const opts = parseArgs();
   const graph = loadGraph();
@@ -515,6 +1000,13 @@ async function main() {
   const nameMap = loadNameMapping();
 
   const indices = buildIndices(graph, stages);
+
+  if (opts.terminalsOnly) {
+    console.log(`종점 검사만 (${opts.offline ? '오프라인' : '온라인'})`);
+    const t = reportTerminals(graph, indices, nameMap, stages, opts);
+    finishCheck(t, opts);
+    return;
+  }
 
   const targetNodes = opts.stage
     ? graph.nodes.filter((n) => n.stage === opts.stage)
@@ -627,6 +1119,15 @@ async function main() {
   console.log(`  이미 있음:         ${alreadyExists.length}개`);
   console.log(`  이름 해석 실패:    ${unmappedNames.length}개`);
   console.log(`  미조회 (캐시 없음): ${nocache.length}개`);
+
+  // 종점 검사 — incoming 대조로는 구조적으로 못 잡는 축이다 (헬퍼 주석 참고).
+  const t = reportTerminals(graph, indices, nameMap, stages, opts);
+  console.log(`\n  T-A (엣지만 추가):  ${t.tA.length}개`);
+  console.log(`  T-B (노드 편입):    ${t.tB.length}개`);
+  console.log(`  T-C (스테이지 불인접): ${t.tC.length}개`);
+  console.log(`  T-J (조그레스 전용):  ${t.tJ.length}개`);
+  console.log(`  E (별칭 충돌):      ${t.collisions.length}개`);
+  finishCheck(t, opts);
 }
 
 main().catch((err) => {
