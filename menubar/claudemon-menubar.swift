@@ -219,7 +219,7 @@ func applyRoute(_ route: [String: [String: String]], mon: String) -> Bool {
 //   { "rate_limits": { "five_hour": {"used_percentage": 15, "resets_at": <epoch s>}, ... } }
 //
 // No macOS notifications are sent for these — the mascot's sprite set is
-// overridden instead (see limitLevelForPercentage / framesForLevel below).
+// overridden instead (see limitLevel / framesForLevel below).
 
 let rateLimitStaleAfter: TimeInterval = 30 * 60
 
@@ -255,10 +255,93 @@ func formatResetTime(epochSeconds: Double) -> String {
     return formatter.string(from: date)
 }
 
+// MARK: 쿼터 페이싱
+//
+//   pace = 잔여% / (리셋까지 남은시간 ÷ 창길이 × 100)
+//
+// 1.0 이면 리셋 시각에 정확히 100% 를 쓰는 페이스다. 남은 쿼터는 리셋과 함께
+// 소멸하므로 잔여%만으로는 "지금 아껴야 하나"를 알 수 없다 — 리셋 30분 전의
+// 잔여 30% 와 주 초의 잔여 30% 는 정반대 신호다. 같은 공식과 임계치를
+// lib/quota.js 와 ~/.claude/hooks/session_budget_nudge.py 가 공유한다.
+// 한쪽만 고치면 메뉴 표시와 훅 경고가 어긋난다.
+let paceSurplusThreshold = 2.0
+let paceTightThreshold = 1.0
+let paceDeficitThreshold = 0.7
+let quotaHeadroomFloor = 5.0
+
+// 버킷 키는 고정이 아니므로(모델별 주간 버킷 추가 예상) 문자열로 판정하고,
+// 모르는 키는 주간으로 본다 — labelForBucket 과 같은 방침.
+func quotaWindowSeconds(_ key: String) -> Double {
+    let lower = key.lowercased()
+    if lower.contains("five_hour") || lower.contains("5h") { return 5 * 3600 }
+    if lower.contains("hour") { return 3600 }
+    return 7 * 24 * 3600
+}
+
+// 표시용 라벨이 아니라 열거형으로 둔다 — 스프라이트 override 판정이 여기에
+// 의존하므로, 한글 라벨 비교로 분기하면 문구를 다듬는 순간 마스코트가 조용히 깨진다.
+enum QuotaMode: Int {
+    case surplus = 0   // 여유 — 리셋 전에 다 못 쓴다
+    case normal = 1    // 적정 — 대략 리셋에 맞춰 소진
+    case tight = 2     // 빠듯 — 페이스보다 앞서 소진 중
+    case deficit = 3   // 과속 — 이대로면 리셋 전에 바닥
+}
+
+func quotaModeLabel(_ mode: QuotaMode) -> String {
+    switch mode {
+    case .surplus: return "여유"
+    case .normal: return "적정"
+    case .tight: return "빠듯"
+    case .deficit: return "과속"
+    }
+}
+
+// 잔여가 바닥이면 과속 — 단 pace 가 이미 여유면 제외한다. 잔여 4% 라도 리셋
+// 30분 전이면 태우지 않는 쪽이 손해다. 고정 유예 시간으로는 이걸 가를 수 없다:
+// 7일 창에서 30분은 0.3% 라 어떤 상수를 골라도 주간 버킷은 늘 유예 밖이다.
+func quotaMode(pace: Double, headroom: Double) -> QuotaMode {
+    if headroom <= quotaHeadroomFloor && pace < paceSurplusThreshold { return .deficit }
+    if pace >= paceSurplusThreshold { return .surplus }
+    if pace >= paceTightThreshold { return .normal }
+    if pace >= paceDeficitThreshold { return .tight }
+    return .deficit
+}
+
+struct QuotaPace {
+    let pace: Double
+    let headroom: Double
+    let leftSeconds: Double
+    let mode: QuotaMode
+}
+
+func quotaPace(key: String, bucket: [String: Any], now: Double) -> QuotaPace? {
+    let resetsAt = doubleValue(bucket["resets_at"])
+    guard resetsAt > 0 else { return nil }
+    let window = quotaWindowSeconds(key)
+    // 로컬/서버 시계가 어긋나 남은 시간이 창보다 길게 나오면 창 길이로 자른다.
+    let left = min(max(0, resetsAt - now), window)
+    let headroom = max(0, 100 - doubleValue(bucket["used_percentage"]))
+    let leftFrac = left / window
+    let pace = leftFrac <= 0.0005 ? Double.infinity : headroom / (leftFrac * 100)
+    return QuotaPace(
+        pace: pace,
+        headroom: headroom,
+        leftSeconds: left,
+        mode: quotaMode(pace: pace, headroom: headroom)
+    )
+}
+
+func formatPace(_ pace: Double) -> String {
+    return pace.isFinite ? String(format: "%.1fx", pace) : "∞"
+}
+
 func rateLimitLine(key: String, bucket: [String: Any], stale: Bool) -> String {
     let percentage = intValue(bucket["used_percentage"])
     let resetsAt = doubleValue(bucket["resets_at"])
     var line = "\(labelForBucket(key))  \(percentage)% · 리셋 \(formatResetTime(epochSeconds: resetsAt))"
+    if let p = quotaPace(key: key, bucket: bucket, now: Date().timeIntervalSince1970) {
+        line += " · \(formatPace(p.pace)) \(quotaModeLabel(p.mode))"
+    }
     if stale { line += " (오래됨)" }
     return line
 }
@@ -280,10 +363,47 @@ func maxUsedPercentage(rateLimits: [String: Any]) -> Int {
 // "limit80" (tired) beats nil (no override, keep stage frames). Stays in
 // effect even while the mascot is frozen (paused sessions can still "lie
 // there collapsed").
-func limitLevelForPercentage(_ percentage: Int) -> String? {
-    if percentage >= 95 { return "limit95" }
-    if percentage >= 80 { return "limit80" }
-    return nil
+//
+// 판정 기준은 사용률 절대값이 아니라 pace 다. 사용률로만 보면 리셋 30분 전
+// 96% — 남은 4% 를 태우지 않으면 그대로 소멸하는, 오히려 가장 공격적으로 써야
+// 하는 상황 — 에서 마스코트가 쓰러진 채로 있었다. 반대로 주 초 50% 는 절대값
+// 기준으로는 멀쩡해 보이지만 이미 고갈 궤도일 수 있다. 마스코트가 표현해야 하는
+// 것은 "얼마나 썼나" 가 아니라 "이대로 가면 문제인가" 다.
+//
+// 심각도는 pace 모드가 가르고(빠듯 → 지침, 과속 → 지침/쓰러짐), 쓰러짐은 실제로
+// 바닥이 보일 때(잔여 20% 이하)만 쓴다. 시간 버킷은 돈이 아니라 "지금 당장 막힌다"
+// 신호라 잔여가 바닥일 때만 쓰러짐으로 반영한다.
+let collapseHeadroomThreshold = 20.0
+
+func limitLevel(rateLimits: [String: Any], now: Double) -> String? {
+    var governing: QuotaPace? = nil
+    var hourlyBlocked = false
+
+    for (key, value) in rateLimits {
+        guard let bucket = value as? [String: Any],
+              let paced = quotaPace(key: key, bucket: bucket, now: now)
+        else { continue }
+
+        if quotaWindowSeconds(key) <= 12 * 3600 {
+            // 곧 리셋될 시간 버킷의 바닥은 몇 분 대기일 뿐이므로 .deficit 일 때만 센다.
+            if paced.mode == .deficit && paced.headroom <= quotaHeadroomFloor { hourlyBlocked = true }
+            continue
+        }
+        if governing == nil || paced.pace < governing!.pace { governing = paced }
+    }
+
+    // 5h 가 바닥이면 주간이 아무리 여유여도 당장은 못 쓴다.
+    if hourlyBlocked { return "limit95" }
+    guard let g = governing else { return nil }
+
+    switch g.mode {
+    case .surplus, .normal:
+        return nil
+    case .tight:
+        return "limit80"
+    case .deficit:
+        return g.headroom <= collapseHeadroomThreshold ? "limit95" : "limit80"
+    }
 }
 
 let orphanSessionThreshold: TimeInterval = 10 * 60
@@ -651,6 +771,10 @@ func dumpLimits(path: String) {
         guard let bucket = rateLimits[key] as? [String: Any] else { continue }
         print(rateLimitLine(key: key, bucket: bucket, stale: stale))
     }
+    // 스프라이트 override 판정도 같이 찍는다 — 표시 문구만 보고는 마스코트가
+    // 왜 쓰러졌는지 알 수 없고, 이 판정을 헤드리스로 확인할 다른 경로가 없다.
+    let level = limitLevel(rateLimits: rateLimits, now: Date().timeIntervalSince1970)
+    print("spriteLevel: \(level ?? "(없음)")")
 }
 
 // --dump-state: headless CLI test mode. Reads the same global sources the
@@ -672,11 +796,13 @@ func dumpState() {
     let animating = (state == .working || state == .waitingUser)
 
     var maxPct = 0
+    var usageLevel: String? = nil
     if let (cache, _) = mostRecentHudCache(sessions: sessions),
        let rateLimits = cache["rate_limits"] as? [String: Any] {
         maxPct = maxUsedPercentage(rateLimits: rateLimits)
+        usageLevel = limitLevel(rateLimits: rateLimits, now: Date().timeIntervalSince1970)
     }
-    let level = overrideFrameLevel(limitLevel: limitLevelForPercentage(maxPct), sessionState: state)
+    let level = overrideFrameLevel(limitLevel: usageLevel, sessionState: state)
     let resolved = resolvePack(for: daily.mon)
 
     print("mon: \(resolved.mon)")
@@ -688,6 +814,7 @@ func dumpState() {
     print("workingSessionCount: \(workingCount)")
     print("animating: \(animating)")
     print("maxRateLimitPercentage: \(maxPct)")
+    print("spriteLevel: \(usageLevel ?? "(없음)")")
     print("frameSet: \(level ?? "stage:\(daily.stageId)")")
     print("globalState: \(state.rawValue)")
     for (entry, sessState) in orderedSessionStates(sessions: sessions) {
@@ -1488,7 +1615,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let bucket = rateLimits[key] as? [String: Any] else { continue }
             rateLimitMenuLines.append(rateLimitLine(key: key, bucket: bucket, stale: stale))
         }
-        currentLimitLevel = limitLevelForPercentage(maxUsedPercentage(rateLimits: rateLimits))
+        currentLimitLevel = limitLevel(rateLimits: rateLimits, now: Date().timeIntervalSince1970)
     }
 
     func focusedSessionLabel() -> String {
