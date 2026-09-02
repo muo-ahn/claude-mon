@@ -605,22 +605,30 @@ async function auditNode(node, graph, indices, nameMap, opts) {
 //
 // reverse 는 캐시 파일을 전수 읽지만 네트워크를 쓰지 않으므로 오프라인에서 돈다.
 
-// 조그레스(합체 진화) 판정.
+// 조그레스(합체 진화) 판정 — **배제가 아니라 표시다.**
 //
-// Wikimon 은 파트너 요구를 괄호 수식어로 쓴다. 세 형태가 의미가 전혀 다르다:
+// Wikimon 은 파트너 요구를 괄호 수식어로 쓰고, 세 형태의 의미가 다르다:
 //
 //   (with X)                 → X 가 반드시 필요 = 조그레스 전용
 //   (with or without X)      → 단독 진화도 된다
 //   (including or not ... X) → 단독 진화도 된다
 //
-// evolvesFrom: [{from, when}] 모델은 부모가 하나뿐이라 "둘 다 필요"를 표현할 수
-// 없고, global-graph-plan.md §7 이 조그레스를 범위 밖으로 뒀다("하루에 마스코트가
-// 1마리라 발동 조건이 존재하지 않는다"). 그래서 조그레스 전용 엣지는 편입
-// 불가능하며, 조치 가능 후보로 보고하면 안 된다.
+// evolvesFrom: [{from, when}] 은 부모가 하나뿐이라 "둘 다 필요"를 표현할 수 없다.
+// 그렇다고 조그레스 종이 편입 불가인 것은 **아니다** — 이 저장소에는 부모별로
+// 쪼개 독립 엣지로 넣는 선례가 있다.
 //
-// 실측 2026-09-02: 이 판정이 없던 초판은 Grace Novamon 을 T-B 양방향 확정으로
-// 올렸다. 실제로는 Apollomon 과 Dianamon 을 **동시에** 요구하는 조그레스 전용이라
-// 편입할 방법이 없다.
+// 실측 선례 (2026-09-02):
+//   · 오메가몬은 워그레이몬+메탈가루몬 조그레스인데, Wikimon l1=Ultimate 를
+//     초궁극체로 **승격**시켜 두 부모와 스테이지를 인접하게 만들고 각각을
+//     독립 엣지로 넣었다. 같은 승격이 15종에 적용돼 있다(§7 "초궁극체 칸 승격").
+//   · 조그레스 전용 줄만 있는 엣지도 이미 2건 들어와 있다
+//     (weregarurumon→boltmon, renamon→hanumon).
+//   · 반면 그래프 엣지 960건 중 958건(99.8%)은 단독 가능한 줄을 갖는다 —
+//     즉 조그레스 편입은 예외적 판단이고 기본값이 아니다.
+//
+// 그래서 이 판정의 역할은 "거르기"가 아니라 **"판단이 필요한 것을 골라내기"** 다.
+// T-J 로 따로 묶어 보고하되 --check 게이트에는 넣지 않는다. 편입 여부는
+// 스테이지 승격을 할 것인지와 함께 사람이 결정해야 한다.
 function isJogressOnly(line) {
   if (!/\(\s*(?:with|including)\b/i.test(line)) return false;
   if (/\bor\s+without\b/i.test(line)) return false;
@@ -897,7 +905,8 @@ function reportTerminals(graph, indices, nameMap, stages, opts) {
     }
     for (const c of cands) {
       const entry = { ...r, cand: c };
-      // 조그레스 전용은 편입 방법이 없으므로 조치 가능 범주에서 빼낸다.
+      // 조그레스 전용은 스테이지 승격까지 걸린 판단이라 --check 게이트에서 빼낸다.
+      // 편입 불가라는 뜻이 아니다 — isJogressOnly 주석의 선례 참고.
       if (c.jogressOnly) {
         tJ.push(entry);
         continue;
@@ -942,7 +951,7 @@ function reportTerminals(graph, indices, nameMap, stages, opts) {
   };
   showGroup('T-B 노드 편입 필요 (정본이지만 노드 없음):', tB);
   showGroup('T-C 스테이지 불인접 (넣으면 parent-stage-mismatch):', tC);
-  showGroup('T-J 조그레스 전용 (편입 불가 — §7 범위 밖):', tJ);
+  showGroup('T-J 조그레스 전용 (분할 편입 판단 필요 — 오메가몬 선례):', tJ);
 
   if (noCanon.length > 0) {
     console.log('\n  정본 후계 없음 — 진짜 종점으로 판단:');
