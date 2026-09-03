@@ -2017,6 +2017,10 @@ extras:
   pack: agumon
   stage: adult
   source: pack
+- ko: 그레이스노바몬
+  pack: agumon
+  stage: superultimate
+  source: pack
 - ko: 그레이드몬
   pack: agumon
   stage: perfect

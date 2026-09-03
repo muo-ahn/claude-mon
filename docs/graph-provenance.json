@@ -11181,5 +11181,34 @@
         "via": "evolves-from-bold"
       }
     ]
+  },
+  {
+    "id": "gracenovamon",
+    "title": "Grace Novamon",
+    "koSource": "manual",
+    "dotSource": "Gracenovamon_vpet_dpc.gif",
+    "stageNote": "Wikimon l1=Ultimate — 부모(궁극체)와 인접시키려 초궁극체로 승격. §7 초궁극체 승격 15종과 동일 판단",
+    "edges": [
+      {
+        "from": "apollomon",
+        "games": [
+          "Digital Monster Ver.20th",
+          "Digimon New Century",
+          "Vital Bracelet BE",
+          "Pendulum COLOR"
+        ],
+        "via": "evolves-from-bold; jogress split (오메가몬 선례)"
+      },
+      {
+        "from": "dianamon",
+        "games": [
+          "Digital Monster Ver.20th",
+          "Digimon New Century",
+          "Vital Bracelet BE",
+          "Pendulum COLOR"
+        ],
+        "via": "evolves-from-bold; jogress split (오메가몬 선례)"
+      }
+    ]
   }
 ]
