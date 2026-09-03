@@ -39,6 +39,11 @@ const {
   MON_HISTORY_MAX
 } = require('../lib/daily');
 
+// Aliased: this file also declares its own local `TREE` pack-tree fixture
+// (see below) for selectRoute unit tests, so the real global stage ladder
+// (digitama..superultimate, from evolution-tree.json) needs a different name.
+const { TREE: EVOLVE_TREE } = require('../lib/evolve');
+
 // --- helpers ---------------------------------------------------------
 
 // Builds an isolated sprite root so no test depends on what actually
@@ -1865,6 +1870,147 @@ test('computeDailyTokens produces the same route on a same-day rerun with unchan
   const second = computeDailyTokens(dateAt(0), dirs); // no new transcripts - same signals
   assert.deepStrictEqual(second.route, first.route);
   assert.strictEqual(second.stageId, first.stageId);
+});
+
+// --- A-2 + last-moment lottery (docs/lazy-route-plan.md) ----------------
+
+test('computeDailyTokens is stable across many same-day reruns despite the last-moment lottery', (t) => {
+  const dirs = makeRoot(t);
+  // Only veemon, so selectMon picks it deterministically (N=1 case) and
+  // whatever varies run to run is entirely down to route drawing, not mon
+  // rotation.
+  writePack(dirs.packsDir, 'veemon', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  // 150,000 output tokens: lands in adult, well short of perfect - leaves
+  // stages above adult undrawn, so a later rerun has something to
+  // mistakenly re-roll if the last-moment lottery's pinning is broken.
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000001.jsonl', [
+    assistantLine('msg_1', 75_000)
+  ]);
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000002.jsonl', [
+    assistantLine('msg_2', 75_000)
+  ]);
+
+  const first = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(first.stageId, 'adult');
+
+  // computeDailyTokens is what the menubar calls every ~30s. Rerun it many
+  // times with nothing else on disk changing and require byte-for-byte
+  // identical route and mon every time - a real Math.random draw that
+  // isn't properly pinned would reroll a reached stage and this would catch
+  // the resulting mid-day sprite flicker.
+  for (let i = 0; i < 50; i++) {
+    const again = computeDailyTokens(dateAt(0), dirs);
+    assert.deepStrictEqual(again.route, first.route, `route changed on rerun ${i}`);
+    assert.strictEqual(again.mon, first.mon, `mon changed on rerun ${i}`);
+  }
+});
+
+test('computeDailyTokens grows route append-only as tokens climb 0 -> 30k -> 100k -> 300k', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'veemon', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  const globalStageOrder = EVOLVE_TREE.stages.map((s) => s.id);
+  const idxOf = (stageId) => globalStageOrder.indexOf(stageId);
+
+  let cumulative = 0;
+  let fileNum = 0;
+  let prevResult = null;
+  for (const target of [0, 30_000, 100_000, 300_000]) {
+    if (target > cumulative) {
+      fileNum++;
+      writeTranscript(
+        dirs.projectsDir,
+        `-Users-me-repo/aaaaaaaa-0000-0000-0000-00000000000${fileNum}.jsonl`,
+        [assistantLine(`msg_${fileNum}`, target - cumulative)]
+      );
+      cumulative = target;
+    }
+
+    const result = computeDailyTokens(dateAt(0), dirs);
+    assert.strictEqual(result.outputTokens, cumulative);
+
+    // No key in route may be past the stage actually reached today.
+    const reachedIdx = idxOf(result.stageId);
+    for (const key of Object.keys(result.route)) {
+      assert.ok(idxOf(key) <= reachedIdx,
+        `route has unreached stage ${key} while stageId is ${result.stageId}`);
+    }
+
+    // Append-only: every entry present on a previous (lower-token) run must
+    // still be there, unchanged, now.
+    if (prevResult) {
+      for (const key of Object.keys(prevResult.route)) {
+        assert.deepStrictEqual(result.route[key], prevResult.route[key],
+          `stage ${key} changed between stageId ${prevResult.stageId} and ${result.stageId}`);
+      }
+    }
+    prevResult = result;
+  }
+
+  assert.strictEqual(prevResult.stageId, 'perfect');
+  assert.ok(prevResult.route.perfect, 'expected perfect to be reached by 300k tokens');
+});
+
+test('computeDailyTokens does not reveal terminalFrom before the terminal stage is reached, and clamp still applies once past it', (t) => {
+  const dirs = makeRoot(t);
+  // gaomon's tree terminates early on every branch (some at ultimate, some
+  // one stage later at superultimate - confirmed by walking childrenOf from
+  // gaomon: every path hits a childless node 3 or 4 hops down). Which
+  // branch - and therefore exactly where - is now a real Math.random draw
+  // (docs/lazy-route-plan.md §3's last-moment lottery), so this test can't
+  // assert a fixed terminal stage or species; it asserts the structural
+  // invariants that must hold regardless of which branch gets drawn.
+  writePack(dirs.packsDir, 'gaomon', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+
+  // 500,000 tokens clears perfect's gte (300,000) but falls short of every
+  // branch's earliest possible terminal (ultimate, gte 1,000,000): the
+  // truncated route (digitama..perfect) cannot contain a terminal node yet,
+  // on any branch.
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000001.jsonl', [
+    assistantLine('msg_1', 500_000)
+  ]);
+  const beforeTerminal = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(beforeTerminal.stageId, 'perfect');
+  // The whole point of cutting terminalFrom from the truncated route
+  // (docs/lazy-route-plan.md's terminalFrom note): before any branch's
+  // terminal stage is reached, nothing may say this lineage ends there.
+  assert.ok(!beforeTerminal.route.ultimate, 'ultimate leaked into route before it was reached');
+  assert.ok(!beforeTerminal.terminalFrom, `terminalFrom leaked early: ${beforeTerminal.terminalFrom}`);
+
+  // Cumulative 2,100,000: clears every stage's gte, including
+  // superultimate's (2,000,000), so applyEvolution's token-only read of the
+  // day (independent of the graph) reaches the global top stage regardless
+  // of species - the truncated route always includes all 7 stages here.
+  // Whichever branch the lottery drew, its terminal node - early or the
+  // genuine top - is now inside that truncated route, so terminalFrom must
+  // be set and the clamp must land stageId exactly on it.
+  writeTranscript(dirs.projectsDir, '-Users-me-repo/aaaaaaaa-0000-0000-0000-000000000002.jsonl', [
+    assistantLine('msg_2', 1_600_000)
+  ]);
+  const pastTerminal = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(pastTerminal.terminalFrom, 'expected a terminal stage once every threshold is cleared');
+  assert.strictEqual(pastTerminal.stageId, pastTerminal.terminalFrom);
+  // Terminal fill: the reported terminal stage's node repeats through every
+  // stage still ahead of it, including the global top (Q-2 - kept so the
+  // clamp above has something to compare against).
+  const terminalId = pastTerminal.route[pastTerminal.terminalFrom].id;
+  assert.strictEqual(pastTerminal.route.superultimate.id, terminalId);
+
+  // Append-only: everything already reached (and pinned) below perfect
+  // before this second run must be exactly what it was - last-moment
+  // randomness must never re-roll an already-reached stage, even when a
+  // later run draws stages far beyond it in the same call.
+  for (const stage of ['digitama', 'baby', 'child', 'adult', 'perfect']) {
+    assert.deepStrictEqual(pastTerminal.route[stage], beforeTerminal.route[stage],
+      `stage ${stage} changed after it was already pinned`);
+  }
 });
 
 // Phase B: runtime must degrade gracefully even with graph validation gaps.
