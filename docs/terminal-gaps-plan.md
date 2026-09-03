@@ -1,6 +1,6 @@
 # 계획: 완전체 종점 해소 — 정본 계열 후계 편입
 
-> 상태: **T-1 ~ T-4 전부 완료 (2026-09-02).** 완전체 종점 11.0% → **0.0%**,
+> 상태: **T-1 ~ T-5 전부 완료 (2026-09-02).** 완전체 종점 11.0% → **0.0%**,
 > 초궁극체 도달률 33.3% → **40.5%**. 감사 확장까지 들어가 재발이 막힌다.
 > **다른 두 계획(`gate-weighting-plan.md`, `lazy-route-plan.md`)과 선후 관계 없이 병행 가능** —
 > 독립성은 §6 에서 실측으로 확인했다.
@@ -153,10 +153,7 @@ reverse : 캐시 917개의 Evolves From 볼드 역참조 → 후보 도출
 올렸다.** 실제로는 `Apollomon (with Dianamon)` / `Dianamon (with Apollomon)` 로
 양쪽을 동시에 요구한다. 부모 두 노드(`apollomon`·`dianamon`)는 그래프에 **있다.**
 
-**그레이스노바몬을 넣으려면 오메가몬 선례를 그대로 따르면 된다** — Wikimon
-`l1=Ultimate` 이고 부모가 둘 다 `ultimate` 이므로, `superultimate` 로 승격해야
-스테이지가 인접해진다(그러지 않으면 `parent-stage-mismatch`). 그 뒤 `apollomon →`
-`dianamon →` 두 엣지를 독립으로 넣는다. 도트 확보가 선행이다.
+**그레이스노바몬은 오메가몬 선례를 그대로 따라 편입했다 (T-5, ✅ 완료).**
 
 같은 원인의 두 번째 오탐: `'''[[Apollomon]]''' (with '''[[Dianamon]]''')` 에서
 **파트너인 Dianamon 도 볼드**라 후보로 잡혔다. `Evolves From` 방향은 줄 머리의
@@ -190,6 +187,27 @@ T-A: aerovdramon → Ulforce V-dramon  양방향
 
 엣지만 필요한 2건은 T-A, 노드가 필요한 2건(karatenmon·lucemon_falldownmode)은
 T-B 로 정확히 갈린다. **이 감사가 있었다면 이번 결함을 잡았다.**
+
+### T-5 조그레스 분할 편입 — 그레이스노바몬 — ✅ 완료
+
+오메가몬 선례를 따라 조그레스를 부모별 독립 엣지로 쪼개 편입했다.
+
+| 항목 | 값 |
+|---|---|
+| 노드 | `gracenovamon` (그레이스노바몬) |
+| 스테이지 | **`superultimate`** — Wikimon `l1=Ultimate` 인데 부모가 둘 다 `ultimate` 이라 승격해야 인접해진다. §7 초궁극체 승격 15종과 동일 판단 |
+| 엣지 | `apollomon → gracenovamon`, `dianamon → gracenovamon` (각각 독립) |
+| 도트 | `Gracenovamon_vpet_dpc.gif` (84×84) → 내용 25×30. 오메가몬 25×32 와 동급 |
+| 초상 | `Gracenovamon vpet vb.png` → 60×54 |
+
+도트 후보 4종을 전부 뽑아 대조했다 — `ts_dot`(128×128)은 32 로 줄이며 색이
+뭉개져 거의 검게 나왔고 `vpet_vb`(192×168)는 파편화됐다. `vpet_dpc` 가 유일하게
+기존 초궁극체와 화풍·밀도가 맞았다.
+
+효과: 궁극체 종점 **48 → 46** (아폴로몬·디아나몬 해소). 초궁극체 종점은
+25 → 26 이지만 최상위라 정상이다. 감사의 T-J 양방향 확정도 **0건**이 됐다.
+
+### 남은 후속
 
 현재 그래프에서는 **T-A 0건**. 남은 양방향 확정 후보는 궁극체 종점의 노드 편입
 **4건** — `chaosmon`(← 반쵸레오몬), `death-x-dorugoramon`(← 도루고라몬),

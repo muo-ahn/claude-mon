@@ -7079,6 +7079,22 @@
       ]
     },
     {
+      "id": "gracenovamon",
+      "name": "그레이스노바몬",
+      "stage": "superultimate",
+      "sprite": "gracenovamon",
+      "evolvesFrom": [
+        {
+          "from": "apollomon",
+          "when": null
+        },
+        {
+          "from": "dianamon",
+          "when": null
+        }
+      ]
+    },
+    {
       "id": "zudomon",
       "name": "즈도몬",
       "stage": "perfect",
