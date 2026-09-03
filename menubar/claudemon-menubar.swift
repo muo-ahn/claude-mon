@@ -47,6 +47,7 @@
 // matches those species (see framesForLevel).
 
 import AppKit
+import UserNotifications
 
 // argv[0] can be relative ("./claudemon-menubar") — resolve against CWD
 // once so every derived path is absolute. NOTE: this is main.swift-style
@@ -92,7 +93,17 @@ func packPath(for mon: String) -> String {
 
 let resolverScript = executableDir + "/active-session.sh"
 
-let projectRoot = (executableDir as NSString).deletingLastPathComponent
+// .app 번들로 실행하면 executableDir 이 Contents/MacOS 라 파생 projectRoot 는
+// Contents 를 가리키고, dailyTokensScript 가 존재하지 않는 경로가 되어 토큰
+// 집계기가 조용히 멈춘다 — 위 executableDir 주석이 적어둔 그 고장이 번들화로
+// 그대로 재현된다. CLAUDEMON_DIR 과 같은 방식으로 env 를 우선한다 (launchd plist 가 넣는다).
+let projectRoot: String = {
+    if let override = ProcessInfo.processInfo.environment["CLAUDEMON_PROJECT_ROOT"],
+       !override.isEmpty {
+        return override
+    }
+    return (executableDir as NSString).deletingLastPathComponent
+}()
 
 let dailyTokensScript = projectRoot + "/daily-tokens.js"
 
@@ -104,6 +115,18 @@ let claudemonDir: String = {
 let globalStateFile = claudemonDir + "/state.json"
 let dailyStateFile = claudemonDir + "/daily.json"
 let sessionsDir = claudemonDir + "/sessions"
+
+// 알림 큐 — hook.js 가 JSON 파일을 떨구고 이 앱이 소비한다. 소켓이 아니라 파일드롭인
+// 이유가 두 가지다: 앱이 내려가 있는 동안 도착한 요청이 사라지지 않고, 연결 수명을
+// 관리하는 코드가 아예 없어진다. 폴링으로 읽는 것도 이 파일의 나머지와 같은 판단이다
+// (focused-session 주석 참고) — 큐 디렉터리는 거의 항상 비어 있어서 0.5초 readdir 은
+// 사실상 무비용이다.
+let notifyQueueDir = claudemonDir + "/notify-queue"
+// notify.js 가 "앱 경로를 쓸 수 있는가" 를 판정하는 근거. 2초 틱마다 갱신한다.
+let notifyHeartbeatFile = claudemonDir + "/menubar-alive.json"
+// 앱이 죽어 있던 사이에 쌓인 요청은 버린다. 30분 전의 "입력 대기" 를 지금 띄우는 것은
+// 정보가 아니라 노이즈다.
+let notifyStaleSeconds: TimeInterval = 60
 
 // Ordered low to high: loadFrames() relies on the order to fall back to the
 // stage below when a pack has no art for one yet.
@@ -915,6 +938,47 @@ func drawAspectFit(_ img: NSImage, in box: NSRect) {
 // NSView that draws a single NSImage aspect-fit via drawAspectFit(). Used by
 // both the evolution cut-in overlay (work item A) and the menu's portrait
 // header (work item B) so both share the same crisp pixel-art rendering.
+// 큐 파일 하나의 내용. 문구는 전부 notify.js 가 정한다 — 이 앱은 전달만 한다.
+struct NotifyRequest {
+    let title: String
+    let body: String
+    let subtitle: String?
+    let urgency: String
+    let threadId: String?
+}
+
+// 형식이 어긋난 파일은 nil. 호출부는 nil 이든 아니든 파일을 지운다 — 파싱 못 하는
+// 파일을 남겨두면 매 틱마다 같은 실패를 반복한다.
+func parseNotifyRequest(path: String) -> NotifyRequest? {
+    guard let data = FileManager.default.contents(atPath: path),
+          let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let title = json["title"] as? String,
+          let body = json["body"] as? String else { return nil }
+    return NotifyRequest(
+        title: title,
+        body: body,
+        subtitle: json["subtitle"] as? String,
+        urgency: (json["urgency"] as? String) ?? "normal",
+        threadId: json["threadId"] as? String
+    )
+}
+
+// 메뉴에 그대로 띄우는 문자열. 권한이 조용히 꺼져 있는 것이 이 기능의 가장 흔한
+// 고장이므로 상태를 사람이 볼 수 있는 곳에 노출한다.
+func notifyAuthLabel(_ status: UNAuthorizationStatus) -> String {
+    switch status {
+    case .authorized: return "허용됨"
+    case .provisional: return "임시 허용"
+    case .denied: return "거부됨 — 시스템 설정에서 켜야 한다"
+    case .notDetermined: return "미결정"
+    @unknown default: return "알 수 없음"
+    }
+}
+
+func notifyAuthGranted(_ status: UNAuthorizationStatus) -> Bool {
+    return status == .authorized || status == .provisional
+}
+
 final class PixelArtView: NSView {
     var image: NSImage? { didSet { needsDisplay = true } }
 
@@ -960,6 +1024,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentSessionState: SessionState = .idle
     var sessionTokens: [String: Int] = [:]
 
+    // 첫 실행에서 requestAuthorization 의 콜백을 신뢰할 수 없다. macOS 26 실측:
+    // 권한 다이얼로그가 떠 있는 동안 콜백이 UNErrorDomain Code=1
+    // ("Notifications are not allowed for this application") 로 먼저 반환되고,
+    // 그 뒤 사용자가 허용을 누르면 권한은 정상 기록된다. 즉 콜백의 granted 는
+    // "아직 모른다" 와 "거부됨" 을 구분하지 못한다. 그래서 콜백 결과를 상태로 쓰지
+    // 않고 getNotificationSettings 를 2초 틱에서 폴링해 갱신한다.
+    var notifyAuthStatus: UNAuthorizationStatus = .notDetermined
+
     // Focused-session info: purely informational (one line in the menu),
     // resolved the same way as before via active-session.sh. Does not
     // drive the sprite or the animation state anymore.
@@ -991,8 +1063,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                                  name: evolvedName(pack: currentPackPath, mon: currentMon, stageId: demo.to))
         }
 
+        setupNotifications()
+
         Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
             self?.advanceFrame()
+        }
+        // 알림 큐 배수는 상태 갱신(2초)보다 빨라야 한다 — "입력 대기" 는 사용자가
+        // 기다리는 신호이므로 지연이 그대로 체감된다. 빈 디렉터리 readdir 이라 싸다.
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.drainNotifyQueue()
         }
         // active-session.sh re-resolves which kitty window/tmux pane/claude
         // process is focused; polling is simpler and more robust than a vnode
@@ -1003,6 +1082,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // off the main thread.
         Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.refreshState()
+            self?.refreshNotifyAuth()
+            self?.writeNotifyHeartbeat()
         }
         // Keeps daily.json fresh. Runs independently of the 2s refresh tick
         // since aggregation (reading every session transcript for today)
@@ -1759,10 +1840,83 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(withTitle: "알림 권한: " + notifyAuthLabel(notifyAuthStatus), action: nil, keyEquivalent: "")
+
+        menu.addItem(NSMenuItem.separator())
         let quit = NSMenuItem(title: "종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         menu.addItem(quit)
         statusItem.menu = menu
+    }
+
+    // MARK: - 데스크톱 알림
+
+    // 기동 시 권한을 무조건 한 번 요청한다. .notDetermined 일 때만 요청하도록
+    // 조건을 걸었더니 첫 실행에서 getNotificationSettings 가 곧바로 .denied 를
+    // 보고해(등록 전 앱의 기본값으로 보인다) 요청이 아예 나가지 않고 그 상태로
+    // 굳었다. 이미 허용된 앱에 다시 요청하는 것은 무해하며(다이얼로그 없이 현재
+    // 상태를 반환한다), 정말 거부한 앱에는 아무 일도 일어나지 않는다.
+    // 콜백의 granted/error 는 위 notifyAuthStatus 주석의 이유로 읽지 않는다 —
+    // 판정은 2초 틱의 폴링이 한다.
+    func setupNotifications() {
+        try? FileManager.default.createDirectory(atPath: notifyQueueDir,
+                                                 withIntermediateDirectories: true)
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        refreshNotifyAuth()
+        writeNotifyHeartbeat()
+    }
+
+    func refreshNotifyAuth() {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async { self?.notifyAuthStatus = settings.authorizationStatus }
+        }
+    }
+
+    // 큐를 비운다. 파일명을 정렬해 도착 순서대로 처리한다 (hook.js 가 epoch ms 를
+    // 접두사로 쓴다).
+    func drainNotifyQueue() {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: notifyQueueDir) else { return }
+        for name in names.sorted() where name.hasSuffix(".json") {
+            let path = notifyQueueDir + "/" + name
+            let mtime = (try? fm.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+            let request = parseNotifyRequest(path: path)
+            try? fm.removeItem(atPath: path)
+            guard let request else { continue }
+            let age = Date().timeIntervalSince(mtime ?? Date.distantPast)
+            guard age <= notifyStaleSeconds else { continue }
+            postNotification(request)
+        }
+    }
+
+    func postNotification(_ request: NotifyRequest) {
+        let content = UNMutableNotificationContent()
+        content.title = request.title
+        content.body = request.body
+        if let subtitle = request.subtitle { content.subtitle = subtitle }
+        if let threadId = request.threadId { content.threadIdentifier = threadId }
+        content.sound = .default
+        // critical 은 사용자가 자리를 비운 사이의 "입력 대기" 다. timeSensitive 는
+        // 엔타이틀먼트가 없으면 시스템이 조용히 무시할 뿐 add 를 실패시키지 않으므로,
+        // 없는 환경에서도 .active 와 동일하게 동작한다.
+        content.interruptionLevel = request.urgency == "critical" ? .timeSensitive : .active
+        let req = UNNotificationRequest(identifier: UUID().uuidString,
+                                        content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req, withCompletionHandler: nil)
+    }
+
+    // notify.js 는 이 파일만 보고 앱 경로를 쓸지 OSC 99 로 내려갈지 정한다. 앱이
+    // 살아 있어도 권한이 없으면 알림은 안 뜨므로, 생존과 권한을 함께 싣는다.
+    func writeNotifyHeartbeat() {
+        let payload: [String: Any] = [
+            "pid": ProcessInfo.processInfo.processIdentifier,
+            "at": Date().timeIntervalSince1970,
+            "auth": notifyAuthLabel(notifyAuthStatus),
+            "authorized": notifyAuthGranted(notifyAuthStatus)
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        try? data.write(to: URL(fileURLWithPath: notifyHeartbeatFile), options: .atomic)
     }
 }
 

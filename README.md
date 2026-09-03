@@ -64,12 +64,16 @@ node scripts/materialize-sprites.js --write
 statusline 대신/과 함께 메뉴바에 애니메이션 마스코트를 띄우려면 앱을 직접 빌드한다:
 
 ```bash
-cd menubar
-swiftc -O -o claudemon-menubar claudemon-menubar.swift
-./claudemon-menubar &
+./menubar/build-app.sh          # ~/Applications/Claudemon.app 생성
+open -a ~/Applications/Claudemon.app --args "$PWD/sprites"
 ```
 
-- 빌드 산출물(`menubar/claudemon-menubar`)은 `.gitignore`로 제외되어 있으므로 각자 빌드해야 한다.
+빌드 스크립트는 아이콘(`.icns`) 생성 → 컴파일 → 번들 조립 → ad-hoc 서명 → LaunchServices 등록까지 한다. 설치 위치는 `CLAUDEMON_INSTALL_DIR`로 바꿀 수 있다.
+
+- **왜 `.app` 번들인가.** macOS는 알림의 발신 앱 이름과 좌측 아이콘을 *배너를 올린 앱 번들*에서 가져온다. 번들이 없으면 알림을 kitty를 거쳐 쏘는 수밖에 없고, 그러면 모든 배너가 "kitty" 이름과 kitty 아이콘으로 찍힌다. [데스크톱 알림](#데스크톱-알림) 참고.
+- **번들은 반드시 `~/Applications` 같은 정식 위치여야 한다.** 실측(macOS 26): `/private/tmp` 같은 임시 위치나 레포 안에서 실행하면 `UNUserNotificationCenter`가 권한 요청을 다이얼로그도 없이 `UNErrorDomain Code=1`로 즉시 거부한다.
+- 맨 실행파일로 띄우고 싶으면 `swiftc -O -o menubar/claudemon-menubar menubar/claudemon-menubar.swift` 로도 여전히 동작한다. 마스코트·메뉴는 정상이고 알림만 앱 경로를 못 쓴다.
+- 빌드 산출물(`menubar/claudemon-menubar`, `menubar/Claudemon.icns`)은 `.gitignore`로 제외되어 있으므로 각자 빌드해야 한다.
 - 앱은 accessory(백그라운드 상주) 모드로 뜨며 Dock 아이콘 없이 메뉴바에만 나타난다. `active-session.sh`로 현재 포커스된 세션을 추적하고, 30초마다 `daily-tokens.js`를 호출해 토큰 집계를 갱신한다.
 - 로그인 시 자동 실행은 아래 [LaunchAgent 등록](#로그인-시-자동-실행-launchagent) 참고.
 - 팩 디렉터리가 비어 있으면 표시가 비거나 fallback되므로, [클론](#1-클론) 단계의 `node scripts/materialize-sprites.js --write`를 먼저 실행한다.
@@ -87,10 +91,15 @@ swiftc -O -o claudemon-menubar claudemon-menubar.swift
 	<string>com.muo.claudemon-menubar</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string><레포>/menubar/claudemon-menubar</string>
+		<string><홈>/Applications/Claudemon.app/Contents/MacOS/claudemon-menubar</string>
 		<string><레포>/sprites</string>
 		<string>--no-cutin</string>
 	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>CLAUDEMON_PROJECT_ROOT</key>
+		<string><레포></string>
+	</dict>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>ProcessType</key>
@@ -117,6 +126,8 @@ launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
 - `KeepAlive`는 넣지 않는 게 좋다. 켜면 `pkill`로 죽인 순간 launchd가 **plist에 적힌 인자로** 즉시 되살리므로, `--demo-cutin`처럼 다른 플래그로 띄워 확인하는 절차와 계속 충돌한다.
 - `node`는 PATH가 아니라 `/opt/homebrew/bin` → `/usr/local/bin` → `/usr/bin` 순서로 절대경로 탐색하므로(`findNodeBinary()`), launchd의 빈약한 PATH에서도 토큰 집계가 동작한다. 단 nvm/mise로만 설치한 node는 이 목록에 없어 집계가 조용히 멈춘다 — 그 경우 심볼릭 링크를 걸어준다.
 - 실행 인자를 바꿨으면 `bootout` → `bootstrap`을 다시 해야 한다. `kickstart`는 기존 plist 그대로 재기동할 뿐이다.
+- `CLAUDEMON_PROJECT_ROOT`는 번들로 실행할 때 **필수**다. 앱은 `projectRoot`를 `실행파일디렉터리/..`로 파생하는데, 번들에서는 그게 `Contents/`를 가리켜 `daily-tokens.js`를 찾지 못하고 토큰 집계가 조용히 멈춘다.
+- 스프라이트 경로는 번들이 아니라 **레포**를 가리키게 둔다. 스프라이트를 고칠 때 앱을 재빌드하지 않아도 되고, worktree에서 빌드했더라도 그 worktree가 사라져도 앱이 안 깨진다.
 
 ### 상태 저장 위치
 
@@ -181,6 +192,45 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 - `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
 - `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
 
+## 데스크톱 알림
+
+터미널이 앞에 없을 때 "네 차례" 를 알리는 배너다. 마스코트 상태(메뉴바 아이콘·진화 컷인)와는 완전히 별개다.
+
+| 이벤트 | 문구 | urgency |
+|---|---|---|
+| 권한 프롬프트 / 입력 대기 | 입력 대기 | `critical` |
+| 위임한 작업 완료 | 작업 완료 | `normal` |
+| 턴 종료 (30초 이상 걸린 턴만) | 턴 종료 | `normal` |
+
+짧은 턴은 사용자가 지켜보고 있었을 가능성이 크므로 배너를 쏘지 않는다 (`CLAUDEMON_NOTIFY_MIN_TURN_MS`, 기본 30000). 입력 대기는 이 문턱을 무시한다. 전체를 끄려면 `CLAUDEMON_NOTIFY=0`.
+
+### 3단 전달 경로
+
+`lib/notify.js`가 위에서부터 시도하고, 실패하면 다음으로 내려간다.
+
+| 순위 | 경로 | 조건 |
+|---|---|---|
+| 1 | **Claudemon.app** — 파일드롭 큐 → `UNUserNotificationCenter` | 앱이 살아 있고(하트비트 10초 이내) 알림 권한이 있을 때 |
+| 2 | **kitty OSC 99** 이스케이프 시퀀스 | 클라이언트가 kitty이고, tmux 안이면 `allow-passthrough`가 on/all일 때 |
+| 3 | **사운드** (`afplay`, critical은 Sosumi) | 위 둘이 모두 안 될 때 |
+
+1번을 최우선으로 두는 이유는 아이콘만이 아니다. 앱 경로는 터미널을 방정식에서 지우고(Ghostty·Terminal.app·맨 tty 모두 동작), 권한이 실제로 켜져 있는지를 **보고할 수 있다** — 이스케이프 시퀀스 경로는 그걸 알 방법이 없다.
+
+- **큐**: `$CLAUDEMON_DIR/notify-queue/<epoch ms>-<seq>-<pid>-<rand>.json`. `.tmp`로 쓴 뒤 rename한다(앱이 0.5초마다 폴링하므로 반쯤 쓰인 파일을 읽을 수 있다). 앱은 `.json`만 집어가고, 파일명 정렬로 도착 순서를 얻는다. 60초보다 오래된 요청은 버린다 — 앱이 내려가 있던 사이의 "입력 대기" 를 지금 띄우는 것은 정보가 아니라 노이즈다.
+- **하트비트**: `$CLAUDEMON_DIR/menubar-alive.json`. 앱이 2초마다 pid·시각·권한 상태를 쓴다. 앱이 살아 있어도 권한이 없으면 배너가 안 뜨므로 `notify.js`는 두 조건을 함께 본다.
+- **권한 상태는 메뉴에 노출된다** (`알림 권한: 허용됨 / 거부됨 / 미결정`). 권한이 조용히 꺼져 있는 것이 이 기능의 가장 흔한 고장이다.
+
+### 알림이 안 뜰 때
+
+1. **메뉴바 메뉴에서 `알림 권한`** 을 본다. `거부됨`이면 시스템 설정 → 알림 → Claudemon에서 켠다.
+2. **첫 실행의 권한 요청 결과는 신뢰할 수 없다.** 실측(macOS 26): 권한 다이얼로그가 떠 있는 동안 `requestAuthorization` 콜백이 `UNErrorDomain Code=1`로 먼저 반환되고, 그 뒤 허용을 누르면 권한은 정상 기록된다. 즉 **첫 실행에서 허용을 눌렀는데 안 되면 앱을 한 번 재시작**하면 된다. 앱이 콜백 대신 `getNotificationSettings` 폴링으로 상태를 판정하는 이유가 이것이다.
+3. **tmux + kitty로 2번 경로를 쓰는 경우** `allow-passthrough`가 켜져 있어야 한다. tmux는 모르는 이스케이프 시퀀스를 DCS passthrough 봉투에 담아야만 통과시키고, off면 시퀀스를 조용히 삼킨다.
+   ```bash
+   tmux show-options -gv allow-passthrough   # on 또는 all 이어야 한다
+   echo 'set -g allow-passthrough on' >> ~/.tmux.conf
+   ```
+4. **1·2번 경로가 다 막혔는데 소리도 안 나면** `CLAUDEMON_NOTIFY=0`이 걸려 있는지 본다.
+
 ## 진화 연출 (메뉴바 앱)
 
 단계가 오르는 순간은 하루 최대 5번뿐인데, 16pt 아이콘 안에서 조용히 바뀌면 사실상 관측되지 않는다. 그래서 메뉴바 앱은 두 곳에서 동시에 연출한다.
@@ -190,7 +240,7 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 | 메뉴바 아이콘 | 흰 실루엣이 old ↔ new 형태를 오가는 디지볼브 (~4.5초) |
 | 화면 우상단 코너 | borderless 오버레이 창에 [큰 화면용 도트](#큰-화면용-도트-3종) 208pt + "`<이름>` 진화!" 라벨 (~3.5초) |
 
-컷인 창은 클릭을 통과시키고(`ignoresMouseEvents`) 모든 스페이스·전체화면 위에 뜬다. macOS 알림은 쓰지 않는다.
+컷인 창은 클릭을 통과시키고(`ignoresMouseEvents`) 모든 스페이스·전체화면 위에 뜬다. 진화 연출에는 macOS 알림을 쓰지 않는다 — 알림은 [별도 경로](#데스크톱-알림)이고 용도가 다르다(자리를 비운 사이의 "네 차례" 신호).
 
 - **배경 패널은 장식이 아니다.** 모프 단계가 순백색 실루엣이라 패널이 없으면 뒤에 흰 창이 있을 때 통째로 사라진다. 검정 alpha 0.6 라운드 패널 + 흰 alpha 0.18 테두리를 깔았고, 색은 시스템 semantic color가 아닌 고정 리터럴이라 라이트/다크 모드와 무관하게 대비가 보장된다.
 - 창을 띄울 화면은 `NSScreen.main`으로 고르면 안 된다. 그건 키보드 포커스를 따라가므로 멀티모니터 환경에서 메뉴바가 없는 외부 디스플레이에 렌더링돼 영영 보이지 않는다. 메뉴바를 소유한 화면은 언제나 origin `(0,0)`이다.

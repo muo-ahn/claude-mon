@@ -1,5 +1,7 @@
 # 빌드 산출물
 menubar/claudemon-menubar
+# build-app.sh 가 스프라이트에서 생성한다. (미리보기 png 는 아래 *.png 규칙에 걸린다)
+menubar/Claudemon.icns
 
 # 세션/도구 작업 파일
 .omc/

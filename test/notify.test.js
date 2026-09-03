@@ -12,7 +12,30 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { sessionTitle, resolveTarget } = require('../lib/notify.js');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// lib/notify.js resolves the queue and heartbeat paths from CLAUDEMON_DIR at
+// require time, so the override has to be in place BEFORE the require below.
+// Everything the app-path tests touch then lives under a throwaway directory
+// instead of the real ~/.claude/claudemon.
+const TEST_STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-notify-test-'));
+process.env.CLAUDEMON_DIR = TEST_STATE_DIR;
+
+const {
+  sessionTitle,
+  resolveTarget,
+  claudemonReady,
+  deliverViaApp,
+  NOTIFY_QUEUE_DIR,
+  HEARTBEAT_FILE
+} = require('../lib/notify.js');
+
+function writeHeartbeat(fields) {
+  fs.mkdirSync(path.dirname(HEARTBEAT_FILE), { recursive: true });
+  fs.writeFileSync(HEARTBEAT_FILE, JSON.stringify(fields));
+}
 
 test('sessionTitle strips leading glyphs from valid titles', () => {
   assert.strictEqual(
@@ -148,4 +171,79 @@ test('resolveTarget outside tmux keys off the kitty environment', () => {
       else process.env[k] = v;
     }
   }
+});
+
+// The app path is preferred over the escape code, so claudemonReady is what
+// decides whether a notification carries Claudemon's identity or kitty's. It
+// has to be conservative in both directions: a stale heartbeat means the app
+// is gone and the caller must fall through, and a live app with permission
+// denied would accept the queue file and silently drop it - the exact silent
+// failure this whole path exists to remove.
+
+test('claudemonReady is false with no heartbeat at all', () => {
+  fs.rmSync(HEARTBEAT_FILE, { force: true });
+  assert.strictEqual(claudemonReady(), false);
+});
+
+test('claudemonReady is true for a fresh, authorized heartbeat', () => {
+  const now = Date.now();
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: true, auth: '허용됨' });
+  assert.strictEqual(claudemonReady(now), true);
+});
+
+test('claudemonReady is false when the app is running but not authorized', () => {
+  const now = Date.now();
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: false, auth: '거부됨' });
+  assert.strictEqual(claudemonReady(now), false);
+});
+
+test('claudemonReady is false once the heartbeat goes stale', () => {
+  const now = Date.now();
+  // The app rewrites this every 2s; 10s is the cutoff.
+  writeHeartbeat({ pid: 123, at: (now - 9000) / 1000, authorized: true });
+  assert.strictEqual(claudemonReady(now), true);
+  writeHeartbeat({ pid: 123, at: (now - 11000) / 1000, authorized: true });
+  assert.strictEqual(claudemonReady(now), false);
+});
+
+test('claudemonReady is false for a malformed or fieldless heartbeat', () => {
+  fs.mkdirSync(path.dirname(HEARTBEAT_FILE), { recursive: true });
+  fs.writeFileSync(HEARTBEAT_FILE, 'not json at all');
+  assert.strictEqual(claudemonReady(), false);
+  writeHeartbeat({ authorized: true });
+  assert.strictEqual(claudemonReady(), false);
+  writeHeartbeat({ authorized: true, at: 'nonsense' });
+  assert.strictEqual(claudemonReady(), false);
+});
+
+test('deliverViaApp queues a parseable .json and leaves no .tmp behind', () => {
+  fs.rmSync(NOTIFY_QUEUE_DIR, { recursive: true, force: true });
+  const payload = { title: '세션', body: '입력 대기', urgency: 'critical', threadId: 'claude-mon' };
+  assert.strictEqual(deliverViaApp(payload), true);
+
+  const names = fs.readdirSync(NOTIFY_QUEUE_DIR);
+  assert.strictEqual(names.length, 1);
+  // The app only picks up *.json; a leftover .tmp would mean a half-written
+  // file could be read mid-write.
+  assert.ok(names[0].endsWith('.json'), `expected .json, got ${names[0]}`);
+  assert.deepStrictEqual(
+    JSON.parse(fs.readFileSync(path.join(NOTIFY_QUEUE_DIR, names[0]), 'utf8')),
+    payload
+  );
+});
+
+test('deliverViaApp names queue files so a sort gives arrival order', () => {
+  fs.rmSync(NOTIFY_QUEUE_DIR, { recursive: true, force: true });
+  for (let i = 0; i < 5; i++) deliverViaApp({ title: 't', body: String(i) });
+
+  const names = fs.readdirSync(NOTIFY_QUEUE_DIR).sort();
+  const bodies = names.map(
+    (n) => JSON.parse(fs.readFileSync(path.join(NOTIFY_QUEUE_DIR, n), 'utf8')).body
+  );
+  assert.deepStrictEqual(bodies, ['0', '1', '2', '3', '4']);
+});
+
+test('cleanup: the test state dir is removed', () => {
+  fs.rmSync(TEST_STATE_DIR, { recursive: true, force: true });
+  assert.strictEqual(fs.existsSync(TEST_STATE_DIR), false);
 });
