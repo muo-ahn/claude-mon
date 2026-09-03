@@ -4,6 +4,8 @@ exceptions:
   # 노드 id → Wikimon 제목 (정방향, 조회용)
   varodurumon: "Valdurmon"
   ravemon: "Ravmon"
+  # 일본어 로마자 장음 표기 — 노드 id 는 hyogamon, 위키 제목은 Hyougamon (2026-09-03 실측)
+  hyogamon: "Hyougamon"
 
 aliases:
   # Wikimon 제목 → 노드 id (역방향, 매칭용)

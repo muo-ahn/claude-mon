@@ -396,8 +396,13 @@ function analyzeFanOut(parentId, childrenOf, existingEdge) {
   return { currentFanOut, afterFanOut, warning };
 }
 
+// 제목·id 대조용 정규화. 공백·하이픈·콜론에 더해 **밑줄과 괄호**도 지운다.
+//
+// 노드 id 는 밑줄로 수식어를 붙이고(knightchessmon_black) Wikimon 제목은 괄호를
+// 쓴다(Knight Chessmon (Black)). 이 둘을 못 잇는 동안 감사가 종점 14건 중 8건을
+// "미조회"로 흘렸다 (실측 2026-09-03). 확장 후 노드 id 충돌은 0건이다.
 function normalize(str) {
-  return str.toLowerCase().replace(/[\s\-:]/g, '');
+  return str.toLowerCase().replace(/[\s\-:_()]/g, '');
 }
 
 // 캐시 파일명은 Wikimon 페이지 제목(콜론·슬래시만 _ 치환)이다. 그런데
@@ -979,19 +984,46 @@ function reportTerminals(graph, indices, nameMap, stages, opts) {
     }
   }
 
-  return { tA, tB, tC, tJ, noCanon, noCache, collisions };
+  // R10 (docs/evolution-routes.md §4): 종점은 ultimate/superultimate 에만
+  // 존재할 수 있다. 그보다 이른 칸의 종점은 전부 위반이다 — 정본 후계가 있든
+  // 없든, 루트에서 도달 가능하든 아니든 결함으로 센다.
+  const allowedTerminalStages = new Set([topStage, 'ultimate']);
+  const r10 = [];
+  for (const stage of stages) {
+    if (allowedTerminalStages.has(stage)) continue;
+    for (const node of byStage.get(stage) || []) r10.push(node);
+  }
+  console.log('\n  R10 위반 (궁극체 미달 종점):');
+  if (r10.length === 0) console.log('    (없음) ✓');
+  else for (const n of r10) console.log(`    ${n.id} (${n.name}) [${n.stage}]`);
+
+  return { tA, tB, tC, tJ, noCanon, noCache, collisions, r10 };
 }
 
-// --check 의 종료코드. 지금 바로 고칠 수 있는 결함만 실패로 본다:
-//   T-A (엣지 한 줄이면 되는 종점) 과 별칭 충돌.
-// T-B(도트 확보 선행)·T-C(스테이지 불인접)·미조회는 조치가 이 감사 밖이라
-// 경고로만 남긴다 — 실패로 만들면 CI 가 영구히 빨간불이 된다.
+// --check 의 종료코드.
+//
+// 실패로 보는 것:
+//   R10 위반 — 궁극체 미달 종점. docs/evolution-routes.md §4 R10 이 명문화한
+//              공개 계약이다. 종점은 ultimate/superultimate 에만 존재할 수 있다.
+//   T-A     — 엣지 한 줄이면 해소되는 종점 (조치 비용이 0에 가깝다)
+//   E       — 별칭 역방향 충돌 (같은 종이 두 노드로 갈림)
+//
+// 경고로만 남기는 것 (조치가 이 감사 밖이다 — 실패로 만들면 CI 가 영구히 빨간불):
+//   T-B 노드 편입 필요 (도트 확보 선행)
+//   T-C 스테이지 불인접
+//   T-J 조그레스 전용 (스테이지 승격 판단이 걸린다)
+//   미조회 (캐시 없음)
 function finishCheck(t, opts) {
   if (!opts.check) return;
-  const blockers = t.tA.length + t.collisions.length;
+  const violations = t.r10 || [];
+  const blockers = violations.length + t.tA.length + t.collisions.length;
   console.log('\n========================================');
   console.log('--check 판정');
   console.log('========================================');
+  console.log(`  R10 위반 (궁극체 미달 종점):     ${violations.length}건`);
+  if (violations.length > 0) {
+    for (const n of violations) console.log(`      ${n.id} (${n.name}) [${n.stage}]`);
+  }
   console.log(`  T-A (엣지만 추가하면 되는 종점): ${t.tA.length}건`);
   console.log(`  E   (별칭 역방향 충돌):          ${t.collisions.length}건`);
   if (blockers > 0) {
@@ -1131,7 +1163,8 @@ async function main() {
 
   // 종점 검사 — incoming 대조로는 구조적으로 못 잡는 축이다 (헬퍼 주석 참고).
   const t = reportTerminals(graph, indices, nameMap, stages, opts);
-  console.log(`\n  T-A (엣지만 추가):  ${t.tA.length}개`);
+  console.log(`\n  R10 위반:           ${t.r10.length}개`);
+  console.log(`  T-A (엣지만 추가):  ${t.tA.length}개`);
   console.log(`  T-B (노드 편입):    ${t.tB.length}개`);
   console.log(`  T-C (스테이지 불인접): ${t.tC.length}개`);
   console.log(`  T-J (조그레스 전용):  ${t.tJ.length}개`);
