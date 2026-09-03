@@ -480,6 +480,10 @@
             "type": "sessionCount",
             "gte": 5
           }
+        },
+        {
+          "from": "knightchessmon_white",
+          "when": null
         }
       ]
     },
@@ -1157,6 +1161,18 @@
         {
           "from": "tentomon",
           "when": null
+        },
+        {
+          "from": "agumon_2006animeversion",
+          "when": null
+        },
+        {
+          "from": "falcomon_2006animeversion",
+          "when": null
+        },
+        {
+          "from": "kudamon_2006animeversion",
+          "when": null
         }
       ]
     },
@@ -1344,6 +1360,10 @@
         },
         {
           "from": "terriermon",
+          "when": null
+        },
+        {
+          "from": "pawnchessmon_white",
           "when": null
         }
       ]
@@ -2369,6 +2389,10 @@
         {
           "from": "piyomon",
           "when": null
+        },
+        {
+          "from": "dotfalcomon",
+          "when": null
         }
       ]
     },
@@ -2408,6 +2432,10 @@
         },
         {
           "from": "koemon",
+          "when": null
+        },
+        {
+          "from": "dotagumon",
           "when": null
         }
       ]
@@ -2685,6 +2713,10 @@
         {
           "from": "wizarmon",
           "when": null
+        },
+        {
+          "from": "hyogamon",
+          "when": null
         }
       ]
     },
@@ -2946,6 +2978,10 @@
         {
           "from": "sunflowmon",
           "when": null
+        },
+        {
+          "from": "platinumscumon",
+          "when": null
         }
       ]
     },
@@ -3025,6 +3061,14 @@
         },
         {
           "from": "seadramon",
+          "when": null
+        },
+        {
+          "from": "darklizamon",
+          "when": null
+        },
+        {
+          "from": "sandyanmamon",
           "when": null
         }
       ]
@@ -3373,6 +3417,10 @@
         },
         {
           "from": "toyagumon",
+          "when": null
+        },
+        {
+          "from": "pawnchessmon_black",
           "when": null
         }
       ]
@@ -5100,6 +5148,10 @@
         },
         {
           "from": "tuchidarumon",
+          "when": null
+        },
+        {
+          "from": "knightchessmon_black",
           "when": null
         }
       ]
@@ -6830,6 +6882,10 @@
         },
         {
           "from": "greymon",
+          "when": null
+        },
+        {
+          "from": "morishellmon",
           "when": null
         }
       ]
