@@ -19,6 +19,7 @@ const {
   listRotationPacks,
   topStageId,
   selectRoute,
+  candidatesFor,
   readGraph,
   validateGraph,
   graphFilePath,
@@ -930,13 +931,22 @@ test('selectRoute always reaches the top stage, even through a dead end', () => 
   assert.ok(seen.has('deadA'), 'dead-end branch never appeared, test tree is not exercising it');
 });
 
-test('selectRoute deterministically follows a satisfied condition edge', () => {
+test('selectRoute biases toward a satisfied condition edge without locking it (A-5)', () => {
+  // Pre-A-5 (docs/gate-weighting-plan.md), a satisfied condition was a
+  // 100% lock via the tied-filter - hence this test's original name. A-5
+  // replaces that with a weighted draw (darkA gets CONDITION_EDGE_WEIGHT
+  // against spineA/deadA's 1 each, so 8/10 = 80% here): darkA must still
+  // be the clear majority, but no longer every single day.
   const graph = treeToGraph(TREE);
   const ctx = { failureRatioPct: 10 };
-  for (let d = 1; d <= 30; d++) {
+  let darkACount = 0;
+  const days = 30;
+  for (let d = 1; d <= days; d++) {
     const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'kid', graph, ctx);
-    assert.strictEqual(route.adult.id, 'darkA', `day ${d} ignored the satisfied condition`);
+    if (route.adult.id === 'darkA') darkACount++;
   }
+  assert.ok(darkACount > days / 2, `darkA should be the clear majority pick: ${darkACount}/${days}`);
+  assert.ok(darkACount < days, `darkA should not be 100% certain anymore (bias, not lock): ${darkACount}/${days}`);
 });
 
 test('selectRoute excludes edges whose condition fails, leaving only the rest', () => {
@@ -953,12 +963,29 @@ test('selectRoute excludes edges whose condition fails, leaving only the rest', 
 test('selectRoute repeats the same route across consecutive days given the same conditions', () => {
   // Decision D: no more "avoid yesterday's route" - working the same way two
   // days running is allowed to produce the same form both days.
+  //
+  // A-5 (docs/gate-weighting-plan.md) means a satisfied condition no longer
+  // guarantees the same node day after day - it biases toward it, so two
+  // arbitrary dates with identical ctx can legitimately land on different
+  // siblings now (see the shadow-fix test near CARE_MISS_ADULTS below).
+  // Same-date idempotency is covered separately ('selectRoute is stable
+  // for a date and moves between dates', above); this test now covers
+  // what A-5 does leave unconditionally guaranteed: CLAUDEMON_GATE_WEIGHTING=0
+  // restores the exact pre-A-5 tied-filter, where a satisfied condition
+  // *is* still a hard lock and two such days must match.
   const graph = treeToGraph(TREE);
-  const ctx = { failureRatioPct: 10 }; // deterministic: only darkA's edge is ever satisfied
-  const day1 = selectRoute('2026-07-30', 'kid', graph, ctx);
-  const day2 = selectRoute('2026-07-31', 'kid', graph, ctx);
-  assert.deepStrictEqual(day1, day2);
-  assert.strictEqual(day1.adult.id, 'darkA');
+  const ctx = { failureRatioPct: 10 }; // deterministic under the legacy tied-filter: only darkA's edge is ever satisfied
+  const prevFlag = process.env.CLAUDEMON_GATE_WEIGHTING;
+  process.env.CLAUDEMON_GATE_WEIGHTING = '0';
+  try {
+    const day1 = selectRoute('2026-07-30', 'kid', graph, ctx);
+    const day2 = selectRoute('2026-07-31', 'kid', graph, ctx);
+    assert.deepStrictEqual(day1, day2);
+    assert.strictEqual(day1.adult.id, 'darkA');
+  } finally {
+    if (prevFlag === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
+    else process.env.CLAUDEMON_GATE_WEIGHTING = prevFlag;
+  }
 });
 
 // --- selectRoute: lazy binding (`locked`) -----------------------------
@@ -999,11 +1026,24 @@ test('selectRoute locks the reached stage against condition changes but leaves t
   assert.strictEqual(withCondition.adult.id, reachedAdult);
 
   // Locked only through child: adult hasn't been reached yet, so it must
-  // follow the condition like a normal draw would.
+  // still respond to the condition. Under A-5 (docs/gate-weighting-plan.md)
+  // a satisfied condition biases the draw (weight CONDITION_EDGE_WEIGHT)
+  // rather than locking it, so a single date can no longer be asserted
+  // deterministically - sample many dates and check the bias holds without
+  // claiming certainty.
   const lockedAtChild = { route: noCondition, throughStage: 'child' };
-  const withConditionFromChild = selectRoute('2026-07-30', 'kid', graph, { failureRatioPct: 10 }, lockedAtChild);
-  assert.strictEqual(withConditionFromChild.adult.id, 'darkA');
-  assert.strictEqual(withConditionFromChild.child.id, noCondition.child.id); // still pinned below the lock line
+  const conditionCtx = { failureRatioPct: 10 };
+  const dates = careMissDates(100);
+  let darkACount = 0;
+  for (const dateKST of dates) {
+    const withConditionFromChild = selectRoute(dateKST, 'kid', graph, conditionCtx, lockedAtChild);
+    assert.strictEqual(withConditionFromChild.child.id, noCondition.child.id); // still pinned below the lock line
+    if (withConditionFromChild.adult.id === 'darkA') darkACount++;
+  }
+  assert.ok(darkACount > dates.length / 2,
+    `unlocked adult stage should favor the satisfied condition: darkA ${darkACount}/${dates.length}`);
+  assert.ok(darkACount < dates.length,
+    `unlocked adult stage should not be 100% certain anymore (bias, not lock): darkA ${darkACount}/${dates.length}`);
 });
 
 test('selectRoute is idempotent with a locked prefix', () => {
@@ -1065,8 +1105,16 @@ const TERMINAL_TREE = {
 
 test('selectRoute repeats a terminal node through every stage still ahead, not the spine', () => {
   const graph = treeToGraph(TERMINAL_TREE);
-  const ctx = { failureRatioPct: 10 }; // deterministically satisfies shortA's edge
-  const route = selectRoute('2026-07-30', 'kid2', graph, ctx);
+  // A-5 (docs/gate-weighting-plan.md): satisfying shortA's edge biases the
+  // draw toward it (weight CONDITION_EDGE_WEIGHT vs spineA2's 1) but no
+  // longer guarantees it for any single date - find a date where it's
+  // actually drawn, then check the terminal-fill behavior for that date.
+  const ctx = { failureRatioPct: 10 };
+  const dates = careMissDates(60);
+  const shortADate = dates.find((d) => selectRoute(d, 'kid2', graph, ctx).adult.id === 'shortA');
+  assert.ok(shortADate, `shortA never drawn across ${dates.length} dates despite its condition being satisfied`);
+
+  const route = selectRoute(shortADate, 'kid2', graph, ctx);
   assert.strictEqual(route.adult.id, 'shortA');
   for (const stage of ['perfect', 'ultimate', 'superultimate']) {
     assert.deepStrictEqual(
@@ -1117,7 +1165,15 @@ test('selectRoute repeats a terminal node past stages its own tree never declare
   const graph = treeToGraph(shortTree);
   const ctx = { failureRatioPct: 10 };
   assert.doesNotThrow(() => selectRoute('2026-07-30', 'kid2', graph, ctx));
-  const route = selectRoute('2026-07-30', 'kid2', graph, ctx);
+
+  // A-5 (docs/gate-weighting-plan.md): shortA's edge is now a bias, not a
+  // lock - find a date it's actually drawn on, then check the terminal-fill
+  // behavior (the actual point of this test) for that date.
+  const dates = careMissDates(60);
+  const shortADate = dates.find((d) => selectRoute(d, 'kid2', graph, ctx).adult.id === 'shortA');
+  assert.ok(shortADate, `shortA never drawn across ${dates.length} dates despite its condition being satisfied`);
+
+  const route = selectRoute(shortADate, 'kid2', graph, ctx);
   assert.strictEqual(route.adult.id, 'shortA');
   for (const stage of ['perfect', 'ultimate', 'superultimate']) {
     assert.deepStrictEqual(route[stage], { id: 'shortA', name: '조기종결', sprite: 'adult-short' });
@@ -1306,11 +1362,14 @@ test('validateGraph finds zero violations in the global evolution graph', () => 
 // 정반대 극이라 의미가 겹치지 않고, 기존 조건부 엣지 17개 중 이 축을 쓰는
 // 것은 초궁극체 한 곳뿐이라 성숙기·완전체 칸에서 충돌하지 않는다.
 //
-// 게이팅은 in-edge 전량이다. childrenOf 가 조건부 엣지를 무조건 엣지보다
-// 앞에 놓으므로(readGraph 정렬 규칙 2), 조건이 참이면 pool[0] 이 케어미스
-// 엣지가 되어 무조건 형제들이 tied 에서 빠지고, 거짓이면 케어미스 엣지가
-// met 필터에서 빠진다. 조건 하나로 "방치한 날엔 확정, 평소엔 추첨에서 제외"
-// 가 동시에 성립한다.
+// 게이팅은 in-edge 전량이다. A-5(docs/gate-weighting-plan.md) 이전에는
+// childrenOf 가 조건부 엣지를 무조건 엣지보다 앞에 놓아(readGraph 정렬
+// 규칙 2), 조건이 참이면 pool[0] 이 케어미스 엣지가 되어 무조건 형제들이
+// tied 에서 통째로 빠졌다 - "방치한 날엔 확정"이었다. A-5 이후로는 조건이
+// 참이면 케어미스 엣지가 weight=CONDITION_EDGE_WEIGHT 로 추첨 풀에 들어갈
+// 뿐이라 "방치한 날엔 (확정이 아니라) 유력"으로 바뀌었다 - 무조건 형제도
+// weight=1 로 같은 풀에 남는다. 조건이 거짓이면 이전과 동일하게 met 필터
+// 에서 완전히 빠진다(이 축은 변하지 않았다).
 //
 // 축 선정 기각 기록:
 //   failureRatioPct - 블랙 계열의 축이고 gabumon 스파인 상류에서 충돌한다.
@@ -1371,24 +1430,38 @@ test('케어미스 성숙기는 돌본 날의 추첨 풀에서 완전히 빠진�
   assert.deepStrictEqual(leaks.slice(0, 5), [], `${leaks.length} leaks of ${CARE_MISS_ADULTS.join('/')}`);
 });
 
-test('방치한 날에는 케어미스 성숙기가 확정되고 게르베몬으로 이어진다', () => {
+test('방치한 날에는 케어미스 성숙기가 추첨 풀에 들고, 뽑히면 게르베몬으로도 이어진다', () => {
   const graph = readGraph(graphFilePath());
-  const dates = careMissDates(30);
-  let checked = 0;
+  const dates = careMissDates(60);
+  let checkedRookies = 0;
   for (const rookie of careMissRookies(graph)) {
     const hasCareMiss = (graph.childrenOf.get(rookie) || [])
       .some((edge) => CARE_MISS_ADULTS.includes(edge.node.id));
     if (!hasCareMiss) continue;
+    checkedRookies++;
+
+    let careMissHits = 0;
+    let gerbemonHits = 0;
     for (const dateKST of dates) {
       const route = selectRoute(dateKST, rookie, graph, NEGLECTED_CTX, null);
-      assert.ok(CARE_MISS_ADULTS.includes(route.adult.id),
-        `${rookie}/${dateKST}: adult=${route.adult.id}, 케어미스여야 한다`);
-      assert.strictEqual(route.perfect.id, 'gerbemon',
-        `${rookie}/${dateKST}: ${route.adult.id} 다음은 게르베몬이어야 한다`);
-      checked++;
+      if (CARE_MISS_ADULTS.includes(route.adult.id)) {
+        careMissHits++;
+        // 게르베몬행 엣지도 A-5 이후로는 조건부(같은 outputPerTurn 축)라
+        // weight=CONDITION_EDGE_WEIGHT 로 다른 무조건 자식과 경쟁한다 - 이
+        // 역시 확정이 아니라 유력이다(위 게르베몬 부분 게이팅 테스트 참고).
+        if (route.perfect.id === 'gerbemon') gerbemonHits++;
+      }
     }
+    // A-5(가중치) 이후 케어미스는 더 이상 확정이 아니라 편향이다 - 반드시
+    // 풀에 들어 실제로도 뽑히되(weight > 0), 매일 뽑힐 필요는 없다.
+    assert.ok(careMissHits > 0,
+      `${rookie}: 방치한 날에도 ${dates.length}일 동안 케어미스가 한 번도 안 나왔다 - 게이트가 사라졌다`);
+    assert.ok(careMissHits < dates.length,
+      `${rookie}: 방치한 날에 케어미스가 매번 확정됐다 - 가중치가 적용되지 않았거나 W가 사문화됐다 (${careMissHits}/${dates.length})`);
+    assert.ok(gerbemonHits > 0,
+      `${rookie}: 케어미스 성숙기에서 게르베몬으로 이어진 날이 한 번도 없다 (${careMissHits}번의 케어미스 중 0번)`);
   }
-  assert.ok(checked > 0, '케어미스 자식을 가진 로키가 하나도 없다 - 게이트가 사라졌다');
+  assert.ok(checkedRookies > 0, '케어미스 자식을 가진 로키가 하나도 없다 - 게이트가 사라졌다');
 });
 
 // 게르베몬은 부분 게이팅이다. 케어미스 성숙기에서 오는 3개 엣지만 조건부고
@@ -1407,19 +1480,181 @@ test('게르베몬은 케어미스 부모에게만 조건부고 정규 부모에
   assert.ok(unconditional.length > 0, '정규 부모가 남아 있어야 평일에도 게르베몬에 닿는다');
 });
 
-// 알려진 부분 그림자. agumon·impmon 은 이미 sessionCount≥5 조건부 자식을
-// 가지고 있고 그 노드의 배열 인덱스가 케어미스 노드보다 앞이라, 두 조건이
-// 동시에 참인 날에는 기존 분기가 이긴다. 방치한 날은 턴 수가 적어 세션이
-// 5개까지 벌어질 확률이 낮으므로 실질 영향은 작다 - 사문화가 아니라
-// 우선순위다. 이 테스트는 그 우선순위가 뒤집히면 알려주는 감시선이다.
-test('기존 sessionCount 분기는 케어미스보다 우선한다 (알려진 그림자)', () => {
+// A-5(docs/gate-weighting-plan.md) 이전에는 agumon·impmon 이 이미
+// sessionCount≥5 조건부 자식(geogreymon/vilemon)을 가지고 있고 그 노드의
+// 배열 인덱스가 케어미스 노드보다 앞이라, 두 조건이 동시에 참인 날에는
+// tied-filter 가 케어미스 엣지를 통째로 제거해 성장 게이트가 100% 이겼다
+// - "우선순위"가 아니라 완전 억제였다(§1 아구몬 shadowing, 이 계획의
+// 핵심 동기). A-5 이후에는 두 조건부 엣지 모두 weight=CONDITION_EDGE_WEIGHT
+// 로 같은 추첨 풀에 들어가므로, 여러 날에 걸쳐 보면 케어미스 성숙기도
+// 실제로 뽑힌다.
+test('성장 게이트와 케어미스 게이트가 동시에 참이면 둘 다 추첨 풀에 든다 (아구몬 shadowing 회귀 수정)', () => {
   const graph = readGraph(graphFilePath());
   const bothMet = { ...NEGLECTED_CTX, sessionCount: 5 };
-  assert.strictEqual(selectRoute('2026-09-15', 'agumon', graph, bothMet, null).adult.id, 'geogreymon');
-  assert.strictEqual(selectRoute('2026-09-15', 'impmon', graph, bothMet, null).adult.id, 'vilemon');
-  // 조건부 자식이 없는 스파인은 그림자 없이 케어미스로 간다.
-  assert.ok(CARE_MISS_ADULTS.includes(
-    selectRoute('2026-09-15', 'gabumon', graph, bothMet, null).adult.id));
+  const dates = careMissDates(60);
+
+  const agumonAdults = new Set(dates.map((d) => selectRoute(d, 'agumon', graph, bothMet, null).adult.id));
+  assert.ok(agumonAdults.has('geogreymon'), `agumon: 성장 게이트 분기가 한 번도 안 나왔다: ${[...agumonAdults]}`);
+  assert.ok([...agumonAdults].some((id) => CARE_MISS_ADULTS.includes(id)),
+    `agumon: ${dates.length}일 동안 케어미스 분기가 한 번도 안 나왔다 - shadowing 회귀: ${[...agumonAdults]}`);
+
+  const impmonAdults = new Set(dates.map((d) => selectRoute(d, 'impmon', graph, bothMet, null).adult.id));
+  assert.ok(impmonAdults.has('vilemon'), `impmon: 성장 게이트 분기가 한 번도 안 나왔다: ${[...impmonAdults]}`);
+  assert.ok([...impmonAdults].some((id) => CARE_MISS_ADULTS.includes(id)),
+    `impmon: ${dates.length}일 동안 케어미스 분기가 한 번도 안 나왔다 - shadowing 회귀: ${[...impmonAdults]}`);
+
+  // gabumon은 경쟁하는 sessionCount 분기가 없으므로 그림자 없이도 케어미스가
+  // 뽑혀야 한다(적어도 일부 날에는).
+  const gabumonAdults = new Set(dates.map((d) => selectRoute(d, 'gabumon', graph, bothMet, null).adult.id));
+  assert.ok([...gabumonAdults].some((id) => CARE_MISS_ADULTS.includes(id)),
+    `gabumon: ${dates.length}일 동안 케어미스 분기가 한 번도 안 나왔다: ${[...gabumonAdults]}`);
+});
+
+// --- A-5 게이트 가중치: 전용 픽스처 --------------------------------------
+//
+// 위의 실 그래프 테스트는 진짜 evolution-graph.json 이 그 사이 바뀌면 같이
+// 흔들린다. 여기서는 조건 3종(성장 게이트, 케어미스 게이트, 무조건)을 가진
+// 작은 전용 트리를 손으로 고정해 가중치 계약 자체를 좁게 잠근다:
+//
+//   kid(성장기) -> growthA{sessionCount>=5} | careMissA{outputPerTurn>=15000} | spineA(무조건)
+//   careMissA -> careMissOnlyChild{outputPerTurn>=15000} (자식이 이 조건부 엣지 하나뿐 -
+//     "조건부 엣지만 있고 아무 조건도 안 맞는 노드" 폴백 회귀용, plan §4)
+//
+// weight: growthA=careMissA=CONDITION_EDGE_WEIGHT(8), spineA=1 - 실 그래프의
+// 아구몬과 같은 비율은 아니지만(28 갈래가 아니라 3갈래), 셋 다 한 부모의
+// 자식이라는 shadowing 구조는 동일하다.
+const GATE_WEIGHT_TREE = {
+  digitama: [{ id: 'gw-digitama', name: '알', sprite: 'digitama', evolutions: [{ to: 'gw-baby', when: null }] }],
+  baby: [{ id: 'gw-baby', name: '유년', sprite: 'baby', evolutions: [{ to: 'gw-kid', when: null }] }],
+  child: [{
+    id: 'gw-kid', name: '성장', sprite: 'child', evolutions: [
+      { to: 'gw-growthA', when: { type: 'sessionCount', gte: 5 } },
+      { to: 'gw-careMissA', when: { type: 'outputPerTurn', gte: 15000 } },
+      { to: 'gw-spineA', when: null }
+    ]
+  }],
+  adult: [
+    { id: 'gw-growthA', name: '성장분기', sprite: 'adult-growth', evolutions: [{ to: 'gw-perfectGrowth', when: null }] },
+    {
+      id: 'gw-careMissA', name: '케어미스분기', sprite: 'adult-care', evolutions: [
+        // 자식이 이 조건부 엣지 하나뿐 - 무조건 엣지가 없는 비종점 노드.
+        { to: 'gw-perfectCareOnly', when: { type: 'outputPerTurn', gte: 15000 } }
+      ]
+    },
+    { id: 'gw-spineA', name: '정통', sprite: 'adult-spine', evolutions: [{ to: 'gw-perfectSpine', when: null }] }
+  ],
+  perfect: [
+    { id: 'gw-perfectGrowth', name: '완전-성장', sprite: 'perfect-growth', evolutions: [{ to: 'gw-ultimateGrowth', when: null }] },
+    { id: 'gw-perfectCareOnly', name: '완전-케어미스', sprite: 'perfect-care', evolutions: [{ to: 'gw-ultimateCare', when: null }] },
+    { id: 'gw-perfectSpine', name: '완전-정통', sprite: 'perfect-spine', evolutions: [{ to: 'gw-ultimateSpine', when: null }] }
+  ],
+  ultimate: [
+    { id: 'gw-ultimateGrowth', name: '궁극-성장', sprite: 'ultimate-growth', evolutions: [{ to: 'gw-topGrowth', when: null }] },
+    { id: 'gw-ultimateCare', name: '궁극-케어미스', sprite: 'ultimate-care', evolutions: [{ to: 'gw-topCare', when: null }] },
+    { id: 'gw-ultimateSpine', name: '궁극-정통', sprite: 'ultimate-spine', evolutions: [{ to: 'gw-topSpine', when: null }] }
+  ],
+  superultimate: [
+    { id: 'gw-topGrowth', name: '초궁극-성장', sprite: 'top-growth', evolutions: [] },
+    { id: 'gw-topCare', name: '초궁극-케어미스', sprite: 'top-care', evolutions: [] },
+    { id: 'gw-topSpine', name: '초궁극-정통', sprite: 'top-spine', evolutions: [] }
+  ]
+};
+
+const GW_BOTH_MET_CTX = { sessionCount: 5, outputPerTurn: 15000 };
+const GW_NEITHER_MET_CTX = { sessionCount: 0, outputPerTurn: 0 };
+
+test('[A-5 픽스처] (a) 성장 게이트와 케어미스 게이트가 동시에 참이면 둘 다 후보 풀에 든다', () => {
+  const graph = treeToGraph(GATE_WEIGHT_TREE);
+  const dates = careMissDates(200);
+  const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_BOTH_MET_CTX).adult.id));
+  assert.ok(adults.has('gw-growthA'), `성장 분기가 한 번도 안 나왔다: ${[...adults]}`);
+  assert.ok(adults.has('gw-careMissA'), `케어미스 분기가 한 번도 안 나왔다 (shadowing 회귀): ${[...adults]}`);
+});
+
+test('[A-5 픽스처] (a-롤백) CLAUDEMON_GATE_WEIGHTING=0 이면 성장 게이트가 케어미스를 완전히 몰아낸다', () => {
+  const graph = treeToGraph(GATE_WEIGHT_TREE);
+  const dates = careMissDates(200);
+  const prevFlag = process.env.CLAUDEMON_GATE_WEIGHTING;
+  process.env.CLAUDEMON_GATE_WEIGHTING = '0';
+  try {
+    const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_BOTH_MET_CTX).adult.id));
+    assert.deepStrictEqual([...adults], ['gw-growthA'],
+      `롤백 플래그를 켰는데도 케어미스가 섞여 나왔다: ${[...adults]}`);
+  } finally {
+    if (prevFlag === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
+    else process.env.CLAUDEMON_GATE_WEIGHTING = prevFlag;
+  }
+});
+
+test('[A-5 픽스처] (b) 조건 불통과 엣지는 후보에서 완전히 빠진다', () => {
+  const graph = treeToGraph(GATE_WEIGHT_TREE);
+  const dates = careMissDates(60);
+  const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_NEITHER_MET_CTX).adult.id));
+  assert.deepStrictEqual([...adults], ['gw-spineA'],
+    `조건이 전부 거짓인데 조건부 자식이 후보에 남았다: ${[...adults]}`);
+});
+
+test('[A-5 픽스처] (c) 조건부 엣지만 있고 아무 조건도 만족 안 되는 노드는 폴백으로 전체 엣지를 반환한다 (빈 배열 아님)', () => {
+  const graph = treeToGraph(GATE_WEIGHT_TREE);
+  const careMissNode = graph.byId.get('gw-careMissA');
+  // GW_NEITHER_MET_CTX: outputPerTurn=0, gw-careMissA의 유일한 자식 엣지
+  // (outputPerTurn>=15000)가 거짓 - 무조건 엣지가 하나도 없으므로 met가
+  // 비어야 정상이고, 그렇다고 candidatesFor가 []를 반환하면 이 노드가
+  // 종점으로 오판된다 (plan §4 폴백 버그 - links 전체를 weight=1로 반환해야
+  // 한다).
+  const candidates = candidatesFor(careMissNode, GW_NEITHER_MET_CTX, graph.childrenOf);
+  assert.strictEqual(candidates.length, 1, `폴백이 빈 배열을 반환했다 (종점 오판): ${JSON.stringify(candidates)}`);
+  assert.strictEqual(candidates[0].node.id, 'gw-perfectCareOnly');
+  assert.strictEqual(candidates[0].weight, 1, '폴백 가중치는 W가 아니라 균일 1이어야 한다 (조건이 실제로 만족된 게 아니므로)');
+
+  // selectRoute 레벨에서도 이 노드를 거쳐 종점으로 오판하지 않고
+  // gw-perfectCareOnly로 계속 진행하는지 확인.
+  const route = selectRoute('2026-09-01', 'gw-kid', graph, { sessionCount: 0, outputPerTurn: 15000 });
+  // outputPerTurn=15000이면 kid->careMissA는 만족이지만, careMissA->perfectCareOnly도
+  // 같은 조건이라 이 경우엔 실제로 만족되어 정상 진행 - 별도로 "만족 안 되는
+  // 경우"를 확인하려면 careMissA에 도달한 뒤 조건이 꺼진 날을 봐야 하는데,
+  // 이 트리에서는 careMissA 도달 자체가 outputPerTurn>=15000을 요구하므로
+  // 같은 날 안에서 그 조건이 꺼질 수 없다 - candidatesFor 직접 호출(위)이
+  // 이 폴백의 실질적인 회귀 테스트다.
+  assert.ok(route.adult.id, 'selectRoute가 예외 없이 완주해야 한다');
+});
+
+test('[A-5 픽스처] (d) 롤백 플래그를 켜면 현행(가중치 이전) tied-filter 동작이 정확히 복원된다', () => {
+  const graph = treeToGraph(GATE_WEIGHT_TREE);
+  const prevFlag = process.env.CLAUDEMON_GATE_WEIGHTING;
+  process.env.CLAUDEMON_GATE_WEIGHTING = '0';
+  try {
+    // 성장 게이트만 참: growthA가 유일하게 살아남는 조건부 엣지이므로
+    // tied 풀은 [growthA] 뿐 - 매일 100% growthA.
+    const growthOnlyCtx = { sessionCount: 5, outputPerTurn: 0 };
+    for (const dateKST of careMissDates(20)) {
+      assert.strictEqual(selectRoute(dateKST, 'gw-kid', graph, growthOnlyCtx).adult.id, 'gw-growthA');
+    }
+    // 둘 다 참: childrenOf 배열 순서(growthA가 careMissA보다 앞)대로
+    // growthA가 매번 이긴다 - A-5 이전 동작 그대로.
+    for (const dateKST of careMissDates(20)) {
+      assert.strictEqual(selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX).adult.id, 'gw-growthA');
+    }
+  } finally {
+    if (prevFlag === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
+    else process.env.CLAUDEMON_GATE_WEIGHTING = prevFlag;
+  }
+});
+
+// 결정성 회귀: pick()의 가중 추첨(누적-가중치 스캔)이 도입된 새 코드 경로다 -
+// Math.random을 쓰지 않는다는 계약(hashString 독comment)이 이 경로에도
+// 그대로 지켜지는지 직접 확인한다. 같은 (dateKST, rookie, ctx) 는 몇 번을
+// 다시 불러도 완전히 같은 route 를 내야 한다 - 메뉴바가 30초마다
+// computeDailyTokens 를 재계산하므로 여기서 흔들리면 스프라이트가 깜빡인다.
+test('[A-5 픽스처] 가중 추첨(weighted pick)은 반복 호출에도 결정적이다', () => {
+  const graph = treeToGraph(GATE_WEIGHT_TREE);
+  for (const dateKST of careMissDates(10)) {
+    const first = selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX);
+    for (let i = 0; i < 5; i++) {
+      const again = selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX);
+      assert.deepStrictEqual(again, first, `${dateKST} 재호출 ${i}번째가 달라졌다 - 가중 추첨이 결정적이지 않다`);
+    }
+  }
 });
 
 test('activeTraits reads the day rather than luck', () => {
