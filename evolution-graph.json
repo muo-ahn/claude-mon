@@ -567,12 +567,52 @@
     },
     {
       "id": "myotismon",
-      "name": "뱀파이몬",
+      "name": "묘티스몬",
       "stage": "perfect",
       "sprite": "myotismon",
       "evolvesFrom": [
         {
           "from": "devimon",
+          "when": null
+        },
+        {
+          "from": "airdramon",
+          "when": null
+        },
+        {
+          "from": "angemon",
+          "when": null
+        },
+        {
+          "from": "bakemon",
+          "when": null
+        },
+        {
+          "from": "vilemon",
+          "when": null
+        },
+        {
+          "from": "greymon",
+          "when": null
+        },
+        {
+          "from": "icedevimon",
+          "when": null
+        },
+        {
+          "from": "karatukinumemon",
+          "when": null
+        },
+        {
+          "from": "saberdramon",
+          "when": null
+        },
+        {
+          "from": "sangloupmon",
+          "when": null
+        },
+        {
+          "from": "wizarmon",
           "when": null
         }
       ]
@@ -6739,58 +6779,6 @@
       ]
     },
     {
-      "id": "vamdemon",
-      "name": "묘티스몬",
-      "stage": "perfect",
-      "sprite": "vamdemon",
-      "evolvesFrom": [
-        {
-          "from": "airdramon",
-          "when": null
-        },
-        {
-          "from": "angemon",
-          "when": null
-        },
-        {
-          "from": "bakemon",
-          "when": null
-        },
-        {
-          "from": "devimon",
-          "when": null
-        },
-        {
-          "from": "vilemon",
-          "when": null
-        },
-        {
-          "from": "greymon",
-          "when": null
-        },
-        {
-          "from": "icedevimon",
-          "when": null
-        },
-        {
-          "from": "karatukinumemon",
-          "when": null
-        },
-        {
-          "from": "saberdramon",
-          "when": null
-        },
-        {
-          "from": "sangloupmon",
-          "when": null
-        },
-        {
-          "from": "wizarmon",
-          "when": null
-        }
-      ]
-    },
-    {
       "id": "vegimon",
       "name": "베지몬",
       "stage": "adult",
@@ -6858,10 +6846,6 @@
         },
         {
           "from": "myotismon",
-          "when": null
-        },
-        {
-          "from": "vamdemon",
           "when": null
         }
       ]
