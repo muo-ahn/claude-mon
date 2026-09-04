@@ -11210,5 +11210,79 @@
         "via": "evolves-from-bold; jogress split (오메가몬 선례)"
       }
     ]
+  },
+  {
+    "id": "chaosmon",
+    "title": "Chaosmon",
+    "koSource": "manual",
+    "dotSource": "Chaosmon_dst_map.png",
+    "edges": [
+      {
+        "from": "bancholeomon",
+        "games": [
+          "Digimon ReArise",
+          "Digimon World Re:Digitize",
+          "Digimon World Re:Digitize Decode",
+          "Digimon Story: Cyber Sleuth",
+          "Digimon World -next 0rder-",
+          "Digimon World -next 0rder- International Edition",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "Digimon Pendulum Ver.20th",
+          "Digimon New Century",
+          "Digital Monster COLOR Ver.3",
+          "Digimon Story: Time Stranger"
+        ],
+        "via": "evolves-from-bold; with-or-without Darkdramon condition dropped (단독 진화 가능, T-1 선례)"
+      }
+    ]
+  },
+  {
+    "id": "death_x_dorugoramon",
+    "title": "Death-X-DORUgoramon",
+    "koSource": "manual",
+    "dotSource": "Deathxdorugoramon_vpet_vb.png",
+    "edges": [
+      {
+        "from": "dorugoramon",
+        "games": [
+          "Digimon Seekers"
+        ],
+        "via": "evolves-from-bold"
+      }
+    ]
+  },
+  {
+    "id": "grandiskuwagamon",
+    "title": "Grandis Kuwagamon",
+    "koSource": "manual",
+    "dotSource": "GrandisKuwagamon_vpet_xloader.png",
+    "edges": [
+      {
+        "from": "grankuwagamon",
+        "games": [
+          "Digimon Super Rumble",
+          "Digimon Xros Loader Toy"
+        ],
+        "via": "evolves-from-bold; with-or-without Bancho Stingmon condition dropped (단독 진화 가능, T-1 선례)"
+      }
+    ]
+  },
+  {
+    "id": "mervamon",
+    "title": "Mervamon",
+    "koSource": "manual",
+    "dotSource": "Mervamon_vpet_xloader.png",
+    "edges": [
+      {
+        "from": "minervamon",
+        "games": [
+          "Digimon Masters",
+          "Digimon Story: Time Stranger",
+          "Pendulum COLOR 9 Astral Sentinel",
+          "Digimon New Century"
+        ],
+        "via": "evolves-from-bold; with-or-without Rosemon condition dropped (단독 진화 가능, T-1 선례)"
+      }
+    ]
   }
 ]
