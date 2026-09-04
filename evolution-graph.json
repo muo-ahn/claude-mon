@@ -7181,6 +7181,54 @@
           "when": null
         }
       ]
+    },
+    {
+      "id": "chaosmon",
+      "name": "카오스몬",
+      "stage": "superultimate",
+      "sprite": "chaosmon",
+      "evolvesFrom": [
+        {
+          "from": "bancholeomon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "death_x_dorugoramon",
+      "name": "데크스도루고라몬",
+      "stage": "superultimate",
+      "sprite": "death_x_dorugoramon",
+      "evolvesFrom": [
+        {
+          "from": "dorugoramon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "grandiskuwagamon",
+      "name": "그랑디스쿠가몬",
+      "stage": "superultimate",
+      "sprite": "grandiskuwagamon",
+      "evolvesFrom": [
+        {
+          "from": "grankuwagamon",
+          "when": null
+        }
+      ]
+    },
+    {
+      "id": "mervamon",
+      "name": "메르바몬",
+      "stage": "superultimate",
+      "sprite": "mervamon",
+      "evolvesFrom": [
+        {
+          "from": "minervamon",
+          "when": null
+        }
+      ]
     }
   ]
 }
