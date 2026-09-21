@@ -642,10 +642,10 @@ func readHudCache(cwd: String) -> (json: [String: Any], stale: Bool)? {
 // Reads $CLAUDEMON_DIR/daily.json. Any failure (missing file, malformed
 // JSON, unrecognized stageId) falls back to ("digitama", 0, nil) rather
 // than crashing or showing a stale/garbage stage.
-func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int], route: [String: [String: String]], terminalFrom: String?) {
+func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, mon: String, sessionTokens: [String: Int], route: [String: [String: String]], terminalFrom: String?, routeReasons: [String: [String: Any]]?) {
     guard let data = FileManager.default.contents(atPath: dailyStateFile),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    else { return ("digitama", 0, nil, defaultMon, [:], [:], nil) }
+    else { return ("digitama", 0, nil, defaultMon, [:], [:], nil, nil) }
     let rawStage = json["stageId"] as? String ?? "digitama"
     let stageId = stageIds.contains(rawStage) ? rawStage : "digitama"
     let tokens = intValue(json["outputTokens"])
@@ -665,7 +665,10 @@ func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, 
     // as a separate top-level string key instead (lib/daily.js D7 clamp).
     let route = json["route"] as? [String: [String: String]] ?? [:]
     let terminalFrom = json["terminalFrom"] as? String
-    return (stageId, tokens, dateKST, mon, sessionTokens, route, terminalFrom)
+    // routeReasons is optional (pre-route-reasons daily.json won't have it).
+    // Parse defensively: missing or malformed -> nil, display nothing.
+    let routeReasons = json["routeReasons"] as? [String: [String: Any]]
+    return (stageId, tokens, dateKST, mon, sessionTokens, route, terminalFrom, routeReasons)
 }
 
 // Resolves which pack directory should actually be used for a requested
@@ -807,7 +810,8 @@ func dumpLimits(path: String) {
 // Entirely env-driven (via CLAUDEMON_DIR) so tests can point it at a
 // scratch directory.
 func dumpState() {
-    let daily = readDailyState()
+    let (stageId, outputTokens, dateKST, mon, sessionTokens, route, terminalFrom, routeReasons) = readDailyState()
+    let daily = (stageId: stageId, outputTokens: outputTokens, dateKST: dateKST, mon: mon, sessionTokens: sessionTokens, route: route, terminalFrom: terminalFrom)
     // The GUI applies today's route before it ever renders a name; this dump
     // has to do the same or `name:` silently reports the pack's spine instead
     // of the branch actually on screen (perfect read 메탈그레이몬 while the
@@ -840,6 +844,17 @@ func dumpState() {
     print("spriteLevel: \(usageLevel ?? "(없음)")")
     print("frameSet: \(level ?? "stage:\(daily.stageId)")")
     print("globalState: \(state.rawValue)")
+
+    // Route reasons: show why each stage was chosen (headless verification path)
+    if let reasons = routeReasons {
+        let stageOrder = ["digitama", "baby", "child", "adult", "perfect", "ultimate", "superultimate"]
+        for stage in stageOrder {
+            if let line = formatRouteReasonGlobal(stageId: stage, reason: reasons[stage], route: route) {
+                print("reason \(stage): \(line)")
+            }
+        }
+    }
+
     for (entry, sessState) in orderedSessionStates(sessions: sessions) {
         let json = entry.json
         let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
@@ -917,21 +932,31 @@ let cutInEnabled: Bool = {
 // sets this one. Widest is still armagemon at 183.
 let portraitBox: CGFloat = 208
 
-func drawAspectFit(_ img: NSImage, in box: NSRect) {
+func drawAspectFit(_ img: NSImage, in box: NSRect, pixelArt: Bool = true) {
     let srcSize = img.size
     guard srcSize.width > 0, srcSize.height > 0 else { return }
-    // Pixel art must be scaled by a whole number, otherwise nearest-neighbour
-    // stretches some source pixels wider than their neighbours and the outline
-    // visibly wobbles. Portrait assets are 66-181px of hand-drawn art dropped
-    // into a fixed 150/160px box, so the raw aspect-fit ratio is almost never
-    // integral -- floor it and accept the leftover margin. Downscaling (ratio
-    // below 1) is left alone: flooring there would collapse to zero.
+
     let fitScale = min(box.width / srcSize.width, box.height / srcSize.height)
-    let scale = fitScale > 1 ? floor(fitScale) : fitScale
+
+    // Pixel art requires integer scaling to avoid wobble; render art (artwork)
+    // uses fractional scaling with smooth interpolation.
+    let scale: CGFloat
+    let interpolation: NSImageInterpolation
+
+    if pixelArt {
+        // Pixel art: floor to integer scale when enlarging, nearest-neighbor
+        scale = fitScale > 1 ? floor(fitScale) : fitScale
+        interpolation = .none
+    } else {
+        // Render art (artwork): fractional scale OK, smooth interpolation
+        scale = fitScale
+        interpolation = .high
+    }
+
     let w = srcSize.width * scale
     let h = srcSize.height * scale
     let origin = NSPoint(x: box.minX + (box.width - w) / 2, y: box.minY + (box.height - h) / 2)
-    NSGraphicsContext.current?.imageInterpolation = .none
+    NSGraphicsContext.current?.imageInterpolation = interpolation
     img.draw(in: NSRect(origin: origin, size: NSSize(width: w, height: h)), from: .zero, operation: .sourceOver, fraction: 1.0)
 }
 
@@ -979,12 +1004,94 @@ func notifyAuthGranted(_ status: UNAuthorizationStatus) -> Bool {
     return status == .authorized || status == .provisional
 }
 
+// Global versions of format functions for --dump-state (headless) path.
+// Identical to AppDelegate instance methods but callable without GUI context.
+
+func formatRouteReasonGlobal(stageId: String, reason: [String: Any]?, route: [String: [String: String]]) -> String? {
+    guard let reason = reason,
+          let stageName = route[stageId]?["name"],
+          let candidates = reason["candidates"] as? [[String: Any]],
+          let probability = reason["probability"] as? Double,
+          let ctx = reason["ctx"] as? [String: Any] else { return nil }
+
+    let stageLabel = stageLabels[stageId] ?? stageId
+    let candidateCount = candidates.count
+
+    // Find conditions that were satisfied (weight == 8, the CONDITION_EDGE_WEIGHT)
+    let metConditionLabels = candidates.compactMap { c -> String? in
+        guard let weight = c["weight"] as? Int, weight == 8,
+              let when = c["when"] as? [String: Any] else { return nil }
+        return formatConditionGlobal(when, ctx: ctx)
+    }
+
+    let uniqueLabels = Array(Set(metConditionLabels))
+    let conditionText: String
+    if uniqueLabels.isEmpty {
+        conditionText = ""
+    } else if uniqueLabels.count == 1 {
+        conditionText = "\(uniqueLabels[0]) ×8"
+    } else {
+        conditionText = uniqueLabels.joined(separator: ", ") + " ×8"
+    }
+
+    let probPct = Int(probability * 100)
+
+    if conditionText.isEmpty {
+        return "\(stageLabel) · \(stageName) (후보 \(candidateCount), 확률 \(probPct)%)"
+    } else {
+        return "\(stageLabel) · \(stageName) ← (\(conditionText), 후보 \(candidateCount), 확률 \(probPct)%)"
+    }
+}
+
+func formatConditionGlobal(_ when: [String: Any], ctx: [String: Any]) -> String? {
+    // Handle "all" array (nested conditions)
+    if let allConds = when["all"] as? [[String: Any]] {
+        let labels = allConds.compactMap { formatConditionGlobal($0, ctx: ctx) }
+        return labels.isEmpty ? nil : labels.joined(separator: " + ")
+    }
+
+    // Standard {type, gte/lte} form
+    guard let type = when["type"] as? String else { return nil }
+
+    // Map axis type to Korean label
+    let axisName: String
+    switch type {
+    case "sessionCount": axisName = "세션 수"
+    case "dailyUserTurns": axisName = "유저 턴"
+    case "outputPerTurn": axisName = "턴당 출력"
+    case "topSharePct": axisName = "최다 세션 비중"
+    case "failureRatioPct": axisName = "실패율"
+    default: axisName = type  // Unknown axes: use raw key
+    }
+
+    // Get actual value from ctx
+    let actualStr: String
+    if let intVal = ctx[type] as? Int {
+        actualStr = "\(intVal)"
+    } else if let doubleVal = ctx[type] as? Double {
+        actualStr = String(format: "%.1f", doubleVal)
+    } else {
+        actualStr = "?"
+    }
+
+    // Get threshold and comparison
+    if let threshold = when["gte"] as? Int {
+        return "\(axisName) \(actualStr) ≥ \(threshold)"
+    } else if let threshold = when["lte"] as? Int {
+        return "\(axisName) \(actualStr) ≤ \(threshold)"
+    }
+
+    // Fallback: just axis name if threshold format is unknown
+    return axisName
+}
+
 final class PixelArtView: NSView {
     var image: NSImage? { didSet { needsDisplay = true } }
+    var isPixelArt: Bool = true { didSet { needsDisplay = true } }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let image = image else { return }
-        drawAspectFit(image, in: bounds)
+        drawAspectFit(image, in: bounds, pixelArt: isPixelArt)
     }
 }
 
@@ -997,6 +1104,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Populated only for stages that actually have portrait-<stage>-N.png
     // assets in the pack; missing stages fall back via portraitImage(forStage:).
     var portraitFrames: [String: [NSImage]] = [:]
+    // Official artwork (anti-aliased render art, not pixel art). Single frame
+    // per stage, loaded as artwork-<stage>-0.png. Prioritized over portraits
+    // when available, unless CLAUDEMON_ARTWORK_PORTRAIT=0 kill switch is set.
+    var artworkFrames: [String: [NSImage]] = [:]
     var limitFrameSets: [String: [NSImage]] = [:] // "limit80" / "limit95" -> frames
     var idleFrames: [NSImage] = []
     var currentFrames: [NSImage] = []
@@ -1011,6 +1122,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentMon = ""
     var currentPackPath = ""
     var dailyOutputTokens = 0
+    // Route reasons explaining why each stage was chosen (from lib/daily.js).
+    // nil means the field is absent (pre-route-reasons daily.json).
+    var currentRouteReasons: [String: [String: Any]]? = nil
+    var currentRoute: [String: [String: String]] = [:]
     var workingSessionCount = 0
     var currentLimitLevel: String? = nil
     var rateLimitMenuLines: [String] = []
@@ -1050,6 +1165,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentStageId = daily.stageId
         currentTerminalFrom = daily.terminalFrom
         dailyOutputTokens = daily.outputTokens
+        currentRouteReasons = daily.routeReasons
+        currentRoute = daily.route
         _ = applyRoute(daily.route, mon: daily.mon)
         switchMonIfNeeded(daily.mon)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -1163,6 +1280,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Native size (size: nil) since callers fit these into their own
         // boxes; a stage with no portrait assets simply gets no entry here,
         // and portraitImage(forStage:) falls back to an upscaled stage frame.
+        // Official artwork (anti-aliased render art): artwork-<prefix>-0.png only.
+        // Prioritized over pixel portraits when CLAUDEMON_ARTWORK_PORTRAIT != "0".
+        // Artwork lives in the shared sprites/nodes/ directory (not per-pack) to avoid
+        // duplicating 46MB across 10 packs. Pack-specific artwork can still override
+        // the shared artwork if present.
+        var newArtworkFrames: [String: [NSImage]] = [:]
+        let artworkEnabled = ProcessInfo.processInfo.environment["CLAUDEMON_ARTWORK_PORTRAIT"] != "0"
+        if artworkEnabled {
+            for stage in stageIds {
+                let prefix = activeRouteSprites[stage] ?? stage
+                var artwork = loadImageSequence(inDir: pack, prefix: "artwork-\(prefix)", size: nil)
+                if artwork.isEmpty {
+                    // Fallback: shared nodes directory
+                    let sharedNodesDir = spriteRoot + "/nodes"
+                    artwork = loadImageSequence(inDir: sharedNodesDir, prefix: "artwork-\(prefix)", size: nil)
+                }
+                if !artwork.isEmpty {
+                    newArtworkFrames[stage] = artwork
+                }
+            }
+        }
+        artworkFrames = newArtworkFrames
+
         var newPortraitFrames: [String: [NSImage]] = [:]
         for stage in stageIds {
             // Route-aware, exactly like the stage frames above: on a branch
@@ -1222,17 +1362,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // portrait assets only exist for adult/perfect/ultimate (and extraction
     // may not have run yet for every pack) -- the cut-in (A) and menu header
     // (B) both need to work regardless.
-    func portraitImage(forStage stage: String) -> NSImage? {
-        if let img = portraitFrames[stage]?.first {
-            return img
+    //
+    // Priority: artwork (render art) → portrait (pixel art) → dot upscale.
+    // Artwork kill switch: CLAUDEMON_ARTWORK_PORTRAIT=0 skips artwork tier.
+    // Returns (image, isPixelArt) tuple for correct interpolation in drawAspectFit.
+    func portraitImage(forStage stage: String) -> (NSImage?, Bool) {
+        // Artwork: anti-aliased render art, no upscaling needed
+        if let img = artworkFrames[stage]?.first {
+            return (img, false)  // Not pixel art
         }
-        guard let base = stageFrames[stage]?.first ?? idleFrames.first else { return nil }
-        // Blow the 32px sprite up as far as portraitBox allows rather than by a
-        // fixed 4x: at 4x it landed at 128 in a 184 box, and drawAspectFit's
-        // integer snap would then leave it there, wasting the slack.
+        // Portrait: native-resolution pixel art
+        if let img = portraitFrames[stage]?.first {
+            return (img, true)  // Pixel art
+        }
+        // Fallback: upscale 32px dot with nearest-neighbor
+        guard let base = stageFrames[stage]?.first ?? idleFrames.first else {
+            return (nil, true)
+        }
         let longEdge = max(base.size.width, base.size.height)
         let factor = longEdge > 0 ? max(1, floor(portraitBox / longEdge)) : 1
-        return upscaledNearestNeighbor(base, factor: factor)
+        return (upscaledNearestNeighbor(base, factor: factor), true)  // Pixel art
     }
 
     // Nearest-neighbor integer upscale so pixel art doesn't blur.
@@ -1396,6 +1545,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentTerminalFrom = daily.terminalFrom
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
+        currentRouteReasons = daily.routeReasons
+        currentRoute = daily.route
         switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route, mon: daily.mon))
 
         // Evolution burst: same mon moved UP a stage -> flash old/new forms
@@ -1606,9 +1757,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // at the call sites means a future caller can't accidentally leak an
         // overlay past the setting.
         guard cutInEnabled else { return }
-        guard let oldPortrait = portraitImage(forStage: fromStage),
-              let newPortrait = portraitImage(forStage: toStage)
-        else { return }
+        let (oldPortrait, oldIsPixelArt) = portraitImage(forStage: fromStage)
+        let (newPortrait, newIsPixelArt) = portraitImage(forStage: toStage)
+        guard let oldPortrait = oldPortrait, let newPortrait = newPortrait else { return }
 
         cutInTickTimer?.invalidate()
         cutInTickTimer = nil
@@ -1622,6 +1773,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         positionCutInWindow(window)
         cutInLabel?.stringValue = "\(name) 진화!"
         cutInImageView?.image = oldPortrait
+        // Set pixelArt based on whether we're showing artwork or pixel art
+        cutInImageView?.isPixelArt = oldIsPixelArt
 
         window.alphaValue = 0
         window.orderFrontRegardless()
@@ -1647,6 +1800,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 timer.invalidate()
                 self.cutInTickTimer = nil
                 self.cutInImageView?.image = newPortrait
+                self.cutInImageView?.isPixelArt = newIsPixelArt
                 self.cutInHoldTimer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: false) { [weak self] _ in
                     guard let self = self, self.cutInGeneration == myGen, let win = self.cutInWindow else { return }
                     NSAnimationContext.runAnimationGroup({ ctx in
@@ -1748,6 +1902,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return lines
     }
 
+    // Formats a single route reason for display in the dropdown menu.
+    // Delegates to global function for code reuse with --dump-state path.
+    func formatRouteReason(stageId: String, reason: [String: Any]?, route: [String: [String: String]]) -> String? {
+        return formatRouteReasonGlobal(stageId: stageId, reason: reason, route: route)
+    }
+
+    // Formats a single condition with axis name and threshold.
+    // Delegates to global function for code reuse with --dump-state path.
+    func formatCondition(_ when: [String: Any], ctx: [String: Any]) -> String? {
+        return formatConditionGlobal(when, ctx: ctx)
+    }
+
     // Builds the menu's header item: a big portrait (readable, unlike the
     // 16pt menu bar icon) + name + stage + today's token count. Replaces
     // the old single-line text item -- everything below it (session rows,
@@ -1759,7 +1925,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let portraitView = PixelArtView(frame: NSRect(x: (width - portraitBox) / 2, y: 58,
                                                       width: portraitBox, height: portraitBox))
-        portraitView.image = portraitImage(forStage: stageId)
+        let (portraitImg, isPixelArt) = portraitImage(forStage: stageId)
+        portraitView.image = portraitImg
+        portraitView.isPixelArt = isPixelArt
         container.addSubview(portraitView)
 
         let nameLabel = NSTextField(labelWithString: name)
@@ -1803,6 +1971,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             : evolvedName(pack: currentPackPath, mon: mon, stageId: currentStageId)
         menu.addItem(makeHeaderMenuItem(name: name, stageId: currentStageId,
                                         tokenLine: "오늘 \(formatTokenCount(dailyOutputTokens)) tok"))
+
+        // Route reasons: explain why each stage was chosen (lib/daily.js routeReasons)
+        if let reasons = currentRouteReasons {
+            for stageId in stageIds {
+                if let reasonLine = formatRouteReason(stageId: stageId, reason: reasons[stageId], route: currentRoute) {
+                    menu.addItem(withTitle: reasonLine, action: nil, keyEquivalent: "")
+                }
+            }
+            menu.addItem(NSMenuItem.separator())
+        }
 
         // Waiting-for-human sessions get called out first — they need
         // attention more urgently than a plain "still working" count.
