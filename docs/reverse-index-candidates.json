@@ -1,0 +1,4390 @@
+{
+  "withDots": [
+    {
+      "title": "Penmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "aquilamon",
+        "birdramon",
+        "cockatrimon",
+        "diatrymon",
+        "garurumon",
+        "greymon",
+        "ikkakumon",
+        "kiwimon",
+        "leomon",
+        "peckmon",
+        "rukamon",
+        "saberdramon",
+        "sangloupmon",
+        "seadramon",
+        "tailmon"
+      ],
+      "adjacentChildren": 16,
+      "hasDot": true
+    },
+    {
+      "title": "Wormmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "angemon",
+        "bakemon",
+        "devimon",
+        "garurumon",
+        "gekomon",
+        "gokimon",
+        "greymon",
+        "icedevimon",
+        "ikkakumon",
+        "kabuterimon",
+        "kuwagamon",
+        "numemon",
+        "sandyanmamon",
+        "seadramon",
+        "snimon",
+        "sorcerimon",
+        "stingmon",
+        "tailmon",
+        "togemon",
+        "exveemon",
+        "yanmamon"
+      ],
+      "adjacentChildren": 22,
+      "hasDot": true
+    },
+    {
+      "title": "Tanemon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "alraumon",
+        "betamon",
+        "goburimon",
+        "lalamon",
+        "picodevimon",
+        "piyomon",
+        "renamon"
+      ],
+      "adjacentChildren": 7,
+      "hasDot": true
+    },
+    {
+      "title": "Floramon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "angemon",
+        "birdramon",
+        "blossomon",
+        "cockatrimon",
+        "kabuterimon",
+        "kiwimon",
+        "kyubimon",
+        "lotusmon",
+        "raremon",
+        "redvegimon",
+        "stingmon",
+        "sunflowmon",
+        "togemon",
+        "vegimon"
+      ],
+      "adjacentChildren": 12,
+      "hasDot": true
+    },
+    {
+      "title": "Palmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "angemon",
+        "aquilamon",
+        "birdramon",
+        "kurisarimon",
+        "fugamon",
+        "growlmon",
+        "kiwimon",
+        "kougamon",
+        "kuwagamon",
+        "leomon",
+        "morishellmon",
+        "numemon",
+        "orgemon",
+        "platinumscumon",
+        "raremon",
+        "redvegimon",
+        "reppamon",
+        "rosemon",
+        "scumon",
+        "snimon",
+        "sunflowmon",
+        "togemon",
+        "tuchidarumon",
+        "vegimon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 24,
+      "hasDot": true
+    },
+    {
+      "title": "Ancient Beatmon",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "apocalymon"
+      ],
+      "adjacentChildren": 1,
+      "hasDot": true
+    },
+    {
+      "title": "Caprimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "armadimon",
+        "gottsumon",
+        "hagurumon",
+        "impmon",
+        "toyagumon"
+      ],
+      "adjacentChildren": 5,
+      "hasDot": true
+    },
+    {
+      "title": "Pagumon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "bearmon",
+        "gizamon",
+        "goburimon",
+        "gottsumon",
+        "impmon",
+        "picodevimon",
+        "raremon",
+        "tukaimon"
+      ],
+      "adjacentChildren": 7,
+      "hasDot": true
+    },
+    {
+      "title": "Dracumon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "dorugamon",
+        "devimon",
+        "gekomon",
+        "raremon",
+        "sangloupmon",
+        "scumon",
+        "starmon",
+        "myotismon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 8,
+      "hasDot": true
+    },
+    {
+      "title": "Tunomon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "betamon",
+        "gabumon",
+        "gaomon",
+        "goburimon",
+        "gomamon",
+        "hagurumon",
+        "koemon",
+        "machgaogamon",
+        "picodevimon",
+        "veemon"
+      ],
+      "adjacentChildren": 9,
+      "hasDot": true
+    },
+    {
+      "title": "Hyokomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "birdramon",
+        "dinohumon",
+        "peckmon"
+      ],
+      "adjacentChildren": 3,
+      "hasDot": true
+    },
+    {
+      "title": "Strikedramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "cyberdramon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 2,
+      "hasDot": true
+    },
+    {
+      "title": "Kotemon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "darklizamon",
+        "dinohumon",
+        "flarelizamon",
+        "greymon",
+        "hanumon",
+        "kabuterimon",
+        "kuwagamon",
+        "omekamon",
+        "platinumscumon",
+        "slashangemon",
+        "starmon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 11,
+      "hasDot": true
+    },
+    {
+      "title": "Lopmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "devimon",
+        "flarelizamon",
+        "galgomon",
+        "gargomon",
+        "gryzmon",
+        "leomon",
+        "prairiemon",
+        "siesamon",
+        "tuchidarumon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 10,
+      "hasDot": true
+    },
+    {
+      "title": "Butenmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "gaioumon",
+        "griffomon"
+      ],
+      "adjacentChildren": 1,
+      "hasDot": true
+    },
+    {
+      "title": "Buraimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "garudamon"
+      ],
+      "adjacentChildren": 1,
+      "hasDot": true
+    },
+    {
+      "title": "Otamamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "gekomon",
+        "geremon",
+        "hookmon",
+        "karatukinumemon",
+        "kuwagamon",
+        "numemon",
+        "platinumscumon",
+        "raremon",
+        "seadramon",
+        "snimon",
+        "starmon",
+        "tailmon",
+        "tonosamagekomon",
+        "tortamon",
+        "yanmamon"
+      ],
+      "adjacentChildren": 14,
+      "hasDot": true
+    }
+  ],
+  "withoutDots": [
+    {
+      "title": "Coredramon (Blue)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "aerovdramon",
+        "blackmegalogrowlmon",
+        "cyberdramon",
+        "gigadramon",
+        "megaseadramon",
+        "megalogrowlmon",
+        "rizegreymon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Master V-dramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "aerovdramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Monochromon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "aerovdramon",
+        "chimairamon",
+        "garudamon",
+        "mametyramon",
+        "metalgreymon",
+        "skullbaluchimon",
+        "vermillimon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Red V-dramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "aerovdramon",
+        "megalogrowlmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Tuskmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "aerovdramon",
+        "mastertyranomon",
+        "megaseadramon",
+        "metalgreymon",
+        "mummymon",
+        "paildramon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "V-dramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "aerovdramon",
+        "cyberdramon",
+        "delumon",
+        "dinobeemon",
+        "garudamon",
+        "machgaogamon",
+        "megaseadramon",
+        "megalogrowlmon",
+        "metalgreymon",
+        "tekkamon",
+        "ulforcevdramon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Nyaromon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "agumon",
+        "armadimon",
+        "bakumon",
+        "bearmon",
+        "gabumon",
+        "gaomon",
+        "gizamon",
+        "gottsumon",
+        "guilmon",
+        "hawkmon",
+        "kamemon",
+        "piyomon",
+        "plotmon",
+        "renamon",
+        "terriermon",
+        "yukiagumon"
+      ],
+      "adjacentChildren": 16
+    },
+    {
+      "title": "Upamon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "agumon",
+        "armadimon",
+        "gizamon",
+        "patamon",
+        "veemon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Agumon (2006 Anime Version)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "angemon",
+        "ankylomon",
+        "aquilamon",
+        "birdramon",
+        "dorugamon",
+        "darktyranomon",
+        "devimon",
+        "flarelizamon",
+        "gaogamon",
+        "garurumon",
+        "gawappamon",
+        "geogreymon",
+        "golemon",
+        "greymon",
+        "growlmon",
+        "guardromon",
+        "hookmon",
+        "icedevimon",
+        "karatukinumemon",
+        "leomon",
+        "magnamon",
+        "numemon",
+        "orgemon",
+        "peckmon",
+        "raptordramon",
+        "reppamon",
+        "rizegreymon",
+        "scumon",
+        "shinegreymon",
+        "starmon",
+        "stingmon",
+        "sunflowmon",
+        "tailmon",
+        "togemon",
+        "tortamon",
+        "tyranomon",
+        "vegimon",
+        "wargreymon",
+        "exveemon"
+      ],
+      "adjacentChildren": 37
+    },
+    {
+      "title": "Agumon (Black)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "angemon",
+        "ankylomon",
+        "birdramon",
+        "blackwargreymon",
+        "dorugamon",
+        "darktyranomon",
+        "devimon",
+        "flarelizamon",
+        "fugamon",
+        "garurumon",
+        "geogreymon",
+        "golemon",
+        "greymon",
+        "growlmon",
+        "guardromon",
+        "hookmon",
+        "icedevimon",
+        "leomon",
+        "magnamon",
+        "numemon",
+        "orgemon",
+        "raptordramon",
+        "saberdramon",
+        "stingmon",
+        "tailmon",
+        "togemon",
+        "tortamon",
+        "tyranomon",
+        "wargreymon",
+        "exveemon"
+      ],
+      "adjacentChildren": 29
+    },
+    {
+      "title": "Candmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "bakemon",
+        "birdramon",
+        "kurisarimon",
+        "darklizamon",
+        "devimon",
+        "vilemon",
+        "flarelizamon",
+        "gaogamon",
+        "garurumon",
+        "gawappamon",
+        "geogreymon",
+        "growlmon",
+        "guardromon",
+        "hanumon",
+        "karatukinumemon",
+        "peckmon",
+        "redvegimon",
+        "reppamon",
+        "sandyanmamon",
+        "starmon",
+        "myotismon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 22
+    },
+    {
+      "title": "Falcomon (2006 Anime Version)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "aquilamon",
+        "bakemon",
+        "birdramon",
+        "darktyranomon",
+        "diatrymon",
+        "gaogamon",
+        "gawappamon",
+        "geogreymon",
+        "geremon",
+        "karatukinumemon",
+        "kiwimon",
+        "numemon",
+        "peckmon",
+        "ravemon",
+        "reppamon",
+        "saberdramon",
+        "starmon",
+        "stingmon",
+        "vegimon",
+        "exveemon"
+      ],
+      "adjacentChildren": 20
+    },
+    {
+      "title": "Kudamon (2006 Anime Version)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "angemon",
+        "bakemon",
+        "gaogamon",
+        "gawappamon",
+        "geogreymon",
+        "karatukinumemon",
+        "numemon",
+        "peckmon",
+        "reppamon",
+        "sorcerimon",
+        "starmon",
+        "sunflowmon",
+        "tailmon",
+        "tyilinmon",
+        "vegimon"
+      ],
+      "adjacentChildren": 15
+    },
+    {
+      "title": "Kunemon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "bakemon",
+        "gokimon",
+        "kabuterimon",
+        "kuwagamon",
+        "numemon",
+        "orgemon",
+        "raremon",
+        "redvegimon",
+        "scumon",
+        "snimon",
+        "thunderballmon",
+        "tyranomon",
+        "vegimon",
+        "yanmamon"
+      ],
+      "adjacentChildren": 15
+    },
+    {
+      "title": "Monodramon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "chimairamon",
+        "kurisarimon",
+        "cyberdramon",
+        "dorugamon",
+        "dagomon",
+        "darklizamon",
+        "darktyranomon",
+        "dinohumon",
+        "geogreymon",
+        "greymon",
+        "growlmon",
+        "knightmon",
+        "kougamon",
+        "megaseadramon",
+        "metalgreymon",
+        "paildramon",
+        "raptordramon",
+        "raremon",
+        "seadramon",
+        "tonosamagekomon",
+        "tyranomon",
+        "vajramon",
+        "exveemon",
+        "zudomon"
+      ],
+      "adjacentChildren": 15
+    },
+    {
+      "title": "Ryudamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "airdramon",
+        "dorugamon",
+        "geogreymon",
+        "greymon",
+        "numemon",
+        "omekamon",
+        "raptordramon",
+        "reppamon",
+        "exveemon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Duramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgarurumon",
+        "dukemon",
+        "goddramon",
+        "shinegreymon",
+        "tigervespamon",
+        "wargreymon",
+        "zanbamon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Raiji Ludomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgarurumon",
+        "ghoulmon-black",
+        "dukemon",
+        "goddramon",
+        "qinglongmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Shoutmon X5",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgarurumon",
+        "dukemon",
+        "goddramon",
+        "qinglongmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Sirenmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgarurumon",
+        "ancientmegatheriumon",
+        "ancientmermaimon",
+        "marinangemon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Splashmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgarurumon",
+        "ancientmermaimon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Dark Superstarmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgreymon",
+        "ancientvolcamon",
+        "darkdramon",
+        "ravemon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Manticoremon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgreymon",
+        "ghoulmon-black",
+        "dukemon",
+        "qinglongmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Metal Greymon (Virus)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientgreymon",
+        "blackwargreymon",
+        "boltmon",
+        "darkdramon",
+        "diablomon",
+        "dukemon",
+        "gaioumon",
+        "metalgarurumon",
+        "moonmillenniumon",
+        "mugendramon",
+        "venomvamdemon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 11
+    },
+    {
+      "title": "Toropiamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientirismon",
+        "ancienttroiamon",
+        "spinomon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Zamielmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientirismon",
+        "ancienttroiamon",
+        "lordknightmon",
+        "lotusmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Astamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "beelzebumon",
+        "dynasmon",
+        "megidramon",
+        "venomvamdemon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Crys Paledramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "skullmammon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Frozomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "skullmammon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Mammon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "beelzebumon",
+        "craniummon",
+        "duftmon",
+        "jumbogamemon",
+        "metalgarurumon",
+        "miragegaogamon",
+        "ravemon",
+        "shinegreymon",
+        "skullmammon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Marin Chimairamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "gigaseadramon",
+        "marinangemon",
+        "metalseadramon",
+        "neptunemon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Panjyamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "bancholeomon",
+        "duftmon",
+        "grappuleomon",
+        "miragegaogamon",
+        "skullmammon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Panjyamon (X-Antibody)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmegatheriumon",
+        "dynasmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Gusokumon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmermaimon",
+        "metalseadramon",
+        "neptunemon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Piranimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmermaimon",
+        "leviamon",
+        "metalseadramon",
+        "neptunemon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Thetismon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientmermaimon",
+        "marinangemon",
+        "pukumon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Cerberumon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "anubimon",
+        "baihumon",
+        "bancholeomon",
+        "barbamon",
+        "beelzebumon",
+        "ghoulmon",
+        "mercurymon",
+        "metalgarurumon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Ex-Tyranomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "anubimon",
+        "blackwargreymon",
+        "ghoulmon",
+        "dukemon",
+        "ebemon",
+        "gaioumon",
+        "pinochimon",
+        "venomvamdemon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Gogmamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "ancientvolcamon",
+        "miragegaogamon",
+        "pharaohmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Jyagamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "pharaohmon",
+        "rosemon",
+        "spinomon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Loader Leomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "baihumon",
+        "bancholeomon",
+        "darkdramon",
+        "ghoulmon",
+        "metaletemon",
+        "metalgarurumon",
+        "mugendramon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Scorpiomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "kuzuhamon",
+        "miragegaogamon",
+        "pharaohmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Skull Satamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "apocalymon",
+        "barbamon",
+        "beelzebumon",
+        "craniummon",
+        "ghoulmon",
+        "demon",
+        "diablomon",
+        "ebemon",
+        "piemon",
+        "valkyrimon",
+        "venomvamdemon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Triceramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientsphinxmon",
+        "cannondramon",
+        "goddramon",
+        "grankuwagamon",
+        "metalseadramon",
+        "mugendramon",
+        "pharaohmon",
+        "qinglongmon",
+        "saintgalgomon",
+        "spinomon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Hippogriffomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancienttroiamon",
+        "crossmon",
+        "dynasmon",
+        "griffomon",
+        "hououmon",
+        "marinangemon",
+        "metalgarurumon",
+        "piemon",
+        "varodurumon",
+        "xuanwumon",
+        "zhuqiaomon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Death Meramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientvolcamon",
+        "barbamon",
+        "beelzebumon",
+        "boltmon",
+        "cannondramon",
+        "demon",
+        "jijimon",
+        "megidramon",
+        "skullmammon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Groundramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientvolcamon",
+        "cannondramon",
+        "megidramon",
+        "metalgarurumon",
+        "shinegreymon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Lavogaritamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientvolcamon",
+        "cannondramon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Orochimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientvolcamon",
+        "baihumon",
+        "metaletemon",
+        "metalgarurumon",
+        "minervamon",
+        "xuanwumon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Eosmon (Perfect)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientwisemon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Locomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientwisemon",
+        "hiandromon",
+        "mugendramon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Metal Tyranomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientwisemon",
+        "armagemon",
+        "blacksaintgalgomon",
+        "blackwargreymon",
+        "cannondramon",
+        "dukemon",
+        "megidramon",
+        "metalseadramon",
+        "mugendramon",
+        "ulforcevdramon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Metallife Kuwagamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientwisemon",
+        "grandiskuwagamon",
+        "metaletemon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Rebellimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ancientwisemon",
+        "mugendramon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Elecmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "angemon",
+        "bakemon",
+        "birdramon",
+        "cockatrimon",
+        "darktyranomon",
+        "flarelizamon",
+        "garurumon",
+        "gawappamon",
+        "gekomon",
+        "geremon",
+        "grappuleomon",
+        "gryzmon",
+        "hookmon",
+        "ikkakumon",
+        "kuwagamon",
+        "kyubimon",
+        "leomon",
+        "numemon",
+        "peckmon",
+        "redvegimon",
+        "reppamon",
+        "scumon",
+        "seadramon",
+        "starmon",
+        "tailmon",
+        "thunderballmon",
+        "tyranomon",
+        "vegimon",
+        "zassoumon"
+      ],
+      "adjacentChildren": 28
+    },
+    {
+      "title": "Gabumon (Black)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "angemon",
+        "dorugamon",
+        "darklizamon",
+        "fugamon",
+        "gaogamon",
+        "garurumon",
+        "geogreymon",
+        "greymon",
+        "hanumon",
+        "kabuterimon",
+        "kyubimon",
+        "leomon",
+        "metalgarurumon",
+        "raremon",
+        "reppamon",
+        "saberdramon",
+        "snimon",
+        "stingmon",
+        "tailmon",
+        "vegimon",
+        "wizarmon",
+        "exveemon"
+      ],
+      "adjacentChildren": 21
+    },
+    {
+      "title": "Lucemon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "angemon",
+        "kurisarimon",
+        "devimon",
+        "hanumon",
+        "icedevimon",
+        "tortamon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Pawn Chessmon (White)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "angemon",
+        "hookmon",
+        "starmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Kokuwamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "ankylomon",
+        "devimon",
+        "gargomon",
+        "guardromon",
+        "icedevimon",
+        "kuwagamon",
+        "thunderballmon",
+        "exveemon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Zubamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "ankylomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Kumbhiramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "anubimon",
+        "beelzebumon",
+        "parasimon",
+        "sakuyamon",
+        "xuanwumon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Lamortmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "anubimon",
+        "griffomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Vikaralamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "anubimon",
+        "beelzebumon",
+        "parasimon",
+        "sakuyamon",
+        "xuanwumon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Waru Monzaemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "anubimon",
+        "beelzebumon",
+        "grankuwagamon",
+        "metaletemon",
+        "pandamon",
+        "pharaohmon",
+        "pinochimon",
+        "venomvamdemon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Chaosdramon",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "apocalymon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Lady Devimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "apocalymon",
+        "beelzebumon",
+        "ghoulmon-black",
+        "demon",
+        "diablomon",
+        "kuzuhamon",
+        "lotusmon",
+        "minervamon",
+        "piemon",
+        "rosemon",
+        "skullmammon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Coronamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "apollomon",
+        "birdramon",
+        "gaogamon",
+        "geogreymon",
+        "growlmon",
+        "leomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Kokabuterimon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "aquilamon",
+        "hanumon",
+        "kabuterimon",
+        "kuwagamon",
+        "thunderballmon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Tyumon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "aquilamon",
+        "bakemon",
+        "gaogamon",
+        "garurumon",
+        "gekomon",
+        "geogreymon",
+        "geremon",
+        "gokimon",
+        "karatukinumemon",
+        "kougamon",
+        "numemon",
+        "orgemon",
+        "platinumscumon",
+        "raremon",
+        "scumon",
+        "starmon",
+        "sunflowmon",
+        "tailmon",
+        "tyranomon"
+      ],
+      "adjacentChildren": 19
+    },
+    {
+      "title": "Gundramon",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "armagemon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Angewomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "babamon",
+        "baihumon",
+        "beelzebumon",
+        "belialvamdemon",
+        "darkdramon",
+        "hououmon",
+        "lordknightmon",
+        "marinangemon",
+        "rosemon",
+        "silphymon",
+        "valkyrimon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Archnemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "babamon",
+        "baihumon",
+        "beelzebumon",
+        "belialvamdemon",
+        "blackwargreymon",
+        "lotusmon",
+        "parasimon",
+        "spinomon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Bastemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "babamon",
+        "barbamon",
+        "beelzebumon",
+        "blacksaintgalgomon",
+        "dukemon",
+        "grankuwagamon",
+        "kuzuhamon",
+        "megidramon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Monzaemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "babamon",
+        "bancholeomon",
+        "jijimon",
+        "jumbogamemon",
+        "metaletemon",
+        "minervamon",
+        "mugendramon",
+        "sakuyamon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Piccolomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "babamon",
+        "ghoulmon-black",
+        "griffomon",
+        "hououmon",
+        "jijimon",
+        "marinangemon",
+        "piemon",
+        "rosemon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Vademon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "babamon",
+        "ebemon",
+        "hiandromon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Caturamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "baihumon",
+        "beelzebumon",
+        "hiandromon",
+        "parasimon",
+        "sakuyamon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Dinotigermon",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "baihumon",
+        "bancholeomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Jewelbeemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "baihumon",
+        "grankuwagamon",
+        "grandiskuwagamon",
+        "spinomon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Makuramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "baihumon",
+        "beelzebumon",
+        "hiandromon",
+        "piemon",
+        "saintgalgomon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Mihiramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "baihumon",
+        "beelzebumon",
+        "dukemon",
+        "hououmon",
+        "megidramon",
+        "qinglongmon",
+        "xuanwumon",
+        "zhuqiaomon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Ghostmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "bakemon",
+        "devimon",
+        "fantomon",
+        "flarelizamon",
+        "saberdramon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Loogamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "bakemon",
+        "hanumon",
+        "tyranomon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Peti Meramon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "bakumon",
+        "gabumon",
+        "gottsumon",
+        "guilmon",
+        "impmon",
+        "picodevimon",
+        "plotmon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Etemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "bancholeomon",
+        "jijimon",
+        "metaletemon",
+        "piemon",
+        "saintgalgomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Tankdramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "bancholeomon",
+        "darkdramon",
+        "dukemon",
+        "mugendramon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Were Garurumon (Black)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "bancholeomon",
+        "boltmon",
+        "demon",
+        "duftmon",
+        "mercurymon",
+        "metalgarurumon",
+        "metalseadramon",
+        "minervamon",
+        "miragegaogamon",
+        "saintgalgomon",
+        "sakuyamon"
+      ],
+      "adjacentChildren": 11
+    },
+    {
+      "title": "Blue Meramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "barbamon",
+        "boltmon",
+        "darkdramon",
+        "demon",
+        "hououmon",
+        "leviamon",
+        "miragegaogamon",
+        "pharaohmon",
+        "piemon",
+        "rosemon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Doumon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "barbamon",
+        "kuzuhamon",
+        "parasimon",
+        "piemon",
+        "sakuyamon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Holy Angemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "barbamon",
+        "beelzebumon",
+        "belialvamdemon",
+        "demon",
+        "dukemon",
+        "goddramon",
+        "hououmon",
+        "jijimon",
+        "lordknightmon",
+        "magnamon",
+        "marinangemon",
+        "metaletemon",
+        "qinglongmon",
+        "shinegreymon",
+        "slashangemon",
+        "valkyrimon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 14
+    },
+    {
+      "title": "Lucemon: Falldown Mode",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "barbamon",
+        "belialvamdemon",
+        "demon",
+        "venomvamdemon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Nanomon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "barbamon",
+        "ghoulmon",
+        "diablomon",
+        "dynasmon",
+        "mugendramon",
+        "parasimon",
+        "pharaohmon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Frimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "bearmon",
+        "patamon",
+        "piyomon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Hiyarimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "bearmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Zurumon",
+      "stage": "baby",
+      "level": "Baby I",
+      "koName": null,
+      "children": [
+        "bearmon",
+        "koromon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Andiramon (Deva)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "chaosdukemon",
+        "diablomon",
+        "dianamon",
+        "duftmon",
+        "hououmon",
+        "minervamon",
+        "qinglongmon",
+        "saintgalgomon",
+        "valkyrimon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Baalmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "piemon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Dark Knightmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Indaramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "belialvamdemon",
+        "diablomon",
+        "parasimon",
+        "sakuyamon",
+        "zhuqiaomon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Majiramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "dukemon",
+        "hououmon",
+        "megidramon",
+        "qinglongmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Neo Devimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "ghoulmon",
+        "demon",
+        "megidramon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Pajiramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "cannondramon",
+        "diablomon",
+        "kuzuhamon",
+        "rosemon",
+        "saintgalgomon",
+        "zhuqiaomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Pumpmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "boltmon",
+        "lotusmon",
+        "piemon",
+        "pinochimon",
+        "rosemon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Sandiramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "beelzebumon",
+        "diablomon",
+        "dukemon",
+        "zhuqiaomon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Phelesmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "belialvamdemon",
+        "demon",
+        "pharaohmon",
+        "piemon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Pukamon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "betamon",
+        "ganimon",
+        "gizamon",
+        "gomamon",
+        "kamemon",
+        "koemon",
+        "veemon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Algomon (Adult)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "chimairamon",
+        "mamemon",
+        "metalgreymon",
+        "mummymon",
+        "parrotmon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Clockmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "knightmon",
+        "mamemon",
+        "wisemon",
+        "zudomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Dokugumon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "infermon",
+        "mummymon",
+        "parrotmon",
+        "myotismon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Mechanorimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "fantomon",
+        "gigadramon",
+        "mamemon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Meramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "blackmegalogrowlmon",
+        "flaremon",
+        "garudamon",
+        "mamemon",
+        "marindevimon",
+        "mastertyranomon",
+        "megalogrowlmon",
+        "mummymon",
+        "superstarmon",
+        "myotismon",
+        "volcamon"
+      ],
+      "adjacentChildren": 12
+    },
+    {
+      "title": "Shellmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "blossomon",
+        "chimairamon",
+        "dagomon",
+        "mamemon",
+        "marindevimon",
+        "megaseadramon",
+        "mermaimon",
+        "tonosamagekomon",
+        "waruseadramon",
+        "zudomon"
+      ],
+      "adjacentChildren": 11
+    },
+    {
+      "title": "Tankmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "bigmamemon",
+        "gigadramon",
+        "knightmon",
+        "metalgreymon",
+        "volcamon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Jazamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "birdramon",
+        "omekamon",
+        "raremon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Luxmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "birdramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Mushmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "birdramon",
+        "devimon",
+        "growlmon",
+        "kougamon",
+        "kuwagamon",
+        "numemon",
+        "orgemon",
+        "redvegimon",
+        "scumon",
+        "sunflowmon",
+        "tailmon",
+        "togemon",
+        "tuchidarumon",
+        "tyranomon",
+        "vegimon",
+        "exveemon"
+      ],
+      "adjacentChildren": 16
+    },
+    {
+      "title": "Solarmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "birdramon",
+        "geremon",
+        "golemon",
+        "guardromon",
+        "redvegimon",
+        "starmon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Vorvomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "birdramon",
+        "tyranomon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Coredramon (Green)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackmegalogrowlmon",
+        "megaseadramon",
+        "megalogrowlmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Growmon (Orange)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackmegalogrowlmon",
+        "gigadramon",
+        "megalogrowlmon",
+        "metalgreymon",
+        "rizegreymon",
+        "vajramon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Hyougamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackmegalogrowlmon",
+        "fantomon",
+        "gigadramon",
+        "myotismon",
+        "zudomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Centalmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackrapidmon",
+        "insekimon",
+        "knightmon",
+        "taomon",
+        "weregarurumon",
+        "zudomon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Garurumon (Black)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackrapidmon",
+        "chimairamon",
+        "doruguremon",
+        "machgaogamon",
+        "metalgreymon",
+        "pandamon",
+        "tyilinmon",
+        "vajramon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Gorimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackrapidmon",
+        "mummymon",
+        "parrotmon",
+        "waruseadramon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Rapidmon Perfect",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "blackrapidmon",
+        "blacksaintgalgomon",
+        "hiandromon",
+        "metaletemon",
+        "saintgalgomon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Wendimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackrapidmon",
+        "marindevimon",
+        "mastertyranomon",
+        "shawujinmon",
+        "sinduramon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Youkomon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackrapidmon",
+        "karatenmon",
+        "kyukimon",
+        "skullbaluchimon",
+        "taomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Megadramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "blacksaintgalgomon",
+        "blackwargreymon",
+        "darkdramon",
+        "ghoulmon",
+        "dukemon",
+        "examon",
+        "gaioumon",
+        "goddramon",
+        "megidramon",
+        "metalgarurumon",
+        "metalseadramon",
+        "millenniumon",
+        "mugendramon",
+        "ulforcevdramon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 12
+    },
+    {
+      "title": "Greymon (Blue)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blackwargreymon",
+        "chimairamon",
+        "doruguremon",
+        "gigadramon",
+        "knightmon",
+        "mamemon",
+        "mametyramon",
+        "megalogrowlmon",
+        "metalgreymon",
+        "rizegreymon",
+        "skullbaluchimon",
+        "vermillimon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 12
+    },
+    {
+      "title": "Megalo Growmon (Orange)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "blackwargreymon",
+        "chaosdukemon",
+        "darkdramon",
+        "demon",
+        "dukemon",
+        "examon",
+        "hiandromon",
+        "megidramon",
+        "mugendramon",
+        "shinegreymon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Skull Greymon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "blackwargreymon",
+        "chimairamon",
+        "craniummon",
+        "demon",
+        "gaioumon",
+        "millenniumon",
+        "mugendramon",
+        "pharaohmon",
+        "shinegreymon",
+        "skullmammon",
+        "spinomon",
+        "venomvamdemon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Blade Kuwagamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blossomon",
+        "chimairamon",
+        "dagomon",
+        "kyukimon",
+        "wisemon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Parasaurmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blossomon",
+        "lilimon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Woodmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "blossomon",
+        "delumon",
+        "gerbemon",
+        "jyureimon",
+        "lilamon",
+        "mamemon",
+        "megaseadramon",
+        "taomon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Andromon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "boltmon",
+        "craniummon",
+        "hiandromon",
+        "metaletemon",
+        "metalgarurumon",
+        "mugendramon",
+        "rosemon",
+        "saintgalgomon",
+        "tigervespamon",
+        "valkyrimon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Asuramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "boltmon",
+        "demon",
+        "kuzuhamon",
+        "marinangemon",
+        "slashangemon",
+        "wargreymon",
+        "zanbamon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Betel Gammamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "brachimon",
+        "chimairamon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Cyclomon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "brachimon",
+        "chimairamon",
+        "cyberdramon",
+        "doruguremon",
+        "grademon",
+        "mastertyranomon",
+        "vermillimon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Drimogemon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "brachimon",
+        "insekimon",
+        "metalgreymon",
+        "pandamon",
+        "weregarurumon",
+        "zudomon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Ebidramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "brachimon",
+        "dagomon",
+        "hangyomon",
+        "jyureimon",
+        "megaseadramon",
+        "myotismon",
+        "vermillimon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Kaus Gammamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "brachimon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Octmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "brachimon",
+        "dagomon",
+        "hangyomon",
+        "marindevimon",
+        "megaseadramon",
+        "mermaimon",
+        "tonosamagekomon",
+        "myotismon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Canoweissmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "cannondramon",
+        "spinomon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Fumamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "cannondramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Sealsdramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "cannondramon",
+        "myotismon",
+        "zudomon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Valvemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "cannondramon",
+        "metalgarurumon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Atlur Kabuterimon (Red)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "chaosdukemon",
+        "craniummon",
+        "grankuwagamon",
+        "grandiskuwagamon",
+        "magnamon",
+        "rosemon",
+        "saintgalgomon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Death-X-DORUguremon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "chaosdukemon",
+        "dorugoramon",
+        "demon",
+        "gaioumon",
+        "gigaseadramon",
+        "grandiskuwagamon",
+        "megidramon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Coelamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "dagomon",
+        "hangyomon",
+        "marindevimon",
+        "megaseadramon",
+        "metalgreymon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Deltamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "cyberdramon",
+        "gigadramon",
+        "metalgreymon",
+        "skullbaluchimon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Devidramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "cyberdramon",
+        "dagomon",
+        "delumon",
+        "gigadramon",
+        "karatenmon",
+        "marindevimon",
+        "megaseadramon",
+        "megalogrowlmon",
+        "mummymon",
+        "vajramon",
+        "myotismon"
+      ],
+      "adjacentChildren": 12
+    },
+    {
+      "title": "Dobermon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "delumon",
+        "grappuleomon",
+        "matadrmon",
+        "mummymon",
+        "myotismon",
+        "volcamon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Gulus Gammamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "myotismon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Meicoomon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "cyberdramon",
+        "metalgreymon",
+        "paildramon",
+        "parrotmon",
+        "silphymon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Mojyamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "grappuleomon",
+        "karatenmon",
+        "mamemon",
+        "weregarurumon",
+        "zudomon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Nanimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "grappuleomon",
+        "insekimon",
+        "mamemon",
+        "superstarmon",
+        "tekkamon",
+        "myotismon",
+        "volcamon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Unimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "hououmon",
+        "machgaogamon",
+        "mamemon",
+        "sinduramon",
+        "tyilinmon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Whamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "hangyomon",
+        "mamemon",
+        "marindevimon",
+        "megaseadramon",
+        "shawujinmon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Yukidarumon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "chimairamon",
+        "crescemon",
+        "insekimon",
+        "mamemon",
+        "mermaimon",
+        "pandamon",
+        "tyilinmon",
+        "zudomon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Gazimon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "kurisarimon",
+        "cockatrimon",
+        "dorugamon",
+        "darktyranomon",
+        "devimon",
+        "vilemon",
+        "galgomon",
+        "gaogamon",
+        "gargomon",
+        "garurumon",
+        "gryzmon",
+        "hanumon",
+        "kiwimon",
+        "leomon",
+        "numemon",
+        "raremon",
+        "sangloupmon",
+        "scumon",
+        "tailmon",
+        "tortamon",
+        "tyranomon"
+      ],
+      "adjacentChildren": 21
+    },
+    {
+      "title": "Pomumon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "cockatrimon",
+        "vegimon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Tinkermon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "cockatrimon",
+        "vegimon",
+        "zassoumon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Giromon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "craniummon",
+        "ghoulmon",
+        "hiandromon",
+        "jijimon",
+        "princemamemon",
+        "pukumon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Lekismon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "crescemon",
+        "grappuleomon",
+        "machgaogamon",
+        "taomon",
+        "waruseadramon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Paledramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "crescemon",
+        "doruguremon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Machmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "cyberdramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Minotaurmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "cyberdramon",
+        "grappuleomon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Turuiemon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "cyberdramon",
+        "knightmon",
+        "machgaogamon",
+        "matadrmon",
+        "sinduramon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Funbeemon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "dorugamon",
+        "kabuterimon",
+        "kuwagamon",
+        "omekamon",
+        "raptordramon",
+        "stingmon",
+        "togemon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Liollmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "dorugamon",
+        "kyubimon",
+        "leomon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Death-X-DORUgamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "doruguremon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Waspmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "doruguremon",
+        "grademon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Yarmon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "dorumon",
+        "impmon",
+        "keramon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Gesomon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "dagomon",
+        "hangyomon",
+        "mametyramon",
+        "marindevimon",
+        "megaseadramon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Liamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "dagomon",
+        "grappuleomon",
+        "machgaogamon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Revolmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "dagomon",
+        "mamemon",
+        "mametyramon",
+        "megalogrowlmon",
+        "metalgreymon",
+        "pandamon",
+        "superstarmon",
+        "volcamon",
+        "wisemon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Tobiumon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "dagomon",
+        "megaseadramon",
+        "mermaimon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Dracomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "darktyranomon",
+        "geogreymon",
+        "seadramon",
+        "stingmon",
+        "tyranomon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Cargodramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "darkdramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Digitamamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ghoulmon-black",
+        "dukemon",
+        "leviamon",
+        "magnamon",
+        "marinangemon",
+        "minervamon",
+        "piemon",
+        "pinochimon",
+        "princemamemon",
+        "ulforcevdramon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Mephismon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "demon",
+        "grankuwagamon",
+        "metalseadramon",
+        "piemon",
+        "sakuyamon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Whamon Perfect",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "demon",
+        "leviamon",
+        "marinangemon",
+        "metalseadramon",
+        "miragegaogamon",
+        "neptunemon",
+        "pukumon",
+        "rosemon",
+        "shinegreymon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Toy Agumon (Black)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "devimon",
+        "fugamon",
+        "greymon",
+        "guardromon",
+        "raptordramon",
+        "starmon",
+        "thunderballmon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Andiramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "diablomon",
+        "duftmon",
+        "hououmon",
+        "mercurymon",
+        "minervamon",
+        "qinglongmon",
+        "ravemon",
+        "rosemon",
+        "saintgalgomon",
+        "valkyrimon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Okuwamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "diablomon",
+        "examon",
+        "grankuwagamon",
+        "grandiskuwagamon",
+        "metaletemon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Lunamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "dianamon",
+        "gaogamon",
+        "garurumon",
+        "icemon",
+        "sangloupmon",
+        "sorcerimon",
+        "tailmon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Flymon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "dinobeemon",
+        "myotismon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Hudiemon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "dinobeemon",
+        "lilamon",
+        "lilimon",
+        "paildramon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Bokomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "dinohumon",
+        "galgomon",
+        "greymon",
+        "growlmon",
+        "hanumon",
+        "siesamon",
+        "tuchidarumon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 8
+    },
+    {
+      "title": "Dodomon",
+      "stage": "baby",
+      "level": "Baby I",
+      "koName": null,
+      "children": [
+        "dorimon",
+        "gaomon",
+        "mastertyranomon",
+        "wanyamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Metal Mamemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "dynasmon",
+        "ebemon",
+        "hiandromon",
+        "jijimon",
+        "metalgarurumon",
+        "mugendramon",
+        "princemamemon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Wingdramon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "dynasmon",
+        "examon",
+        "shinegreymon",
+        "ulforcevdramon",
+        "varodurumon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Phascomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "vilemon",
+        "gargomon",
+        "leomon",
+        "sangloupmon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Musyamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "fantomon",
+        "grademon",
+        "mummymon",
+        "skullbaluchimon",
+        "vajramon",
+        "myotismon",
+        "zanbamon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Pidmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "fantomon",
+        "flaremon",
+        "garudamon",
+        "insekimon",
+        "lilimon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Soulmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "fantomon",
+        "gigadramon",
+        "infermon",
+        "mugendramon",
+        "mummymon",
+        "myotismon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Zubaeagermon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "fantomon",
+        "grademon",
+        "knightmon",
+        "megalogrowlmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Kudamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "flarelizamon",
+        "numemon",
+        "reppamon",
+        "thunderballmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Firamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "flaremon",
+        "machgaogamon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Lavorvomon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "flaremon",
+        "mastertyranomon",
+        "volcamon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Hopmon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "gabumon",
+        "veemon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Poromon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "gabumon",
+        "hawkmon",
+        "tailmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Anomalocarimon (X-Antibody)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "gaioumon",
+        "gigaseadramon",
+        "grandiskuwagamon",
+        "leviamon",
+        "parasimon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Hisyaryumon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "gaioumon",
+        "gigaseadramon",
+        "goddramon",
+        "minervamon",
+        "tigervespamon",
+        "zanbamon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Shoutmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "galgomon",
+        "geremon",
+        "greymon",
+        "growlmon",
+        "numemon",
+        "reppamon",
+        "scumon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Mochimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "ganimon",
+        "goburimon",
+        "gottsumon",
+        "hagurumon",
+        "impmon",
+        "kamemon",
+        "lalamon",
+        "piyomon",
+        "tentomon",
+        "vegimon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Pitchmon",
+      "stage": "baby",
+      "level": "Baby I",
+      "koName": null,
+      "children": [
+        "ganimon",
+        "marinangemon",
+        "tokomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Tinpet",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "garurumon",
+        "greymon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Shakomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "gawappamon",
+        "gekomon",
+        "hookmon",
+        "ikkakumon",
+        "karatukinumemon",
+        "marinangemon",
+        "mermaimon",
+        "numemon",
+        "raremon",
+        "rukamon",
+        "seadramon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 10
+    },
+    {
+      "title": "Punimon",
+      "stage": "baby",
+      "level": "Baby I",
+      "koName": null,
+      "children": [
+        "gekomon",
+        "grappuleomon",
+        "plotmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Huckmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "geogreymon",
+        "greymon",
+        "growlmon",
+        "leomon",
+        "platinumscumon",
+        "tailmon",
+        "exveemon"
+      ],
+      "adjacentChildren": 7
+    },
+    {
+      "title": "Gumdramon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "geremon",
+        "numemon",
+        "scumon",
+        "tailmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Black King Numemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "gigaseadramon",
+        "metaletemon",
+        "princemamemon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Stiffilmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "gigaseadramon",
+        "grandiskuwagamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Missimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "gizamon",
+        "hagurumon",
+        "tentomon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Morphomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "gokimon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Sunarizamon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "gokimon",
+        "golemon",
+        "togemon",
+        "tortamon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Ginryumon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "grademon",
+        "mametyramon",
+        "megaseadramon",
+        "skullbaluchimon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Cannonbeemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "grankuwagamon",
+        "saintgalgomon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Anomalocarimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "grandiskuwagamon",
+        "jumbogamemon",
+        "parasimon",
+        "pukumon",
+        "wargreymon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Mad Leomon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "grappuleomon",
+        "leomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Symbare Angoramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "grappuleomon",
+        "skullbaluchimon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Commandramon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "greymon",
+        "guardromon",
+        "hanumon",
+        "numemon",
+        "snimon"
+      ],
+      "adjacentChildren": 5
+    },
+    {
+      "title": "Shima Unimon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "hangyomon",
+        "superstarmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Pyocomon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "hawkmon",
+        "muchomon",
+        "picodevimon",
+        "piyomon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Destromon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "hiandromon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Pawn Chessmon (Black)",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "hookmon",
+        "platinumscumon",
+        "starmon",
+        "wizarmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Sangomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "hookmon",
+        "karatukinumemon",
+        "seadramon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Arkhai Angemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "hououmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Jazarichmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "hououmon",
+        "tigervespamon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Snow Goburimon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "icedevimon",
+        "icemon",
+        "ikkakumon",
+        "numemon",
+        "seadramon",
+        "tailmon"
+      ],
+      "adjacentChildren": 6
+    },
+    {
+      "title": "Jellymon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "ikkakumon",
+        "rukamon",
+        "seadramon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Cupimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "impmon",
+        "patamon",
+        "plotmon",
+        "terriermon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Jungle Mojyamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "insekimon",
+        "myotismon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Igamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "jyureimon",
+        "karatenmon",
+        "kyukimon",
+        "lilamon",
+        "lilimon",
+        "mamemon",
+        "shakkoumon",
+        "volcamon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 9
+    },
+    {
+      "title": "Angoramon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "kabuterimon",
+        "leomon",
+        "siesamon",
+        "tailmon"
+      ],
+      "adjacentChildren": 4
+    },
+    {
+      "title": "Bishop Chessmon (White)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "kingchessmon",
+        "queenchessmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Rook Chessmon (Black)",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "kingchessmon",
+        "queenchessmon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Gurimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "koemon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Bombermon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "kuzuhamon",
+        "spinomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Filmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "mametyramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Tesla Jellymon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "marindevimon",
+        "waruseadramon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Snatchmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "mastertyranomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Porcupamon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "matadrmon",
+        "skullbaluchimon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Arresterdramon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "megalogrowlmon",
+        "platinumscumon",
+        "rizegreymon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Knight Chessmon (Black)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "megalogrowlmon",
+        "pandamon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Shoutmon X3",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "megalogrowlmon",
+        "rizegreymon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Yaeger Dorulumon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "mercurymon",
+        "metalgarurumon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Atlur Ballistamon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "mugendramon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Dorulumon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "numemon",
+        "pandamon",
+        "weregarurumon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Metal Garurumon (Black)",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "omegamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Omegamon Alter-S",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "omegamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Omegamon Zwart",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "omegamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Omegamon (X-Antibody)",
+      "stage": "ultimate",
+      "level": "Ultimate",
+      "koName": null,
+      "children": [
+        "omegamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Blucomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "omekamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Knight Chessmon (White)",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "pandamon",
+        "rizegreymon",
+        "superstarmon"
+      ],
+      "adjacentChildren": 3
+    },
+    {
+      "title": "Vulturemon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "pharaohmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Jokermon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "piemon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Yukimi Botamon",
+      "stage": "baby",
+      "level": "Baby I",
+      "koName": null,
+      "children": [
+        "plotmon",
+        "yukiagumon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Huankunmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "ravemon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Espimon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "reppamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Ludomon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "reppamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Bao Huckmon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "rizegreymon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Herissmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "sangloupmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Damemon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "skullbaluchimon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Ajatarmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "spinomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Starmons",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "starmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Minomon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "tentomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Pulsemon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "thunderballmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Savior Huckmon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "tigervespamon",
+        "valkyrimon"
+      ],
+      "adjacentChildren": 2
+    },
+    {
+      "title": "Shoutmon X4",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "tyilinmon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "BEMmon",
+      "stage": "child",
+      "level": "Child",
+      "koName": null,
+      "children": [
+        "tyranomon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Chibimon",
+      "stage": "baby",
+      "level": "Baby II",
+      "koName": null,
+      "children": [
+        "veemon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Gyukimon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "zanbamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Oboromon",
+      "stage": "perfect",
+      "level": "Perfect",
+      "koName": null,
+      "children": [
+        "zanbamon"
+      ],
+      "adjacentChildren": 1
+    },
+    {
+      "title": "Kinkakumon",
+      "stage": "adult",
+      "level": "Adult",
+      "koName": null,
+      "children": [
+        "zudomon"
+      ],
+      "adjacentChildren": 1
+    }
+  ],
+  "stats": {
+    "totalCandidates": 293,
+    "withDots": 17,
+    "withoutDots": 276,
+    "stageDistrib": {
+      "adult": 83,
+      "baby": 25,
+      "child": 64,
+      "perfect": 113,
+      "ultimate": 8
+    },
+    "dotStageDistrib": {
+      "child": 9,
+      "baby": 4,
+      "ultimate": 1,
+      "adult": 2,
+      "perfect": 1
+    }
+  }
+}
