@@ -198,7 +198,26 @@ func stageNames(forPack pack: String) -> [String: String] {
 // exactly the old behaviour.
 var activeRouteSprites: [String: String] = [:]
 var activeRouteNames: [String: String] = [:]
+var activeRouteIds: [String: String] = [:]
 var activeRouteKey = ""
+
+// Node ids of the pack's own spine per stage: the tree entries whose
+// "sprite" is the plain stage id (their art is <stage>-*.png). A route node
+// with one of these ids is the same species as the spine file, so the spine
+// file is a safe stand-in; any other id is a branch and must never borrow it.
+func spineNodeIds(forPack pack: String) -> [String: Set<String>] {
+    guard let data = FileManager.default.contents(atPath: pack + "/pack.json"),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let tree = json["tree"] as? [String: [[String: Any]]]
+    else { return [:] }
+    var spine: [String: Set<String>] = [:]
+    for (stage, nodes) in tree {
+        for node in nodes where node["sprite"] as? String == stage {
+            if let id = node["id"] as? String { spine[stage, default: []].insert(id) }
+        }
+    }
+    return spine
+}
 
 func evolvedName(pack: String, mon: String, stageId: String) -> String {
     if let routed = activeRouteNames[stageId] { return routed }
@@ -220,7 +239,9 @@ func evolvedName(pack: String, mon: String, stageId: String) -> String {
 func applyRoute(_ route: [String: [String: String]], mon: String) -> Bool {
     var sprites: [String: String] = [:]
     var names: [String: String] = [:]
+    var ids: [String: String] = [:]
     for (stage, node) in route {
+        if let i = node["id"], !i.isEmpty { ids[stage] = i }
         if let s = node["sprite"], !s.isEmpty { sprites[stage] = s }
         if let n = node["name"], !n.isEmpty { names[stage] = n }
     }
@@ -232,6 +253,7 @@ func applyRoute(_ route: [String: [String: String]], mon: String) -> Bool {
     guard key != activeRouteKey else { return false }
     activeRouteSprites = sprites
     activeRouteNames = names
+    activeRouteIds = ids
     activeRouteKey = key
     return true
 }
@@ -1706,6 +1728,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // just evolved, which is what happened when a stage was added to the
         // tree ahead of its sprites.
         var previous = idle
+        let spineIds = spineNodeIds(forPack: pack)
         for stage in stageIds {
             let isShared = sharedStages.contains(stage)
             // The route may point this stage at a branch's own files
@@ -1719,8 +1742,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if frames.isEmpty {
                 frames = loadImageSequence(inDir: pack, prefix: prefix)
             }
+            if frames.isEmpty && !isShared {
+                // Dots live in sprites/nodes/ and are copied into packs by
+                // scripts/materialize-sprites.js; read them from there when
+                // the pack copy is missing.
+                frames = loadImageSequence(inDir: spriteRoot + "/nodes", prefix: prefix)
+            }
+            // The spine file only stands in for the spine's own species. For
+            // a branched route stage it would show a different digimon than
+            // the artwork, so those fall through to `previous` instead.
             if frames.isEmpty && prefix != stage {
-                frames = loadImageSequence(inDir: pack, prefix: stage)
+                let routeId = activeRouteIds[stage] ?? ""
+                if spineIds[stage]?.contains(routeId) ?? false {
+                    frames = loadImageSequence(inDir: pack, prefix: stage)
+                }
             }
             if frames.isEmpty {
                 frames = previous
