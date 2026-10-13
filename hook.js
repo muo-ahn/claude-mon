@@ -123,7 +123,7 @@ function main() {
       // Suppress the banner if a sub-agent was launched - the actual work
       // hasn't finished yet. State cleanup still happens.
       if (!state.agentLaunchedThisTurn && !isSubagentContext(payload)) {
-        notifyTurnEnd(state.turnStartedAt, now, projectName(payload.cwd));
+        notifyTurnEnd(state.turnStartedAt, now, projectName(payload.cwd), sessionId);
       }
       state.turnStartedAt = null;
       break;
@@ -132,7 +132,7 @@ function main() {
       // ended (working === false), signaling delegated work is complete.
       // Don't fire if the turn is still active - the user is watching.
       if (!state.working && !shouldSuppressCompletionBanner(state, now)) {
-        notifySubagentDone(projectName(payload.cwd));
+        notifySubagentDone(projectName(payload.cwd), sessionId);
         state.lastCompletionBannerAt = now.toISOString();
       }
       // Reset the flag so subsequent turns can fire turn-end banners normally.
@@ -152,14 +152,14 @@ function main() {
       // Banner-only path for permission_prompt|agent_needs_input notifications.
       // State recording stays in the notification case above.
       if (!isSubagentContext(payload)) {
-        notifyAwaitingUser(projectName(payload.cwd));
+        notifyAwaitingUser(projectName(payload.cwd), sessionId);
       }
       break;
     case 'notify-agent-done':
       // Banner-only path for agent_completed notifications.
       // Suppressed if a completion banner already fired in the last 5s.
       if (!isSubagentContext(payload) && !shouldSuppressCompletionBanner(state, now)) {
-        notifySubagentDone(projectName(payload.cwd));
+        notifySubagentDone(projectName(payload.cwd), sessionId);
         state.lastCompletionBannerAt = now.toISOString();
       }
       break;

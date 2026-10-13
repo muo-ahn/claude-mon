@@ -131,6 +131,23 @@ function materializeNode(pack, nodeId, write) {
   return actions;
 }
 
+// 모든 팩에서 sprites/nodes/ 에는 있는데 팩에는 없는 도트(복사 대상)를 모은다.
+// 읽기 전용이며 회귀 테스트가 쓴다.
+function findMissingDots() {
+  const { byId, childrenOf } = loadGraph();
+  const missing = [];
+  for (const pack of listPacks()) {
+    const result = nodesForPack(pack, byId, childrenOf);
+    if (result.error) throw new Error(result.error);
+    for (const nodeId of result.needed) {
+      for (const a of materializeNode(pack, nodeId, false)) {
+        if (a.action === 'copy') missing.push(path.relative(ROOT, a.dstPath));
+      }
+    }
+  }
+  return missing;
+}
+
 function main() {
   const write = process.argv.includes('--write');
   const packs = listPacks();
@@ -176,4 +193,6 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { findMissingDots };

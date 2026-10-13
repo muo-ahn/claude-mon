@@ -1080,6 +1080,73 @@ def normalize_vpet_dot(raw_bytes):
     return _place_on_canvas(im)
 
 
+def normalize_artwork(raw_bytes):
+    """Normalize official artwork (File:<title>.jpg) to RGBA PNG with white
+    background removed via edge flood fill, capped at 416px (portraitBox * 2
+    for retina). Artwork is anti-aliased render art, so downscaling uses
+    LANCZOS rather than NEAREST."""
+    img = Image.open(io.BytesIO(raw_bytes))
+    img = img.convert('RGBA')
+
+    # Cap at 416px (portraitBox 208 * 2 for retina) on the long edge
+    MAX_DIM = 416
+    w, h = img.size
+    long_edge = max(w, h)
+    if long_edge > MAX_DIM:
+        scale = MAX_DIM / long_edge
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        w, h = new_w, new_h
+
+    pixels = img.load()
+
+    # Collect candidate backdrop colors from corners (same heuristic as vpet)
+    corners = [
+        pixels[0, 0][:3],
+        pixels[w-1, 0][:3],
+        pixels[0, h-1][:3],
+        pixels[w-1, h-1][:3]
+    ]
+    counter = Counter(corners)
+    if not counter:
+        return img  # No corner consensus, return as-is
+
+    bg_color = counter.most_common(1)[0][0]
+    tolerance = 30  # Measured optimal from 5-sample test (54-68% removal)
+
+    def color_distance(c1, c2):
+        return sum(abs(a - b) for a, b in zip(c1[:3], c2[:3]))
+
+    def should_remove(px):
+        return color_distance(px[:3], bg_color) <= tolerance
+
+    # BFS flood fill from all edges
+    to_visit = set()
+    for x in range(w):
+        to_visit.add((x, 0))
+        to_visit.add((x, h-1))
+    for y in range(h):
+        to_visit.add((0, y))
+        to_visit.add((w-1, y))
+
+    removed = set()
+    while to_visit:
+        x, y = to_visit.pop()
+        if (x, y) in removed or x < 0 or y < 0 or x >= w or y >= h:
+            continue
+
+        px = pixels[x, y]
+        if should_remove(px):
+            pixels[x, y] = (px[0], px[1], px[2], 0)  # Make transparent
+            removed.add((x, y))
+            for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in removed:
+                    to_visit.add((nx, ny))
+
+    return img
+
 def normalize_vpet_portrait(raw_bytes):
     """Portrait counterpart of normalize_vpet_dot: same preprocessing (RGBA
     convert -> border-flood backdrop removal -> integer-block downsample),
@@ -1189,6 +1256,90 @@ def pick_portrait_source(candidates, max_candidates=PORTRAIT_MAX_CANDIDATES, tit
         return None, "no_gain", truncated, corrupted, download_failed
     return None, "unavailable", truncated, corrupted, download_failed
 
+
+def resolve_artwork_species(species_list):
+    """Resolve a species list to official artwork downloads (File:<title>.jpg).
+    Uses automatic title resolution: redirects=1 to follow Wikimon redirects,
+    then fallback to per-title file enumeration (prop=images) to find .jpg
+    candidates when the title-derived filename doesn't exist.
+    Returns records with {id, title, filename, info} for fetch_and_write."""
+
+    # Step 1: Try direct File:<title>.jpg for all species
+    titles_for_enum = []
+    records = []
+
+    for spec in species_list:
+        spec_id = spec["id"]
+        title = spec["title"]
+        filename = f"{title}.jpg"
+
+        filenames_to_resolve = [filename]
+        resolved, errors = resolve_titles(filenames_to_resolve)
+
+        info = resolved.get(filename)
+        if info is not None:
+            records.append({
+                "id": spec_id,
+                "title": title,
+                "filename": filename,
+                "info": info
+            })
+        else:
+            # Mark for file enumeration
+            titles_for_enum.append(spec)
+
+    # Step 2: For failed titles, enumerate their Wikimon page files
+    if titles_for_enum:
+        titles = [s["title"] for s in titles_for_enum]
+        files_for, enum_errors = enumerate_species_files(titles)
+
+        for spec in titles_for_enum:
+            spec_id = spec["id"]
+            title = spec["title"]
+
+            if title in enum_errors:
+                records.append({
+                    "id": spec_id,
+                    "title": title,
+                    "filename": None,
+                    "info": None,
+                    "enum_error": enum_errors[title]
+                })
+                continue
+
+            # Find .jpg candidates (prefer exact <Title>.jpg match)
+            page_files = files_for.get(title, [])
+            jpg_candidates = [f for f in page_files if f.lower().endswith('.jpg')]
+
+            # Try exact match first
+            exact_match = f"{title}.jpg"
+            if exact_match in jpg_candidates:
+                best_candidate = exact_match
+            elif jpg_candidates:
+                # Fallback: first .jpg found
+                best_candidate = jpg_candidates[0]
+            else:
+                records.append({
+                    "id": spec_id,
+                    "title": title,
+                    "filename": None,
+                    "info": None
+                })
+                continue
+
+            # Resolve the chosen candidate
+            resolved, errors = resolve_titles([best_candidate])
+            info = resolved.get(best_candidate)
+
+            records.append({
+                "id": spec_id,
+                "title": title,
+                "filename": best_candidate,
+                "info": info,
+                "enum_error": errors.get(best_candidate) if info is None else None
+            })
+
+    return records
 
 def resolve_portrait_species(species_list, max_candidates=PORTRAIT_MAX_CANDIDATES):
     """Resolve each species' --portrait source by enumerating every file
@@ -1343,7 +1494,7 @@ def print_dry_run(records):
             )
 
 
-def fetch_and_write(records, force, portrait=False, truncated=0, corrupted=0, variant_rejected=0):
+def fetch_and_write(records, force, portrait=False, artwork=False, truncated=0, corrupted=0, variant_rejected=0):
     ok = skip = unavailable = nogain = network_unavailable = 0
     os.makedirs(CACHE_DIR, exist_ok=True)
     largest_dim = 0
@@ -1362,7 +1513,9 @@ def fetch_and_write(records, force, portrait=False, truncated=0, corrupted=0, va
             print(f"[unavailable] {r['id']} ({r['title']}): {unavailable_reason(r)}")
             continue
 
-        if portrait:
+        if artwork:
+            out_path = os.path.join(NODES_DIR, f"artwork-{r['id']}-0.png")
+        elif portrait:
             out_path = os.path.join(NODES_DIR, f"portrait-{r['id']}-0.png")
         else:
             out_path = os.path.join(NODES_DIR, f"{r['id']}-0.png")
@@ -1374,7 +1527,9 @@ def fetch_and_write(records, force, portrait=False, truncated=0, corrupted=0, va
         cache_path = os.path.join(CACHE_DIR, r["filename"])
         raw = fetch_bytes(r["info"]["url"], cache_path)
 
-        if portrait:
+        if artwork:
+            dot = normalize_artwork(raw)
+        elif portrait:
             dot = normalize_vpet_portrait(raw)
             if dot is None:
                 nogain += 1
@@ -1466,6 +1621,10 @@ def main():
         help="fetch sprites/nodes/portrait-<id>-0.png (native-resolution vpet crop) instead of the 32px node dot",
     )
     parser.add_argument(
+        "--artwork", action="store_true",
+        help="fetch sprites/nodes/artwork-<id>-0.png (official artwork File:<title>.jpg with background removal)",
+    )
+    parser.add_argument(
         "--max-candidates", type=int, default=PORTRAIT_MAX_CANDIDATES,
         help=(
             "--portrait: cap on how many upload-area-ranked candidates get "
@@ -1500,7 +1659,16 @@ def main():
     else:
         species_list = [{"id": args.id, "title": args.title}]
 
-    if args.portrait:
+    if args.portrait and args.artwork:
+        parser.error("--portrait and --artwork are mutually exclusive")
+
+    if args.artwork:
+        records = resolve_artwork_species(species_list)
+        truncated = 0
+        corrupted = 0
+        variant_rejected = 0
+        variant_tokens = Counter()
+    elif args.portrait:
         records, truncated, corrupted, variant_rejected, variant_tokens = resolve_portrait_species(
             species_list, max_candidates=args.max_candidates
         )
@@ -1534,7 +1702,7 @@ def main():
         sys.exit(1 if any(r["info"] is None and not r.get("no_gain") for r in records) else 0)
 
     unavailable = fetch_and_write(
-        records, args.force, portrait=args.portrait,
+        records, args.force, portrait=args.portrait, artwork=args.artwork,
         truncated=truncated, corrupted=corrupted, variant_rejected=variant_rejected,
     )
     sys.exit(1 if unavailable else 0)

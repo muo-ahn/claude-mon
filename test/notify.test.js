@@ -28,6 +28,7 @@ const {
   resolveTarget,
   claudemonReady,
   deliverViaApp,
+  compose,
   NOTIFY_QUEUE_DIR,
   HEARTBEAT_FILE
 } = require('../lib/notify.js');
@@ -197,6 +198,37 @@ test('claudemonReady is false when the app is running but not authorized', () =>
   assert.strictEqual(claudemonReady(now), false);
 });
 
+// Pet mode draws its own overlay and never touches UNUserNotificationCenter,
+// so it must not be gated on notification permission - that is the reason the
+// mode exists (banners are suppressed on a mirrored-display Mac).
+test('claudemonReady is true in pet mode even when not authorized', () => {
+  const now = Date.now();
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: false, mode: 'pet' });
+  assert.strictEqual(claudemonReady(now), true);
+});
+
+test('claudemonReady is false in center mode when not authorized', () => {
+  const now = Date.now();
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: false, mode: 'center' });
+  assert.strictEqual(claudemonReady(now), false);
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: true, mode: 'center' });
+  assert.strictEqual(claudemonReady(now), true);
+});
+
+test('claudemonReady keeps the old rule when the heartbeat has no mode', () => {
+  const now = Date.now();
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: false });
+  assert.strictEqual(claudemonReady(now), false);
+  writeHeartbeat({ pid: 123, at: now / 1000, authorized: true });
+  assert.strictEqual(claudemonReady(now), true);
+});
+
+test('claudemonReady is false in pet mode once the heartbeat goes stale', () => {
+  const now = Date.now();
+  writeHeartbeat({ pid: 123, at: (now - 11000) / 1000, authorized: false, mode: 'pet' });
+  assert.strictEqual(claudemonReady(now), false);
+});
+
 test('claudemonReady is false once the heartbeat goes stale', () => {
   const now = Date.now();
   // The app rewrites this every 2s; 10s is the cutoff.
@@ -246,4 +278,35 @@ test('deliverViaApp names queue files so a sort gives arrival order', () => {
 test('cleanup: the test state dir is removed', () => {
   fs.rmSync(TEST_STATE_DIR, { recursive: true, force: true });
   assert.strictEqual(fs.existsSync(TEST_STATE_DIR), false);
+});
+
+test('compose carries sessionId and kitty focus fields for pet-mode click-to-focus', () => {
+  const saved = { TMUX: process.env.TMUX, TMUX_PANE: process.env.TMUX_PANE, W: process.env.KITTY_WINDOW_ID, L: process.env.KITTY_LISTEN_ON };
+  delete process.env.TMUX;
+  delete process.env.TMUX_PANE;
+  process.env.KITTY_WINDOW_ID = '7';
+  process.env.KITTY_LISTEN_ON = 'unix:/tmp/kitty-1';
+  try {
+    const c = compose('입력 대기', 'claude-mon', 'sess-1');
+    assert.strictEqual(c.sessionId, 'sess-1');
+    assert.strictEqual(c.kittyWindowId, '7');
+    assert.strictEqual(c.kittyListenOn, 'unix:/tmp/kitty-1');
+    assert.strictEqual(c.tmuxPane, undefined);
+    assert.strictEqual(c.title, 'claude-mon');
+  } finally {
+    for (const [k, v] of Object.entries({ TMUX: saved.TMUX, TMUX_PANE: saved.TMUX_PANE, KITTY_WINDOW_ID: saved.W, KITTY_LISTEN_ON: saved.L })) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+});
+
+test('deliverViaApp preserves sessionId and tmux fields in the queued JSON', () => {
+  fs.rmSync(NOTIFY_QUEUE_DIR, { recursive: true, force: true });
+  const payload = { title: 't', body: '턴 종료', urgency: 'normal', sessionId: 'sess-2', tmuxPane: '%3', tmuxSocket: '/tmp/tmux-501/default' };
+  assert.strictEqual(deliverViaApp(payload), true);
+  const [name] = fs.readdirSync(NOTIFY_QUEUE_DIR);
+  const parsed = JSON.parse(fs.readFileSync(path.join(NOTIFY_QUEUE_DIR, name), 'utf8'));
+  assert.strictEqual(parsed.sessionId, 'sess-2');
+  assert.strictEqual(parsed.tmuxPane, '%3');
+  assert.strictEqual(parsed.tmuxSocket, '/tmp/tmux-501/default');
 });

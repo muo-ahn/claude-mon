@@ -909,13 +909,13 @@ test('selectRoute is stable for a date and moves between dates', () => {
   const graph = treeToGraph(TREE);
   const a = selectRoute('2026-07-30', 'kid', graph, {});
   const b = selectRoute('2026-07-30', 'kid', graph, {});
-  assert.deepStrictEqual(a, b);
+  assert.deepStrictEqual(a.route, b.route);
 
   // ctx={} never satisfies darkA's condition, so the tie pool is
   // [spineA, deadA] - still enough candidates for the hash to vary by date.
   const ids = new Set();
   for (let d = 1; d <= 20; d++) {
-    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'kid', graph, {}).adult.id);
+    ids.add(selectRoute(`2026-08-${String(d).padStart(2, '0')}`, 'kid', graph, {}).route.adult.id);
   }
   assert.ok(ids.size > 1, `adult stage never varied across 20 days: ${[...ids]}`);
 });
@@ -923,7 +923,7 @@ test('selectRoute is stable for a date and moves between dates', () => {
 test('selectRoute always reaches the top stage, even through a dead end', () => {
   const graph = treeToGraph(TREE);
   for (let d = 1; d <= 40; d++) {
-    const route = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
     assert.strictEqual(route.superultimate.id, 'top', `day ${d} lost the top stage`);
     assert.strictEqual(route.perfect.id, 'spineP');
   }
@@ -931,7 +931,7 @@ test('selectRoute always reaches the top stage, even through a dead end', () => 
   // carries it to the top now, not a code-level spine return.
   const seen = new Set();
   for (let d = 1; d <= 40; d++) {
-    seen.add(selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {}).adult.id);
+    seen.add(selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {}).route.adult.id);
   }
   assert.ok(seen.has('deadA'), 'dead-end branch never appeared, test tree is not exercising it');
 });
@@ -947,7 +947,7 @@ test('selectRoute biases toward a satisfied condition edge without locking it (A
   let darkACount = 0;
   const days = 30;
   for (let d = 1; d <= days; d++) {
-    const route = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'kid', graph, ctx);
+    const { route } = selectRoute(`2026-10-${String(d).padStart(2, '0')}`, 'kid', graph, ctx);
     if (route.adult.id === 'darkA') darkACount++;
   }
   assert.ok(darkACount > days / 2, `darkA should be the clear majority pick: ${darkACount}/${days}`);
@@ -958,7 +958,7 @@ test('selectRoute excludes edges whose condition fails, leaving only the rest', 
   const graph = treeToGraph(TREE);
   const ids = new Set();
   for (let d = 1; d <= 30; d++) {
-    const route = selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    const { route } = selectRoute(`2026-11-${String(d).padStart(2, '0')}`, 'kid', graph, {});
     assert.notStrictEqual(route.adult.id, 'darkA', `day ${d} picked an edge whose condition never held`);
     ids.add(route.adult.id);
   }
@@ -985,8 +985,8 @@ test('selectRoute repeats the same route across consecutive days given the same 
   try {
     const day1 = selectRoute('2026-07-30', 'kid', graph, ctx);
     const day2 = selectRoute('2026-07-31', 'kid', graph, ctx);
-    assert.deepStrictEqual(day1, day2);
-    assert.strictEqual(day1.adult.id, 'darkA');
+    assert.deepStrictEqual(day1.route, day2.route);
+    assert.strictEqual(day1.route.adult.id, 'darkA');
   } finally {
     if (prevFlag === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
     else process.env.CLAUDEMON_GATE_WEIGHTING = prevFlag;
@@ -1008,7 +1008,7 @@ test('selectRoute preserves the locked prefix and re-walks the rest', () => {
     route: { ...base, adult: { id: 'deadA', name: '막다른', sprite: 'adult-dead' } },
     throughStage: 'adult'
   };
-  const route = selectRoute('2026-07-30', 'kid', graph, {}, locked);
+  const { route } = selectRoute('2026-07-30', 'kid', graph, {}, locked);
   assert.strictEqual(route.adult.id, 'deadA');
   // deadA's own guaranteed edge carries the route to the top, exactly as it
   // would from a non-locked walk.
@@ -1022,13 +1022,13 @@ test('selectRoute locks the reached stage against condition changes but leaves t
   // the no-condition draw is always spineA or deadA - never coincidentally
   // the same node the satisfied-condition draw would pick.
   const noCondition = selectRoute('2026-07-30', 'kid', graph, {});
-  const reachedAdult = noCondition.adult.id;
+  const reachedAdult = noCondition.route.adult.id;
   assert.ok(['spineA', 'deadA'].includes(reachedAdult));
 
   // Locked through adult: re-running with a satisfied condition must not move it.
-  const lockedAtAdult = { route: noCondition, throughStage: 'adult' };
+  const lockedAtAdult = { route: noCondition.route, throughStage: 'adult' };
   const withCondition = selectRoute('2026-07-30', 'kid', graph, { failureRatioPct: 10 }, lockedAtAdult);
-  assert.strictEqual(withCondition.adult.id, reachedAdult);
+  assert.strictEqual(withCondition.route.adult.id, reachedAdult);
 
   // Locked only through child: adult hasn't been reached yet, so it must
   // still respond to the condition. Under A-5 (docs/gate-weighting-plan.md)
@@ -1036,14 +1036,14 @@ test('selectRoute locks the reached stage against condition changes but leaves t
   // rather than locking it, so a single date can no longer be asserted
   // deterministically - sample many dates and check the bias holds without
   // claiming certainty.
-  const lockedAtChild = { route: noCondition, throughStage: 'child' };
+  const lockedAtChild = { route: noCondition.route, throughStage: 'child' };
   const conditionCtx = { failureRatioPct: 10 };
   const dates = careMissDates(100);
   let darkACount = 0;
   for (const dateKST of dates) {
     const withConditionFromChild = selectRoute(dateKST, 'kid', graph, conditionCtx, lockedAtChild);
-    assert.strictEqual(withConditionFromChild.child.id, noCondition.child.id); // still pinned below the lock line
-    if (withConditionFromChild.adult.id === 'darkA') darkACount++;
+    assert.strictEqual(withConditionFromChild.route.child.id, noCondition.route.child.id); // still pinned below the lock line
+    if (withConditionFromChild.route.adult.id === 'darkA') darkACount++;
   }
   assert.ok(darkACount > dates.length / 2,
     `unlocked adult stage should favor the satisfied condition: darkA ${darkACount}/${dates.length}`);
@@ -1054,11 +1054,11 @@ test('selectRoute locks the reached stage against condition changes but leaves t
 test('selectRoute is idempotent with a locked prefix', () => {
   const graph = treeToGraph(TREE);
   const base = selectRoute('2026-07-30', 'kid', graph, {});
-  const locked = { route: base, throughStage: 'adult' };
+  const locked = { route: base.route, throughStage: 'adult' };
   const ctx = { failureRatioPct: 10 };
   const a = selectRoute('2026-07-30', 'kid', graph, ctx, locked);
   const b = selectRoute('2026-07-30', 'kid', graph, ctx, locked);
-  assert.deepStrictEqual(a, b);
+  assert.deepStrictEqual(a.route, b.route);
 });
 
 test('selectRoute degrades to a normal draw when the locked route no longer matches the tree', () => {
@@ -1073,7 +1073,7 @@ test('selectRoute degrades to a normal draw when the locked route no longer matc
     throughStage: 'adult'
   };
   assert.doesNotThrow(() => selectRoute('2026-07-30', 'kid', graph, {}, locked));
-  const route = selectRoute('2026-07-30', 'kid', graph, {}, locked);
+  const { route } = selectRoute('2026-07-30', 'kid', graph, {}, locked);
   assert.strictEqual(route.child.id, 'kid'); // still-valid locked stages stay locked
   assert.strictEqual(route.superultimate.id, 'top'); // degraded stages still reach the top
 });
@@ -1116,10 +1116,10 @@ test('selectRoute repeats a terminal node through every stage still ahead, not t
   // actually drawn, then check the terminal-fill behavior for that date.
   const ctx = { failureRatioPct: 10 };
   const dates = careMissDates(60);
-  const shortADate = dates.find((d) => selectRoute(d, 'kid2', graph, ctx).adult.id === 'shortA');
+  const shortADate = dates.find((d) => selectRoute(d, 'kid2', graph, ctx).route.adult.id === 'shortA');
   assert.ok(shortADate, `shortA never drawn across ${dates.length} dates despite its condition being satisfied`);
 
-  const route = selectRoute(shortADate, 'kid2', graph, ctx);
+  const { route } = selectRoute(shortADate, 'kid2', graph, ctx);
   assert.strictEqual(route.adult.id, 'shortA');
   for (const stage of ['perfect', 'ultimate', 'superultimate']) {
     assert.deepStrictEqual(
@@ -1147,7 +1147,7 @@ test('selectRoute past a terminal node does not jump to next stage\'s spine thro
   // ctx deliberately does NOT satisfy shortA's condition - if the locked
   // prefix failed to hold past adult, a normal draw here would pick
   // spineA2 instead, and everything after it would be the spine.
-  const route = selectRoute('2026-07-30', 'kid2', graph, {}, locked);
+  const { route } = selectRoute('2026-07-30', 'kid2', graph, {}, locked);
   assert.strictEqual(route.adult.id, 'shortA');
   for (const stage of ['perfect', 'ultimate', 'superultimate']) {
     assert.strictEqual(route[stage].id, 'shortA', `${stage} spine-jumped past the locked terminal node`);
@@ -1175,10 +1175,10 @@ test('selectRoute repeats a terminal node past stages its own tree never declare
   // lock - find a date it's actually drawn on, then check the terminal-fill
   // behavior (the actual point of this test) for that date.
   const dates = careMissDates(60);
-  const shortADate = dates.find((d) => selectRoute(d, 'kid2', graph, ctx).adult.id === 'shortA');
+  const shortADate = dates.find((d) => selectRoute(d, 'kid2', graph, ctx).route.adult.id === 'shortA');
   assert.ok(shortADate, `shortA never drawn across ${dates.length} dates despite its condition being satisfied`);
 
-  const route = selectRoute(shortADate, 'kid2', graph, ctx);
+  const { route } = selectRoute(shortADate, 'kid2', graph, ctx);
   assert.strictEqual(route.adult.id, 'shortA');
   for (const stage of ['perfect', 'ultimate', 'superultimate']) {
     assert.deepStrictEqual(route[stage], { id: 'shortA', name: '조기종결', sprite: 'adult-short' });
@@ -1197,8 +1197,8 @@ test('selectRoute is idempotent re-walking a locked route through a terminal lin
   // covers the whole ladder.
   const a = selectRoute('2026-07-30', 'kid2', graph, {}, locked);
   const b = selectRoute('2026-07-30', 'kid2', graph, {}, locked);
-  assert.deepStrictEqual(a, base);
-  assert.deepStrictEqual(a, b);
+  assert.deepStrictEqual(a.route, base.route);
+  assert.deepStrictEqual(a.route, b.route);
 });
 
 // --- readTree: next -> evolutions normalization ------------------------
@@ -1422,7 +1422,7 @@ test('케어미스 성숙기는 돌본 날의 추첨 풀에서 완전히 빠진�
   for (const ctx of TENDED_CTXS) {
     for (const rookie of rookies) {
       for (const dateKST of dates) {
-        const route = selectRoute(dateKST, rookie, graph, ctx, null);
+        const { route } = selectRoute(dateKST, rookie, graph, ctx, null);
         for (const stage of ['adult', 'perfect', 'ultimate', 'superultimate']) {
           const entry = route[stage];
           if (entry && CARE_MISS_ADULTS.includes(entry.id)) {
@@ -1448,7 +1448,7 @@ test('방치한 날에는 케어미스 성숙기가 추첨 풀에 들고, 뽑히
     let careMissHits = 0;
     let gerbemonHits = 0;
     for (const dateKST of dates) {
-      const route = selectRoute(dateKST, rookie, graph, NEGLECTED_CTX, null);
+      const { route } = selectRoute(dateKST, rookie, graph, NEGLECTED_CTX, null);
       if (CARE_MISS_ADULTS.includes(route.adult.id)) {
         careMissHits++;
         // 게르베몬행 엣지도 A-5 이후로는 조건부(같은 outputPerTurn 축)라
@@ -1498,19 +1498,19 @@ test('성장 게이트와 케어미스 게이트가 동시에 참이면 둘 다 
   const bothMet = { ...NEGLECTED_CTX, sessionCount: 5 };
   const dates = careMissDates(60);
 
-  const agumonAdults = new Set(dates.map((d) => selectRoute(d, 'agumon', graph, bothMet, null).adult.id));
+  const agumonAdults = new Set(dates.map((d) => selectRoute(d, 'agumon', graph, bothMet, null).route.adult.id));
   assert.ok(agumonAdults.has('geogreymon'), `agumon: 성장 게이트 분기가 한 번도 안 나왔다: ${[...agumonAdults]}`);
   assert.ok([...agumonAdults].some((id) => CARE_MISS_ADULTS.includes(id)),
     `agumon: ${dates.length}일 동안 케어미스 분기가 한 번도 안 나왔다 - shadowing 회귀: ${[...agumonAdults]}`);
 
-  const impmonAdults = new Set(dates.map((d) => selectRoute(d, 'impmon', graph, bothMet, null).adult.id));
+  const impmonAdults = new Set(dates.map((d) => selectRoute(d, 'impmon', graph, bothMet, null).route.adult.id));
   assert.ok(impmonAdults.has('vilemon'), `impmon: 성장 게이트 분기가 한 번도 안 나왔다: ${[...impmonAdults]}`);
   assert.ok([...impmonAdults].some((id) => CARE_MISS_ADULTS.includes(id)),
     `impmon: ${dates.length}일 동안 케어미스 분기가 한 번도 안 나왔다 - shadowing 회귀: ${[...impmonAdults]}`);
 
   // gabumon은 경쟁하는 sessionCount 분기가 없으므로 그림자 없이도 케어미스가
   // 뽑혀야 한다(적어도 일부 날에는).
-  const gabumonAdults = new Set(dates.map((d) => selectRoute(d, 'gabumon', graph, bothMet, null).adult.id));
+  const gabumonAdults = new Set(dates.map((d) => selectRoute(d, 'gabumon', graph, bothMet, null).route.adult.id));
   assert.ok([...gabumonAdults].some((id) => CARE_MISS_ADULTS.includes(id)),
     `gabumon: ${dates.length}일 동안 케어미스 분기가 한 번도 안 나왔다: ${[...gabumonAdults]}`);
 });
@@ -1571,7 +1571,7 @@ const GW_NEITHER_MET_CTX = { sessionCount: 0, outputPerTurn: 0 };
 test('[A-5 픽스처] (a) 성장 게이트와 케어미스 게이트가 동시에 참이면 둘 다 후보 풀에 든다', () => {
   const graph = treeToGraph(GATE_WEIGHT_TREE);
   const dates = careMissDates(200);
-  const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_BOTH_MET_CTX).adult.id));
+  const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_BOTH_MET_CTX).route.adult.id));
   assert.ok(adults.has('gw-growthA'), `성장 분기가 한 번도 안 나왔다: ${[...adults]}`);
   assert.ok(adults.has('gw-careMissA'), `케어미스 분기가 한 번도 안 나왔다 (shadowing 회귀): ${[...adults]}`);
 });
@@ -1582,7 +1582,7 @@ test('[A-5 픽스처] (a-롤백) CLAUDEMON_GATE_WEIGHTING=0 이면 성장 게이
   const prevFlag = process.env.CLAUDEMON_GATE_WEIGHTING;
   process.env.CLAUDEMON_GATE_WEIGHTING = '0';
   try {
-    const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_BOTH_MET_CTX).adult.id));
+    const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_BOTH_MET_CTX).route.adult.id));
     assert.deepStrictEqual([...adults], ['gw-growthA'],
       `롤백 플래그를 켰는데도 케어미스가 섞여 나왔다: ${[...adults]}`);
   } finally {
@@ -1594,7 +1594,7 @@ test('[A-5 픽스처] (a-롤백) CLAUDEMON_GATE_WEIGHTING=0 이면 성장 게이
 test('[A-5 픽스처] (b) 조건 불통과 엣지는 후보에서 완전히 빠진다', () => {
   const graph = treeToGraph(GATE_WEIGHT_TREE);
   const dates = careMissDates(60);
-  const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_NEITHER_MET_CTX).adult.id));
+  const adults = new Set(dates.map((d) => selectRoute(d, 'gw-kid', graph, GW_NEITHER_MET_CTX).route.adult.id));
   assert.deepStrictEqual([...adults], ['gw-spineA'],
     `조건이 전부 거짓인데 조건부 자식이 후보에 남았다: ${[...adults]}`);
 });
@@ -1614,7 +1614,7 @@ test('[A-5 픽스처] (c) 조건부 엣지만 있고 아무 조건도 만족 안
 
   // selectRoute 레벨에서도 이 노드를 거쳐 종점으로 오판하지 않고
   // gw-perfectCareOnly로 계속 진행하는지 확인.
-  const route = selectRoute('2026-09-01', 'gw-kid', graph, { sessionCount: 0, outputPerTurn: 15000 });
+  const { route } = selectRoute('2026-09-01', 'gw-kid', graph, { sessionCount: 0, outputPerTurn: 15000 });
   // outputPerTurn=15000이면 kid->careMissA는 만족이지만, careMissA->perfectCareOnly도
   // 같은 조건이라 이 경우엔 실제로 만족되어 정상 진행 - 별도로 "만족 안 되는
   // 경우"를 확인하려면 careMissA에 도달한 뒤 조건이 꺼진 날을 봐야 하는데,
@@ -1633,12 +1633,12 @@ test('[A-5 픽스처] (d) 롤백 플래그를 켜면 현행(가중치 이전) ti
     // tied 풀은 [growthA] 뿐 - 매일 100% growthA.
     const growthOnlyCtx = { sessionCount: 5, outputPerTurn: 0 };
     for (const dateKST of careMissDates(20)) {
-      assert.strictEqual(selectRoute(dateKST, 'gw-kid', graph, growthOnlyCtx).adult.id, 'gw-growthA');
+      assert.strictEqual(selectRoute(dateKST, 'gw-kid', graph, growthOnlyCtx).route.adult.id, 'gw-growthA');
     }
     // 둘 다 참: childrenOf 배열 순서(growthA가 careMissA보다 앞)대로
     // growthA가 매번 이긴다 - A-5 이전 동작 그대로.
     for (const dateKST of careMissDates(20)) {
-      assert.strictEqual(selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX).adult.id, 'gw-growthA');
+      assert.strictEqual(selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX).route.adult.id, 'gw-growthA');
     }
   } finally {
     if (prevFlag === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
@@ -1657,8 +1657,169 @@ test('[A-5 픽스처] 가중 추첨(weighted pick)은 반복 호출에도 결정
     const first = selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX);
     for (let i = 0; i < 5; i++) {
       const again = selectRoute(dateKST, 'gw-kid', graph, GW_BOTH_MET_CTX);
-      assert.deepStrictEqual(again, first, `${dateKST} 재호출 ${i}번째가 달라졌다 - 가중 추첨이 결정적이지 않다`);
+      assert.deepStrictEqual(again.route, first.route, `${dateKST} 재호출 ${i}번째가 달라졌다 - 가중 추첨이 결정적이지 않다`);
     }
+  }
+});
+
+test('selectRoute returns routeReasons explaining each stage choice', () => {
+  const graph = treeToGraph(TREE);
+  const ctx = { failureRatioPct: 10 };
+  const { route, routeReasons } = selectRoute('2026-07-30', 'kid', graph, ctx);
+
+  // Rookie stage (child) has no reason (it's the pack directory, not a choice)
+  assert.strictEqual(routeReasons.child, undefined);
+
+  // Adult stage should have a reason
+  assert.ok(routeReasons.adult, 'adult stage should have a reason');
+  const adultReason = routeReasons.adult;
+  assert.ok(adultReason.parentId, 'reason should have parentId');
+  assert.ok(Array.isArray(adultReason.candidates), 'reason should have candidates array');
+  assert.ok(typeof adultReason.totalWeight === 'number', 'reason should have totalWeight');
+  assert.ok(typeof adultReason.probability === 'number', 'reason should have probability');
+  assert.ok(adultReason.method === 'hash' || adultReason.method === 'random', 'reason should have method');
+  assert.ok(typeof adultReason.fallback === 'boolean', 'reason should have fallback flag');
+});
+
+test('routeReasons records when conditions correctly for conditional edges', () => {
+  const graph = treeToGraph(TREE);
+  const ctx = { failureRatioPct: 10 }; // satisfies darkA's condition
+  const { routeReasons } = selectRoute('2026-07-30', 'kid', graph, ctx);
+
+  // Adult stage has darkA as a conditional candidate
+  assert.ok(routeReasons.adult, 'adult stage should have a reason');
+  const darkACandidate = routeReasons.adult.candidates.find(c => c.id === 'darkA');
+  assert.ok(darkACandidate, 'darkA should be in candidates');
+
+  // darkA's condition should be recorded
+  assert.ok(darkACandidate.when, 'darkA should have a when condition');
+  assert.strictEqual(darkACandidate.when.type, 'failureRatioPct', 'condition type should match TREE definition');
+  assert.strictEqual(darkACandidate.when.gte, 5, 'condition threshold should match');
+
+  // darkA's weight should be CONDITION_EDGE_WEIGHT (8)
+  assert.strictEqual(darkACandidate.weight, 8, 'satisfied condition should have weight 8');
+
+  // Context should be recorded
+  assert.ok(routeReasons.adult.ctx, 'reason should have ctx');
+  assert.strictEqual(routeReasons.adult.ctx.failureRatioPct, 10, 'ctx should contain actual value');
+});
+
+test('routeReasons records standard {type, gte} condition format correctly', () => {
+  const graph = treeToGraph(TREE);
+  const ctx = { failureRatioPct: 10 };
+  const { routeReasons } = selectRoute('2026-07-30', 'kid', graph, ctx);
+
+  // All satisfied conditions should have {type, gte/lte} format, not other keys
+  for (const [stageId, reason] of Object.entries(routeReasons)) {
+    for (const candidate of reason.candidates) {
+      if (candidate.when && candidate.when.type) {
+        const keys = Object.keys(candidate.when);
+        // Should have 'type' and one of 'gte'/'lte', not spurious keys
+        assert.ok(keys.includes('type'), `${stageId} candidate ${candidate.id} when should have type key`);
+        assert.ok(keys.includes('gte') || keys.includes('lte') || keys.includes('all'),
+          `${stageId} candidate ${candidate.id} when should have threshold or all key`);
+        // Verify these keys can be used for display (menubar reads them)
+        if (candidate.weight === 8) {
+          assert.ok(candidate.when.type, `satisfied condition in ${stageId} should have non-empty type`);
+        }
+      }
+    }
+  }
+});
+
+test('routeReasons fallback is false when unconditional edges exist', () => {
+  const graph = treeToGraph(TREE);
+  const ctx = {}; // no conditions satisfied
+  const { routeReasons } = selectRoute('2026-07-30', 'kid', graph, ctx);
+
+  // Adult stage has unconditional edges (spineA, deadA)
+  assert.ok(routeReasons.adult, 'adult stage should have a reason');
+  assert.strictEqual(routeReasons.adult.fallback, false,
+    'fallback should be false when unconditional edges exist');
+
+  // Unconditional edges should have weight 1
+  const spineA = routeReasons.adult.candidates.find(c => c.id === 'spineA');
+  assert.ok(spineA, 'spineA should be in candidates');
+  assert.strictEqual(spineA.weight, 1, 'unconditional edge should have weight 1');
+  assert.strictEqual(spineA.when, null, 'unconditional edge should have when: null');
+});
+
+test('routeReasons fallback is true only when all conditional edges fail', () => {
+  // Build a graph where all edges are conditional and none are satisfied
+  const allConditionalTree = {
+    digitama: [{ id: 'cond-digi', name: '알', sprite: 'digi', evolutions: [{ to: 'cond-baby', when: null }] }],
+    baby: [{ id: 'cond-baby', name: '유년', sprite: 'baby', evolutions: [{ to: 'cond-kid', when: null }] }],
+    child: [{ id: 'cond-kid', name: '성장', sprite: 'child', evolutions: [
+      { to: 'cond-a', when: { type: 'failureRatioPct', gte: 10 } },
+      { to: 'cond-b', when: { type: 'sessionCount', gte: 20 } }
+    ] }],
+    adult: [
+      { id: 'cond-a', name: 'A', sprite: 'a', evolutions: [] },
+      { id: 'cond-b', name: 'B', sprite: 'b', evolutions: [] }
+    ]
+  };
+  const graph = treeToGraph(allConditionalTree);
+  const ctx = {}; // satisfies neither condition
+  const { routeReasons } = selectRoute('2026-07-30', 'cond-kid', graph, ctx);
+
+  assert.ok(routeReasons.adult, 'adult stage should have a reason');
+  assert.strictEqual(routeReasons.adult.fallback, true,
+    'fallback should be true when all conditional edges fail');
+
+  // In fallback mode, all candidates should have weight 1
+  for (const c of routeReasons.adult.candidates) {
+    assert.strictEqual(c.weight, 1, `${c.id} should have weight 1 in fallback mode`);
+  }
+});
+
+test('selectRoute with locked stages echoes their reasons verbatim', () => {
+  const graph = treeToGraph(TREE);
+  const ctx = {};
+  const first = selectRoute('2026-07-30', 'kid', graph, ctx, { random: true });
+
+  // Lock through adult: reasons for digitama/baby/child/adult should be reused
+  const locked = { route: first.route, routeReasons: first.routeReasons, throughStage: 'adult', random: true };
+  const second = selectRoute('2026-07-30', 'kid', graph, ctx, locked);
+
+  // Locked stages' reasons should be identical (same object structure)
+  for (const stage of ['digitama', 'baby', 'child', 'adult']) {
+    if (first.routeReasons[stage]) {
+      assert.deepStrictEqual(second.routeReasons[stage], first.routeReasons[stage],
+        `${stage} reason should be echoed verbatim when locked`);
+    }
+  }
+});
+
+test('computeDailyTokens truncates routeReasons to reached stages only (A-2)', (t) => {
+  const dirs = setupDaily(t);
+
+  // Zero output -> digitama
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.stageId, 'digitama');
+
+  // routeReasons should only contain digitama (and earlier prefix stages if any)
+  if (result.routeReasons) {
+    const reachedIdx = EVOLVE_TREE.stages.findIndex(s => s.id === 'digitama');
+    for (let i = reachedIdx + 1; i < EVOLVE_TREE.stages.length; i++) {
+      const stage = EVOLVE_TREE.stages[i].id;
+      assert.strictEqual(result.routeReasons[stage], undefined,
+        `routeReasons should not contain ${stage} (not reached yet)`);
+    }
+  }
+});
+
+test('routeReasons does not alter route JSON structure (golden compatibility)', () => {
+  const graph = treeToGraph(TREE);
+  const { route } = selectRoute('2026-07-30', 'kid', graph, {});
+
+  // route entries should still be { id, name, sprite } - no extra fields
+  for (const stage of Object.keys(route)) {
+    const entry = route[stage];
+    assert.ok(entry.id, `${stage} should have id`);
+    assert.ok(entry.name, `${stage} should have name`);
+    assert.ok(entry.sprite, `${stage} should have sprite`);
+    const keys = Object.keys(entry);
+    assert.strictEqual(keys.length, 3, `${stage} should have exactly 3 keys (id, name, sprite)`);
   }
 });
 
@@ -2033,7 +2194,7 @@ test('selectRoute survives a graph with missing child references in childrenOf',
   // but byId.get('does-not-exist') is undefined.
   // selectRoute must degrade (fallback/skip) rather than throw.
   assert.doesNotThrow(() => selectRoute('2026-07-30', 'kid', graph, {}));
-  const route = selectRoute('2026-07-30', 'kid', graph, {});
+  const { route } = selectRoute('2026-07-30', 'kid', graph, {});
   assert.ok(route.child);
   assert.ok(route.superultimate); // still reaches top despite broken edge
 });
@@ -2278,7 +2439,7 @@ test('global graph runtime reproduces pack-tree golden routes', (t) => {
         const expectedIds = expectedRouteStr.split('>');
         const ctx = golden.ctxs[ctxIdx];
 
-        const actualRoute = selectRoute(dateKST, pack, graph, ctx, null);
+        const { route: actualRoute } = selectRoute(dateKST, pack, graph, ctx, null);
 
         // Compare stage-by-stage node ids only (sprite intentionally differs - plan §5)
         for (let i = 0; i < golden.stages.length; i++) {

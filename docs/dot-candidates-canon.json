@@ -1,0 +1,2051 @@
+[
+  {
+    "title": "Penmon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": "펭귄몬",
+    "evolvesFrom": [
+      {
+        "parent": "Chicchimon",
+        "parentId": "chicchimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Sunburst",
+          "Digimon Story: Moonlight"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "DSSM"
+        ],
+        "rawLine": "* [[Chicchimon]]<ref name=DSSM/>"
+      },
+      {
+        "parent": "Greymon",
+        "parentId": "greymon",
+        "parentInGraph": true,
+        "parentStageId": "adult",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Greymon]]{{rfc|EX8|019 (DCG)}}{{rfc|EX11|014 (DCG)}}{{Note|[[BT17-102 (DCG)]] treats Greymon's name as the same name as any Lv.3 or lower Digimon in its evolution cards, which could be any Lv.3 or lower card in the game.|n=BT17Grey}}"
+      },
+      {
+        "parent": "Hiyarimon",
+        "parentId": "hiyarimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Hiyarimon]]{{rfc|EX8|019 (DCG)}}{{rfc|EX11|014 (DCG)}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Missimon",
+        "parentId": "missimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Accel Evil Genome",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "AccelEG",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Missimon]]<ref name=AccelEG>''[[Digimon Accel Evil Genome]]''</ref>{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Mochimon",
+        "parentId": "mochimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon New Century]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Mochimon]]{{ref|''[[Digimon New Century]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Pukamon",
+        "parentId": "pukamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Pukamon]]{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Pyocomon",
+        "parentId": "pyocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Pyocomon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Scumon",
+        "parentId": "scumon",
+        "parentInGraph": true,
+        "parentStageId": "adult",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Scumon]]{{rfc|EX8|019 (DCG)}}{{rfc|EX11|014 (DCG)}}{{Note|[[BT17-102 (DCG)]] treats Greymon's name as the same name as any Lv.3 or lower Digimon in its evolution cards, which could be any Lv.3 or lower card in the game, and [[BT11-043 (DCG)]] can transform any Digimon into a Scumon who retains the Level, Traits, Effects, and Card Text of the original Digimon.|n=BT17Scu}}"
+      },
+      {
+        "parent": "Tunomon",
+        "parentId": "tunomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon World",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DW",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Tunomon]]<ref name=DW>''[[Digimon World]]''</ref>{{ref|''[[Digimon Super Rumble]]''}}"
+      }
+    ],
+    "excludedCount": 6,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Blue Lv.2 Digimon|Any Blue Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.2 Digimon|Any Red Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Yellow Lv.2 Digimon|Any Yellow Lv.2 Digimon from the ''Digimon Card Game''",
+      "Greymon: ref 태그 미해석 (게임 불명)",
+      "Pyocomon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "Scumon: ref 태그 미해석 (게임 불명)"
+    ],
+    "finalTitle": "Penmon"
+  },
+  {
+    "title": "Wormmon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": null,
+    "evolvesFrom": [
+      {
+        "parent": "Algomon (Baby II)",
+        "parentId": "algomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Pendulum Z Nightmare Soldiers]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Pendulum Z Nightmare Soldiers]]"
+        ],
+        "rawLine": "* [[Algomon (Baby II)]]{{ref|''[[Pendulum Z Nightmare Soldiers]]''}}"
+      },
+      {
+        "parent": "Budmon",
+        "parentId": "budmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon World Re:Digitize Decode",
+          "[[Digimon New Century]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DWReD",
+          "inline:[[Digimon New Century]]"
+        ],
+        "rawLine": "* [[Budmon]]<ref name=DWReD>''[[Digimon World Re:Digitize Decode]]''</ref>{{ref|''[[Digimon New Century]]''}}"
+      },
+      {
+        "parent": "Chocomon",
+        "parentId": "chocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon World -next 0rder-"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DWNO"
+        ],
+        "rawLine": "* [[Chocomon]]<ref name=DWNO>''[[Digimon World -next 0rder-]]''</ref>"
+      },
+      {
+        "parent": "Greymon",
+        "parentId": "greymon",
+        "parentInGraph": true,
+        "parentStageId": "adult",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Greymon]]{{rfc|BT16|040 (DCG)}}{{Note|[[BT17-102 (DCG)]] treats Greymon's name as the same name as any Lv.3 or lower Digimon in its evolution cards, which could be any Lv.3 or lower card in the game.|n=BT17Grey}}"
+      },
+      {
+        "parent": "Minomon",
+        "parentId": "minomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Vital Bracelet Digital Monster",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digital Monster: D-Project]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon UP]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "VB",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digital Monster: D-Project]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon UP]]"
+        ],
+        "rawLine": "* '''[[Minomon]]'''{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}{{ref|''[[Digital Monster: D-Project]]''}}<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>{{rfc|BT16|040 (DCG)}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon UP]]''}}"
+      },
+      {
+        "parent": "Mochimon",
+        "parentId": "mochimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Mochimon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Poromon",
+        "parentId": "poromon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Vital Bracelet BE]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Vital Bracelet BE]]"
+        ],
+        "rawLine": "* [[Poromon]]{{ref|''[[Vital Bracelet BE]]''}}"
+      },
+      {
+        "parent": "Pyocomon",
+        "parentId": "pyocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Cyber Sleuth",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "Digimon Linkz",
+          "Digimon ReArise"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCS",
+          "DSCSHM",
+          "DL",
+          "DRA"
+        ],
+        "rawLine": "* [[Pyocomon]]<ref name=DSCS>''[[Digimon Story: Cyber Sleuth]]''</ref><ref name=DSCSHM>''[[Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref><ref name=DL>''[[Digimon Linkz]]''</ref><ref name=DRA>''[[Digimon ReArise]]''</ref>"
+      },
+      {
+        "parent": "Scumon",
+        "parentId": "scumon",
+        "parentInGraph": true,
+        "parentStageId": "adult",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Scumon]]{{rfc|BT16|040 (DCG)}}{{Note|[[BT17-102 (DCG)]] treats Greymon's name as the same name as any Lv.3 or lower Digimon in its evolution cards, which could be any Lv.3 or lower card in the game, and [[BT11-043 (DCG)]] can transform any Digimon into a Scumon who retains the Level, Traits, Effects, and Card Text of the original Digimon.|n=BT17Scu}}"
+      }
+    ],
+    "excludedCount": 8,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Blue Lv.2 Digimon|Any Blue Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#CS Lv.2 Digimon|Any CS Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.2 Digimon|Any Green Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Purple Lv.2 Digimon|Any Purple Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.2 Digimon|Any Red Lv.2 Digimon from the ''Digimon Card Game''",
+      "Greymon: ref 태그 미해석 (게임 불명)",
+      "Mochimon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "Scumon: ref 태그 미해석 (게임 불명)"
+    ],
+    "finalTitle": "Wormmon"
+  },
+  {
+    "title": "Tanemon",
+    "level": "Baby II",
+    "levels": [
+      "Baby II"
+    ],
+    "stageId": "baby",
+    "stageMappingNote": null,
+    "koName": "시드몬",
+    "evolvesFrom": [
+      {
+        "parent": "Bubbmon",
+        "parentId": "bubbmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Cyber Sleuth",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "[[Digimon Championship]]",
+          "[[Digimon Linkz]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon: Source Code]]",
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCS",
+          "DSHM",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Linkz]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon: Source Code]]",
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Bubbmon]]{{ref|''[[Digimon Championship]]''}}<ref name=DSCS/><ref name=DSHM/>{{ref|''[[Digimon Linkz]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon: Source Code]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Nyokimon",
+        "parentId": "nyokimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* '''[[Nyokimon]]'''{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{rfe|DB|15|''Little Courage''|b}}"
+      },
+      {
+        "parent": "Pipimon",
+        "parentId": "pipimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Pipimon]]{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Yuramon",
+        "parentId": "yuramon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digital Monster Ver. 4",
+          "Digimon World",
+          "Digimon World -next 0rder-",
+          "Vital Bracelet Digital Monster",
+          "[[Digital Monster Ver. S]]",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Championship]]",
+          "[[Digimon ReArise]]",
+          "[[Digimon New Century]]",
+          "[[Digital Monster COLOR Ver.4]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon UP]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "VPet4",
+          "DW",
+          "DWNO",
+          "VB",
+          "inline:[[Digital Monster Ver. S]]",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon ReArise]]",
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digital Monster COLOR Ver.4]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon UP]]"
+        ],
+        "rawLine": "* '''[[Yuramon]]'''{{DD|ta|tanemon}}<ref name=VPet4>''[[Digital Monster Ver. 4]]''</ref>{{ref|''[[Digital Monster Ver. S]]''}}<ref name=DW>''[[Digimon World]]''</ref>{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}<ref name=DWNO>''[[Digimon World -next 0rder-]]''</ref>{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon ReArise]]''}}{{ref|''[[Digimon New Century]]''}}<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>{{ref|''[[Digital Monster COLOR Ver.4]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon UP]]''}}"
+      }
+    ],
+    "excludedCount": 0,
+    "exclusionReasons": [],
+    "finalTitle": "Tanemon"
+  },
+  {
+    "title": "Floramon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": "플로라몬",
+    "evolvesFrom": [
+      {
+        "parent": "Pyocomon",
+        "parentId": "pyocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Pendulum 4.0 Wind Guardians]]",
+          "[[Digimon Championship]]",
+          "[[Digimon Pendulum Ver.20th]]",
+          "[[Digimon Super Rumble]]",
+          "[[Pendulum COLOR 4 Wind Guardians]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Pendulum 4.0 Wind Guardians]]",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Pendulum Ver.20th]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Pendulum COLOR 4 Wind Guardians]]"
+        ],
+        "rawLine": "* [[Pyocomon]]{{ref|''[[Pendulum 4.0 Wind Guardians]]''}}{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Pendulum Ver.20th]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Pendulum COLOR 4 Wind Guardians]]''}}"
+      },
+      {
+        "parent": "Tanemon",
+        "parentId": "tanemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Soul Chaser",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Championship]]",
+          "[[Digimon New Century]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSC",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Tanemon]]{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}{{ref|''[[Digimon Championship]]''}}<ref name=DSC/>{{ref|''[[Digimon New Century]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Yuramon",
+        "parentId": "yuramon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Soul Chaser"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSC"
+        ],
+        "rawLine": "* [[Yuramon]]<ref name=DSC>''[[Digimon Soul Chaser]]''</ref>"
+      }
+    ],
+    "excludedCount": 4,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Blue Lv.2 Digimon|Any Blue Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.2 Digimon|Any Green Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#TS Lv.2 Digimon|Any TS Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Wind Guardians Lv.2 Digimon|Any Wind Guardians Lv.2 Digimon from the ''Digimon Card Game''"
+    ],
+    "finalTitle": "Floramon"
+  },
+  {
+    "title": "Palmon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": "팔몬",
+    "evolvesFrom": [
+      {
+        "parent": "Budmon",
+        "parentId": "budmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon World Re:Digitize Decode"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DWReD"
+        ],
+        "rawLine": "* [[Budmon]]<ref name=DWReD>''[[Digimon World Re:Digitize Decode]]''</ref>"
+      },
+      {
+        "parent": "Kyaromon",
+        "parentId": "kyaromon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Accel Ultimate Genome",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DAUG",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Kyaromon]]<ref name=DAUG>''[[Digimon Accel Ultimate Genome]]''</ref>{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Pyocomon",
+        "parentId": "pyocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Pendulum 4.5 Wind Guardians",
+          "Digimon Pendulum Ver.20th",
+          "[[Pendulum COLOR 4 Wind Guardians]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "Pen4.5",
+          "P20",
+          "inline:[[Pendulum COLOR 4 Wind Guardians]]"
+        ],
+        "rawLine": "* [[Pyocomon]]<ref name=Pen4.5>''[[Pendulum 4.5 Wind Guardians]]''</ref><ref name=P20>''[[Digimon Pendulum Ver.20th]]''</ref>{{ref|''[[Pendulum COLOR 4 Wind Guardians]]''}}"
+      },
+      {
+        "parent": "Tanemon",
+        "parentId": "tanemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digital Monster Ver. 4",
+          "Digimon World",
+          "Pocket Digimon World: Cool & Nature Battle Disc",
+          "Digivice Version 1",
+          "Digimon Story",
+          "Digimon Story: Sunburst",
+          "Digimon Story: Moonlight",
+          "Digimon Championship",
+          "Digimon Story: Cyber Sleuth",
+          "Digimon Story: Lost Evolution",
+          "Digimon World -next 0rder-",
+          "Digimon World -next 0rder- International Edition",
+          "Digimon Linkz",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "Digimon ReArise",
+          "Digital Monster Ver.20th",
+          "Vital Bracelet Digital Monster",
+          "[[Digital Monster Ver. S]]",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon New Century]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digital Monster COLOR Ver.4]]",
+          "[[Digimon: Source Code]]",
+          "[[Digimon Story: Time Stranger]]",
+          "[[Digivice -25th Color Evolution-]]",
+          "[[Digimon UP]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "VPet4",
+          "DW1",
+          "PDWCN",
+          "Digivice1",
+          "Story",
+          "DSSM",
+          "Champ",
+          "DSCS",
+          "DSLE",
+          "DWNO",
+          "DWNO.",
+          "Linkz",
+          "HM",
+          "DRA",
+          "M20",
+          "VB",
+          "inline:[[Digital Monster Ver. S]]",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digital Monster COLOR Ver.4]]",
+          "inline:[[Digimon: Source Code]]",
+          "inline:[[Digimon Story: Time Stranger]]",
+          "inline:[[Digivice -25th Color Evolution-]]",
+          "inline:[[Digimon UP]]"
+        ],
+        "rawLine": "* '''[[Tanemon]]'''<ref name=VPet4>''[[Digital Monster Ver. 4]]''</ref>{{ref|''[[Digital Monster Ver. S]]''}}<ref name=DW1>''[[Digimon World]]''</ref><ref name=PDWCN>''[[Pocket Digimon World: Cool & Nature Battle Disc]]''</ref>{{rfe|DA|01|Adrift? The Island of Adventure|b}}<ref name=Digivice1>''[[Digivice Version 1]]</ref>{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}<ref name=Story>''[[Digimon Story]]''</ref><ref name=DSSM/><ref name=Champ>''[[Digimon Championship]]''</ref><ref name=DSCS>''[[Digimon Story: Cyber Sleuth]]''</ref><ref name=DSLE>''[[Digimon Story: Lost Evolution]]''</ref><ref name=DWNO>''[[Digimon World -next 0rder-]]''</ref><ref name=DWNO.>''[[Digimon World -next 0rder- International Edition]]''</ref><ref name=Linkz>''[[Digimon Linkz]]''</ref><ref name=HM>''[[Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref><ref name=DRA>''[[Digimon ReArise]]''</ref><ref name=M20>''[[Digital Monster Ver.20th]]''</ref>{{ref|''[[Digimon New Century]]''}}<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digital Monster COLOR Ver.4]]''}}{{ref|''[[Digimon: Source Code]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}{{ref|''[[Digivice -25th Color Evolution-]]''}}{{ref|''[[Digimon UP]]''}}"
+      },
+      {
+        "parent": "Yuramon",
+        "parentId": "yuramon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon RPG"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "RPG"
+        ],
+        "rawLine": "* [[Yuramon]]<ref name=RPG>''[[Digimon RPG]]''</ref>"
+      }
+    ],
+    "excludedCount": 6,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Adventure Lv.2 Digimon|Any Adventure Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#CS Lv.2 Digimon|Any CS Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#DM Lv.2 Digimon|Any DM Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.2 Digimon|Any Green Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.2 Digimon|Any Red Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#TS Lv.2 Digimon|Any TS Lv.2 Digimon from the ''Digimon Card Game''"
+    ],
+    "finalTitle": "Palmon"
+  },
+  {
+    "title": "Ancient Beatmon",
+    "level": "Ultimate",
+    "levels": [
+      "Ultimate"
+    ],
+    "stageId": "ultimate",
+    "stageMappingNote": null,
+    "koName": "에이션트비트몬",
+    "evolvesFrom": [
+      {
+        "parent": "Archnemon",
+        "parentId": "archnemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Pendulum Z Nature Spirits]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Pendulum Z Nature Spirits]]"
+        ],
+        "rawLine": "* [[Archnemon]]{{ref|''[[Pendulum Z Nature Spirits]]''}}"
+      },
+      {
+        "parent": "Atlur Kabuterimon (Blue)",
+        "parentId": "atlurkabuterimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Atlur Kabuterimon (Blue)]] ([[Evolution|Ancient Evolution]]){{rfc|St|934}}"
+      },
+      {
+        "parent": "Atlur Kabuterimon (Red)",
+        "parentId": "atlurkabuterimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Super Xros Wars]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:[[Digimon Story: Super Xros Wars]]"
+        ],
+        "rawLine": "* [[Atlur Kabuterimon (Red)]] ([[Evolution|Ancient Evolution]]){{rfc|St|889}} (with or without the [[Legendary_Spirits|Spirit of Thunder]]{{ref|''[[Digimon Story: Lost Evolution]]}} or [[Scorpiomon]], [[Okuwamon]] and [[Flymon]]){{ref|''[[Digimon Story: Super Xros Wars]]''}}"
+      },
+      {
+        "parent": "Blitzmon",
+        "parentId": "blitzmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Battle Spirit: Digimon Frontier"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DFBS"
+        ],
+        "rawLine": "* '''[[Blitzmon]]''' ('''[[Evolution#|Ancient Evolution]]''')<ref name=DFBS>''[[Battle Spirit: Digimon Frontier]]''</ref>"
+      },
+      {
+        "parent": "Bolgmon",
+        "parentId": "bolgmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Vital Bracelet Digital Monster"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "VB"
+        ],
+        "rawLine": "* [[Bolgmon]]<ref name=VB/>"
+      },
+      {
+        "parent": "DigiXros",
+        "parentId": "digixros",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[DigiXros]] from [[Digimon Card Game DigiXros#Ancient Beatmon|certain Digimon from the ''Digimon Card Game'']]{{rfc|BT18|072 (DCG)}}"
+      },
+      {
+        "parent": "Jewelbeemon",
+        "parentId": "jewelbeemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Pendulum Z Nature Spirits]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Pendulum Z Nature Spirits]]"
+        ],
+        "rawLine": "* [[Jewelbeemon]]{{ref|''[[Pendulum Z Nature Spirits]]''}}"
+      },
+      {
+        "parent": "Metallife Kuwagamon",
+        "parentId": "metallifekuwagamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Vital Bracelet Digital Monster"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "VB"
+        ],
+        "rawLine": "* [[Metallife Kuwagamon]]<ref name=VB/>"
+      },
+      {
+        "parent": "Okuwamon",
+        "parentId": "okuwamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Super Xros Wars]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:[[Digimon Story: Super Xros Wars]]"
+        ],
+        "rawLine": "* [[Okuwamon]] ([[Evolution|Ancient Evolution]]){{rfc|St|889}} (with or without [[Atlur Kabuterimon (Red)]], [[Scorpiomon]] and [[Flymon]]){{ref|''[[Digimon Story: Super Xros Wars]]''}}"
+      },
+      {
+        "parent": "Rhino Kabuterimon",
+        "parentId": "rhinokabuterimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Vital Bracelet Digital Monster"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "VB"
+        ],
+        "rawLine": "* [[Rhino Kabuterimon]]<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>"
+      },
+      {
+        "parent": "Scorpiomon",
+        "parentId": "scorpiomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Pendulum Z Nature Spirits]]",
+          "[[Digimon Story: Super Xros Wars]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:[[Pendulum Z Nature Spirits]]",
+          "inline:[[Digimon Story: Super Xros Wars]]"
+        ],
+        "rawLine": "* [[Scorpiomon]]{{ref|''[[Pendulum Z Nature Spirits]]''}} (with or without [[Atlur Kabuterimon (Red)]], [[Okuwamon]] and [[Flymon]]){{ref|''[[Digimon Story: Super Xros Wars]]''}}"
+      }
+    ],
+    "excludedCount": 13,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Black Lv.4 Digimon|Any Black Lv.4 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Black Lv.5 Digimon|Any Black Lv.5 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.4 Digimon|Any Green Lv.4 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.5 Digimon|Any Green Lv.5 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Insect Lv.5|Any Insect Lv.5 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Yellow Lv.4 Digimon|Any Yellow Lv.4 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Yellow Lv.5 Digimon|Any Yellow Lv.5 Digimon from the ''Digimon Card Game''",
+      "Atlur Kabuterimon (Blue): ref 태그 미해석 (게임 불명)",
+      "DigiXros: ref 태그 미해석 (게임 불명)",
+      "조그레스: Flymon",
+      "조그레스: Sephirothmon",
+      "조그레스: Silphymon",
+      "조그레스: Wisemon"
+    ],
+    "finalTitle": "Ancient Beatmon"
+  },
+  {
+    "title": "Caprimon",
+    "level": "Baby II",
+    "levels": [
+      "Baby II"
+    ],
+    "stageId": "baby",
+    "stageMappingNote": null,
+    "koName": "카프리몬",
+    "evolvesFrom": [
+      {
+        "parent": "Choromon",
+        "parentId": "choromon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Pendulum 5.0",
+          "Pendulum 5.5 Metal Empire",
+          "Vital Bracelet Digital Monster",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Pendulum Ver.20th]]",
+          "[[Digimon Pendulum Ver.20th|Pendulum Ver.20th Nightmare Soldiers]]",
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]",
+          "[[Pendulum COLOR 5 Metal Empire]]",
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "ME",
+          "VB",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Pendulum Ver.20th]]",
+          "inline:[[Digimon Pendulum Ver.20th|Pendulum Ver.20th Nightmare Soldiers]]",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Pendulum COLOR 5 Metal Empire]]",
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Choromon]]<ref name=ME/>{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}{{ref|''[[Digimon Pendulum Ver.20th]]''}}{{ref|''[[Digimon Pendulum Ver.20th|Pendulum Ver.20th Nightmare Soldiers]]''}}{{ref|''[[Digimon Championship]]''}}<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Pendulum COLOR 5 Metal Empire]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Mokumon",
+        "parentId": "mokumon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Mokumon]]{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Zurumon",
+        "parentId": "zurumon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Zurumon]]{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      }
+    ],
+    "excludedCount": 0,
+    "exclusionReasons": [],
+    "finalTitle": "Caprimon"
+  },
+  {
+    "title": "Pagumon",
+    "level": "Baby II",
+    "levels": [
+      "Baby II"
+    ],
+    "stageId": "baby",
+    "stageMappingNote": null,
+    "koName": "퍼그몬",
+    "evolvesFrom": [
+      {
+        "parent": "Botamon",
+        "parentId": "botamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Championship]]",
+          "[[Digimon New Century]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Botamon]]{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon New Century]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Choromon",
+        "parentId": "choromon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Choromon]]{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Kuramon",
+        "parentId": "kuramon",
+        "parentInGraph": true,
+        "parentStageId": "baby",
+        "games": [
+          "Digimon Story: Cyber Sleuth",
+          "Digimon ReArise",
+          "[[Digimon Linkz]]",
+          "[[Digimon: Source Code]]",
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCS",
+          "DRA",
+          "inline:[[Digimon Linkz]]",
+          "inline:[[Digimon: Source Code]]",
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Kuramon]]<ref name=DSCS/>{{ref|''[[Digimon Linkz]]''}}<ref name=DRA>''[[Digimon ReArise]]''</ref>{{ref|''[[Digimon: Source Code]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Zurumon",
+        "parentId": "zurumon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digital Monster Ver. 5",
+          "Vital Bracelet Digital Monster",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Championship]]",
+          "[[Digital Monster COLOR Ver.5]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DM-V5",
+          "VB",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digital Monster COLOR Ver.5]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Zurumon]]<ref name=DM-V5>''[[Digital Monster Ver. 5]]''</ref>{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}{{ref|''[[Digimon Championship]]''}}<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>{{ref|''[[Digital Monster COLOR Ver.5]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      }
+    ],
+    "excludedCount": 0,
+    "exclusionReasons": [],
+    "finalTitle": "Pagumon"
+  },
+  {
+    "title": "Dracumon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": "드라큐몬",
+    "evolvesFrom": [
+      {
+        "parent": "Bosamon",
+        "parentId": "bosamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Vital Bracelet BE]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Vital Bracelet BE]]"
+        ],
+        "rawLine": "* [[Bosamon]]{{ref|''[[Vital Bracelet BE]]''}}"
+      },
+      {
+        "parent": "DigiXros",
+        "parentId": "digixros",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[DigiXros]] from [[Digimon Card Game DigiXros#Dracumon|certain Digimon from the ''Digimon Card Game'']]{{rfc|BT12|048 (DCG)}}"
+      },
+      {
+        "parent": "Missimon",
+        "parentId": "missimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Accel Evil Genome]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Accel Evil Genome]]"
+        ],
+        "rawLine": "* [[Missimon]]{{ref|''[[Digimon Accel Evil Genome]]''}}"
+      },
+      {
+        "parent": "Tsumemon",
+        "parentId": "tsumemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Sunburst",
+          "Digimon Story: Moonlight",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "[[Digimon ReArise]]",
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "DSSM",
+          "DSCSHM",
+          "inline:[[Digimon ReArise]]",
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Tsumemon]]<ref name=DSSM/><ref name=DSCSHM>''[[Digimon Story: Cyber Sleuth Hacker's Memory|Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref>{{ref|''[[Digimon ReArise]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Tunomon",
+        "parentId": "tunomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:[[Digimon Story]]"
+        ],
+        "rawLine": "* [[Tunomon]]{{ref|''[[Digimon Story]]''}}"
+      }
+    ],
+    "excludedCount": 5,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#CS Lv.2 Digimon|Any CS Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.2 Digimon|Any Green Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Save Lv.2 Digimon|Any Lv.2 Digimon with Save in their text from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Purple Lv.2 Digimon|Any Purple Lv.2 Digimon from the ''Digimon Card Game''",
+      "DigiXros: ref 태그 미해석 (게임 불명)"
+    ],
+    "finalTitle": "Dracumon"
+  },
+  {
+    "title": "Tunomon",
+    "level": "Baby II",
+    "levels": [
+      "Baby II"
+    ],
+    "stageId": "baby",
+    "stageMappingNote": null,
+    "koName": "뿔몬",
+    "evolvesFrom": [
+      {
+        "parent": "Pitchmon",
+        "parentId": "pitchmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Pitchmon]]{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Punimon",
+        "parentId": "punimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digital Monster Ver. 2",
+          "Digimon World Re:Digitize Decode",
+          "Digimon Story: Cyber Sleuth",
+          "Digimon World -next 0rder-",
+          "Digimon World -next 0rder- International Edition",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "Vital Bracelet Digital Monster",
+          "[[Digital Monster Ver. S]]",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digital Monster: D-Project]]",
+          "[[Digimon Linkz]]",
+          "[[Digimon New Century]]",
+          "[[Digital Monster COLOR Ver.2]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon: Source Code]]",
+          "[[Digimon Story: Time Stranger]]",
+          "[[Digimon UP]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "VPet2",
+          "DWReD",
+          "DSCS",
+          "DWNO",
+          "DWNO.",
+          "DSCSHM",
+          "VB",
+          "inline:[[Digital Monster Ver. S]]",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digital Monster: D-Project]]",
+          "inline:[[Digimon Linkz]]",
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digital Monster COLOR Ver.2]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon: Source Code]]",
+          "inline:[[Digimon Story: Time Stranger]]",
+          "inline:[[Digimon UP]]"
+        ],
+        "rawLine": "* '''[[Punimon]]'''{{DD|ta}}<ref name=VPet2>''[[Digital Monster Ver. 2]]''</ref>{{ref|''[[Digital Monster Ver. S]]''}}{{rfe|DA|45|''The Clashing Ultimates! War Greymon VS Metal Garurumon''|b}}{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}<ref name=DWReD>''[[Digimon World Re:Digitize Decode]]''</ref><ref name=DSCS>''[[Digimon Story: Cyber Sleuth]]''</ref><ref name=DWNO>''[[Digimon World -next 0rder-]]''</ref><ref name=DWNO.>''[[Digimon World -next 0rder- International Edition]]''</ref><ref name=DSCSHM>''[[Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref>{{ref|''[[Digital Monster: D-Project]]''}}{{ref|''[[Digimon Linkz]]''}}{{ref|''[[Digimon New Century]]''}}<ref name=VB>''[[Vital Bracelet Digital Monster]]''</ref>{{ref|''[[Digital Monster COLOR Ver.2]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon: Source Code]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}{{ref|''[[Digimon UP]]''}}"
+      },
+      {
+        "parent": "Yukimi Botamon",
+        "parentId": "yukimibotamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Championship]]",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Championship]]",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Yukimi Botamon]]{{ref|''[[Digimon Championship]]''}}{{ref|''[[Digimon Super Rumble]]''}}"
+      }
+    ],
+    "excludedCount": 0,
+    "exclusionReasons": [],
+    "finalTitle": "Tunomon"
+  },
+  {
+    "title": "Hyokomon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": "효코몬",
+    "evolvesFrom": [
+      {
+        "parent": "Chicchimon",
+        "parentId": "chicchimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}"
+        ],
+        "rawLine": "* '''[[Chicchimon]]'''{{ref|''{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}''}}"
+      },
+      {
+        "parent": "Pyocomon",
+        "parentId": "pyocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Pyocomon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      }
+    ],
+    "excludedCount": 3,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.2 Digimon|Any Red Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#TS Lv.2 Digimon|Any TS Lv.2 Digimon from the ''Digimon Card Game''",
+      "Pyocomon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])"
+    ],
+    "finalTitle": "Hyokomon"
+  },
+  {
+    "title": "Strikedramon",
+    "level": "Adult",
+    "levels": [
+      "Adult"
+    ],
+    "stageId": "adult",
+    "stageMappingNote": null,
+    "koName": null,
+    "evolvesFrom": [
+      {
+        "parent": "Agumon (Black)",
+        "parentId": "agumon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Agumon (Black)]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Flamon",
+        "parentId": "flamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Flamon]]{{rfc|St|765}}"
+      },
+      {
+        "parent": "Gabumon",
+        "parentId": "gabumon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Gabumon]]{{rfc|St|897}}"
+      },
+      {
+        "parent": "Gabumon (Black)",
+        "parentId": "gabumon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Gabumon (Black)]]{{rfc|St|897}}"
+      },
+      {
+        "parent": "Gabumon (X-Antibody)",
+        "parentId": "gabumon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Gabumon (X-Antibody)]]{{rfc|St|897}}"
+      },
+      {
+        "parent": "Gomamon",
+        "parentId": "gomamon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [
+          "Digimon Story: Cyber Sleuth Hacker's Memory"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCSHM"
+        ],
+        "rawLine": "* [[Gomamon]]<ref name=DSCSHM>''[[Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref>"
+      },
+      {
+        "parent": "Gaomon",
+        "parentId": "gaomon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Gaomon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Guilmon",
+        "parentId": "guilmon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Guilmon]]{{rfc|St|897}}"
+      },
+      {
+        "parent": "Guilmon (X-Antibody)",
+        "parentId": "guilmon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Guilmon (X-Antibody)]]{{rfc|St|897}}"
+      },
+      {
+        "parent": "Labramon",
+        "parentId": "labramon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Labramon]]{{rfc|Bo|1027}}"
+      },
+      {
+        "parent": "Lopmon",
+        "parentId": "lopmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Lopmon]]{{rfc|Bo|1027}}"
+      },
+      {
+        "parent": "Monodramon",
+        "parentId": "monodramon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "Vital Bracelet Digital Monster",
+          "[[Digimon Masters]]",
+          "[[Digimon Story: Lost Evolution]]",
+          "[[Digimon Soul Chaser]]",
+          "[[Digimon ReArise]]",
+          "[[Pendulum Z Metal Empire]]",
+          "[[Digimon New Century]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "DSCSHM",
+          "VB",
+          "inline:[[Digimon Masters]]",
+          "inline:[[Digimon Story: Lost Evolution]]",
+          "inline:[[Digimon Soul Chaser]]",
+          "inline:[[Digimon ReArise]]",
+          "inline:[[Pendulum Z Metal Empire]]",
+          "inline:[[Digimon New Century]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* '''[[Monodramon]]'''{{ref|'''''[[Digimon Tamers: Brave Tamer]]'''''}}{{rfc|St|897}}{{rfc|Bo|1027}}{{rfc|Bo|659}}{{ref|''[[Digimon Masters]]''}}{{ref|''[[Digimon Story: Lost Evolution]]''}}{{ref|''[[Digimon Soul Chaser]]''}}<ref name=DSCSHM/>{{ref|''[[Digimon ReArise]]''}}{{ref|''[[Pendulum Z Metal Empire]]''}}{{ref|''[[Digimon New Century]]''}}<ref name=VB/>{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Strabimon",
+        "parentId": "strabimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Strabimon]]{{rfc|St|765}}"
+      },
+      {
+        "parent": "Turuiemon",
+        "parentId": "turuiemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Turuiemon]]{{rfc|St|765}}"
+      },
+      {
+        "parent": "V-mon",
+        "parentId": "veemon",
+        "parentInGraph": true,
+        "parentStageId": "child",
+        "games": [
+          "Digimon Story: Cyber Sleuth Hacker's Memory"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCSHM"
+        ],
+        "rawLine": "* [[V-mon]]{{rfc|Bo|659}}<ref name=DSCSHM/>"
+      }
+    ],
+    "excludedCount": 16,
+    "exclusionReasons": [
+      "Agumon (Black): 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Black Lv.3 Digimon|Any Black Lv.3 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#CS Lv.3 Digimon|Any CS Lv.3 Digimon from the ''Digimon Card Game''",
+      "Flamon: ref 태그 미해석 (게임 불명)",
+      "Gabumon: ref 태그 미해석 (게임 불명)",
+      "Gabumon (Black): ref 태그 미해석 (게임 불명)",
+      "Gabumon (X-Antibody): ref 태그 미해석 (게임 불명)",
+      "Gomamon: 제외 게임만 존재 (Digimon Story: Cyber Sleuth Hacker's Memory)",
+      "Gaomon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "Guilmon: ref 태그 미해석 (게임 불명)",
+      "Guilmon (X-Antibody): ref 태그 미해석 (게임 불명)",
+      "Labramon: ref 태그 미해석 (게임 불명)",
+      "Lopmon: ref 태그 미해석 (게임 불명)",
+      "Strabimon: ref 태그 미해석 (게임 불명)",
+      "Turuiemon: ref 태그 미해석 (게임 불명)",
+      "V-mon: 제외 게임만 존재 (Digimon Story: Cyber Sleuth Hacker's Memory)"
+    ],
+    "finalTitle": "Strikedramon"
+  },
+  {
+    "title": "Kotemon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": null,
+    "evolvesFrom": [
+      {
+        "parent": "Budmon",
+        "parentId": "budmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon New Century]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon New Century]]"
+        ],
+        "rawLine": "* [[Budmon]]{{ref|''[[Digimon New Century]]''}}"
+      },
+      {
+        "parent": "Caprimon",
+        "parentId": "caprimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story",
+          "Digimon Story: Sunburst",
+          "Digimon Story: Moonlight",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "DS",
+          "DSSM",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Caprimon]]<ref name=DS>''[[Digimon Story]]''</ref><ref name=DSSM/>{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Koromon",
+        "parentId": "koromon",
+        "parentInGraph": true,
+        "parentStageId": "baby",
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Koromon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Tsumemon",
+        "parentId": "tsumemon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* [[Tsumemon]]{{ref|''[[Digimon Super Rumble]]''}}"
+      }
+    ],
+    "excludedCount": 6,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Black Lv.2 Digimon|Any Black Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.2 Digimon|Any Red Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Shambala Lv.2 Digimon|Any Shambala Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#TS Lv.2 Digimon|Any TS Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Yellow Lv.2 Digimon|Any Yellow Lv.2 Digimon from the ''Digimon Card Game''",
+      "Koromon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])"
+    ],
+    "finalTitle": "Kotemon"
+  },
+  {
+    "title": "Lopmon",
+    "level": "Child",
+    "levels": [
+      "Child"
+    ],
+    "stageId": "child",
+    "stageMappingNote": null,
+    "koName": null,
+    "evolvesFrom": [
+      {
+        "parent": "Chocomon",
+        "parentId": "chocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon World -next 0rder-",
+          "Digimon World -next 0rder- International Edition",
+          "Digimon ReArise",
+          "[[Digimon Super Rumble]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DWNO",
+          "DWNO.",
+          "DRA",
+          "inline:[[Digimon Super Rumble]]"
+        ],
+        "rawLine": "* '''[[Chocomon]]'''<ref name=DWNO>''[[Digimon World -next 0rder-]]''</ref><ref name=DWNO.>''[[Digimon World -next 0rder- International Edition]]''</ref><ref name=DRA>''[[Digimon ReArise]]''</ref>{{rfc|ST17|03 (DCG)}}{{rfc|EX6|032 (DCG)}}{{rfc|BT23|026 (DCG)}}{{ref|''[[Digimon Super Rumble]]''}}"
+      },
+      {
+        "parent": "Cocomon",
+        "parentId": "cocomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* '''[[Cocomon]]'''{{rfe|DF|47|''The Royal Knights Fall, And...!!''|b}}"
+      },
+      {
+        "parent": "Dorimon",
+        "parentId": "dorimon",
+        "parentInGraph": true,
+        "parentStageId": "baby",
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Dorimon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Greymon",
+        "parentId": "greymon",
+        "parentInGraph": true,
+        "parentStageId": "adult",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Greymon]]{{rfc|ST17|03 (DCG)}}{{rfc|EX6|032 (DCG)}}{{rfc|BT23|026 (DCG)}}{{Note|[[BT17-102 (DCG)]] treats Greymon's name as the same name as any Lv.3 or lower Digimon in its evolution cards, which could be any Lv.3 or lower card in the game.|n=BT17Grey}}"
+      },
+      {
+        "parent": "Moonmon",
+        "parentId": "moonmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Sunburst",
+          "Digimon Story: Moonlight",
+          "[[Digimon Story: Lost Evolution]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "DSSM",
+          "inline:[[Digimon Story: Lost Evolution]]"
+        ],
+        "rawLine": "* [[Moonmon]]{{ref|''[[Digimon Story: Lost Evolution]]''}} (with or without [[Botamon]])<ref name=DSSM/>"
+      },
+      {
+        "parent": "Nyaromon",
+        "parentId": "nyaromon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon New Century]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon New Century]]"
+        ],
+        "rawLine": "* [[Nyaromon]]{{ref|''[[Digimon New Century]]''}}"
+      },
+      {
+        "parent": "Pagumon",
+        "parentId": "pagumon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Cyber Sleuth",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "[[Digimon Linkz]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCS",
+          "DSCSHM",
+          "inline:[[Digimon Linkz]]"
+        ],
+        "rawLine": "* [[Pagumon]]<ref name=DSCS>''[[Digimon Story: Cyber Sleuth]]''</ref><ref name=DSCSHM>''[[Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref>{{ref|''[[Digimon Linkz]]''}}"
+      },
+      {
+        "parent": "Scumon",
+        "parentId": "scumon",
+        "parentInGraph": true,
+        "parentStageId": "adult",
+        "games": [],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [],
+        "rawLine": "* [[Scumon]]{{rfc|ST17|03 (DCG)}}{{Note|[[BT17-102 (DCG)]] treats Greymon's name as the same name as any Lv.3 or lower Digimon in its evolution cards, which could be any Lv.3 or lower card in the game, and [[BT11-043 (DCG)]] can transform any Digimon into a Scumon who retains the Level, Traits, Effects, and Card Text of the original Digimon.|n=BT17Scu}}"
+      }
+    ],
+    "excludedCount": 9,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#CS Lv.2 Digimon|Any CS Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.2 Digimon|Any Green Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Purple Lv.2 Digimon|Any Purple Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Yellow Lv.2 Digimon|Any Yellow Lv.2 Digimon from the ''Digimon Card Game''",
+      "조그레스: Botamon",
+      "Cocomon: ref 태그 미해석 (게임 불명)",
+      "Dorimon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "Greymon: ref 태그 미해석 (게임 불명)",
+      "Scumon: ref 태그 미해석 (게임 불명)"
+    ],
+    "finalTitle": "Lopmon"
+  },
+  {
+    "title": "Butenmon",
+    "level": "Perfect",
+    "levels": [
+      "Perfect"
+    ],
+    "stageId": "perfect",
+    "stageMappingNote": null,
+    "koName": "부텐몬",
+    "evolvesFrom": [
+      {
+        "parent": "Buraimon",
+        "parentId": "buraimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}",
+          "[[Digimon Story: Time Stranger]]",
+          "[[Digimon Story: Super Xros Wars]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}",
+          "inline:[[Digimon Story: Time Stranger]]",
+          "inline:[[Digimon Story: Super Xros Wars]]"
+        ],
+        "rawLine": "* '''[[Buraimon]]'''{{ref|''{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}''}}{{ref|''[[Digimon Story: Time Stranger]]''}} (with or without [[Cockatrimon]] and [[Birdramon]]){{ref|''[[Digimon Story: Super Xros Wars]]''}}"
+      },
+      {
+        "parent": "Ginryumon",
+        "parentId": "ginryumon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Ginryumon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Musyamon",
+        "parentId": "musyamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Musyamon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      }
+    ],
+    "excludedCount": 7,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.4 Digimon|Any Red Lv.4 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#TS Lv.4 Digimon|Any TS Lv.4 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Yellow Lv.4 Digimon|Any Yellow Lv.4 Digimon from the ''Digimon Card Game''",
+      "조그레스: Birdramon",
+      "조그레스: Cockatrimon",
+      "Ginryumon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "Musyamon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])"
+    ],
+    "finalTitle": "Butenmon"
+  },
+  {
+    "title": "Buraimon",
+    "level": "Adult",
+    "levels": [
+      "Adult"
+    ],
+    "stageId": "adult",
+    "stageMappingNote": null,
+    "koName": "부라이몬",
+    "evolvesFrom": [
+      {
+        "parent": "Hyokomon",
+        "parentId": "hyokomon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}",
+          "[[Digimon Story: Time Stranger]]",
+          "[[Digimon Story: Super Xros Wars]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": true,
+        "refTags": [
+          "inline:{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}",
+          "inline:[[Digimon Story: Time Stranger]]",
+          "inline:[[Digimon Story: Super Xros Wars]]"
+        ],
+        "rawLine": "* '''[[Hyokomon]]'''{{ref|''{{url2|https://web.archive.org/web/20151106052405/http://i44.tinypic.com/dusm0.jpg|Digimon Story: Lost Evolution (V Jump scan)}}''}}{{ref|''[[Digimon Story: Time Stranger]]''}} (with or without [[Hawkmon]]){{ref|''[[Digimon Story: Super Xros Wars]]''}}"
+      },
+      {
+        "parent": "Penmon",
+        "parentId": "penmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Penmon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Zubamon",
+        "parentId": "zubamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Zubamon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      }
+    ],
+    "excludedCount": 4,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Red Lv.3 Digimon|Any Red Lv.3 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#TS Lv.3 Digimon|Any TS Lv.3 Digimon from the ''Digimon Card Game''",
+      "Penmon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])",
+      "Zubamon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])"
+    ],
+    "finalTitle": "Buraimon"
+  },
+  {
+    "title": "Otamamon",
+    "level": "Child",
+    "levels": [
+      "Child",
+      "Baby II"
+    ],
+    "stageId": "child",
+    "stageMappingNote": "복수 Level 표기 발견(Child, Baby II) — l1 기준(Child) 채택",
+    "koName": "올챙몬",
+    "evolvesFrom": [
+      {
+        "parent": "Babydmon",
+        "parentId": "babydmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Championship"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DC"
+        ],
+        "rawLine": "* [[Babydmon]]<ref name=DC>''[[Digimon Championship]]''</ref>"
+      },
+      {
+        "parent": "Bubbmon",
+        "parentId": "bubbmon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Soul Chaser"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSC"
+        ],
+        "rawLine": "* [[Bubbmon]]<ref name=DSC>''[[Digimon Soul Chaser]]''</ref>"
+      },
+      {
+        "parent": "Frimon",
+        "parentId": "frimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Accel Justice Genome"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "AccelJG"
+        ],
+        "rawLine": "* [[Frimon]]<ref name=AccelJG>''[[Digimon Accel Justice Genome]]''</ref>"
+      },
+      {
+        "parent": "Mochimon",
+        "parentId": "mochimon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Pendulum 1.0 Nature Spirits",
+          "Pendulum 1.5 Nature Spirits",
+          "Digimon Soul Chaser",
+          "[[Digital Monster Ver. 6]]",
+          "[[Digimon Pendulum Ver.20th]]",
+          "[[Digimon Super Rumble]]",
+          "[[Pendulum COLOR 1 Nature Spirits]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "Pen1",
+          "Pen1.5",
+          "DSC",
+          "inline:[[Digital Monster Ver. 6]]",
+          "inline:[[Digimon Pendulum Ver.20th]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Pendulum COLOR 1 Nature Spirits]]"
+        ],
+        "rawLine": "* [[Mochimon]]<ref name=Pen1/><ref name=Pen1.5>''[[Pendulum 1.5 Nature Spirits]]''</ref>{{ref|''[[Digital Monster Ver. 6]]''}}<ref name=DSC/>{{ref|''[[Digimon Pendulum Ver.20th]]''}}{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Pendulum COLOR 1 Nature Spirits]]''}}"
+      },
+      {
+        "parent": "Pagumon",
+        "parentId": "pagumon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "[[Digimon Story: Time Stranger]]"
+        ],
+        "allowed": false,
+        "passesStrictGate": false,
+        "refTags": [
+          "inline:[[Digimon Story: Time Stranger]]"
+        ],
+        "rawLine": "* [[Pagumon]]{{ref|''[[Digimon Story: Time Stranger]]''}}"
+      },
+      {
+        "parent": "Pukamon",
+        "parentId": "pukamon",
+        "parentInGraph": false,
+        "parentStageId": null,
+        "games": [
+          "Digimon Story: Cyber Sleuth",
+          "Digimon Linkz",
+          "Digimon Story: Cyber Sleuth Hacker's Memory",
+          "Digimon ReArise",
+          "[[Digimon Adventure 02: Tag Tamers]]",
+          "[[Digimon Adventure 02: D1 Tamers]]",
+          "[[Digimon Super Rumble]]",
+          "[[Digimon: Source Code]]"
+        ],
+        "allowed": true,
+        "passesStrictGate": false,
+        "refTags": [
+          "DSCS",
+          "DL",
+          "DSCSHM",
+          "DRA",
+          "inline:[[Digimon Adventure 02: Tag Tamers]]",
+          "inline:[[Digimon Adventure 02: D1 Tamers]]",
+          "inline:[[Digimon Super Rumble]]",
+          "inline:[[Digimon: Source Code]]"
+        ],
+        "rawLine": "* [[Pukamon]]{{ref|''[[Digimon Adventure 02: Tag Tamers]]''}}{{ref|''[[Digimon Adventure 02: D1 Tamers]]''}}<ref name=DSCS>''[[Digimon Story: Cyber Sleuth]]''</ref><ref name=DL>''[[Digimon Linkz]]''</ref><ref name=DSCSHM>''[[Digimon Story: Cyber Sleuth Hacker's Memory]]''</ref><ref name=DRA>''[[Digimon ReArise]]''</ref>{{ref|''[[Digimon Super Rumble]]''}}{{ref|''[[Digimon: Source Code]]''}}"
+      }
+    ],
+    "excludedCount": 4,
+    "exclusionReasons": [
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Blue Lv.2 Digimon|Any Blue Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Green Lv.2 Digimon|Any Green Lv.2 Digimon from the ''Digimon Card Game''",
+      "카드게임/카테고리 링크: Digimon Card Game Colors and Levels#Nature Spirits Lv.2 Digimon|Any Nature Spirits Lv.2 Digimon from the ''Digimon Card Game''",
+      "Pagumon: 제외 게임만 존재 ([[Digimon Story: Time Stranger]])"
+    ],
+    "finalTitle": "Otamamon"
+  }
+]
