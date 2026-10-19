@@ -156,6 +156,7 @@ import argparse
 import io
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -354,6 +355,108 @@ PORTRAIT_SET_VOCABULARY = frozenset({
     "raid",
     "color", "battle", "attack",
 })
+
+# --artwork corruption gate: official artwork (normalize_artwork, backdrop
+# removed via edge flood fill) is anti-aliased render art on a plain
+# background, so real character art should end up mostly transparent after
+# flood fill -- a full-bleed image (card scan, screenshot, promo collage)
+# has no plain backdrop for the flood fill to remove, so it stays opaque
+# edge-to-edge. Measured directly across all 265 downloaded artwork PNGs
+# (opaque = fraction of pixels with alpha==255): a clean 184-species
+# cluster sits at 15.5%-54.9% opaque, a 76-species card-scan/screenshot
+# cluster sits at 90.9%-100% opaque, and the gap between them
+# (54.9% -> 90.9%) is the widest gap in the whole sorted distribution --
+# 0.85 sits in the middle of it.
+#
+# Card-frame aspect ratio (~283x416, 0.68-0.75) correlates with this
+# cluster but is deliberately NOT part of the gate: 4 clean illustrations
+# in the same audit (tsunomon/ancienttroiamon/ancientwisemon/pandamon)
+# share that exact aspect band at 51-58% opaque, and 3 of the 76 rejects
+# (darktyranomon/sunflowmon/yaamon) are square/widescreen full-bleed
+# scenes outside it. Opacity alone separates both groups cleanly;
+# aspect doesn't -- don't reintroduce it as a filter without re-measuring.
+#
+# 5 species landed in the 60-85% gap between the two clusters (poyomon,
+# gracenovamon, falcomon_2006animeversion, mugendramon,
+# belphemon_ragemode) and were resolved by direct visual inspection, not
+# threshold tuning: poyomon is a legitimate white-on-white character
+# illustration; the other 4 are confirmed non-portraits (game HUD, promo
+# scenes) now on ARTWORK_FILENAME_DENYLIST below since their opacity is
+# under this gate.
+ARTWORK_MAX_OPAQUE_RATIO = 0.85
+
+# --artwork filename pre-filter: enumerate_species_files returns every
+# upload linked from a species' Wikimon page, which for a franchise this
+# merchandised includes dozens of Digimon Card Game scans
+# ("Bo-136.jpg"/"CB02-035.jpg"/"Dcg-BT11-072.jpg"-style set codes)
+# alongside the 1-3 real character illustrations. Confirmed directly:
+# AncientGarurumon's card-scan reject is literally named "AncientGarurumon
+# Collectors Ultimate Card.jpg".
+#
+# This is a rank-only pre-filter, not a hard exclude -- see
+# pick_artwork_source: a flagged filename is tried last, after every
+# unflagged candidate is exhausted, because the real gate is
+# ARTWORK_MAX_OPAQUE_RATIO on the downloaded+normalized image. A filename
+# heuristic can both under-match (Mugendramon's and Falcomon (2006 Anime
+# Version)'s rejects are multi-character promo scenes with no card-code
+# name at all -- see ARTWORK_FILENAME_DENYLIST) and over-match ("DA-48
+# illustration watanabe kenji.jpg" is card-set-coded but could still be a
+# clean official print), so it only decides download order, never a
+# species' final availability on its own.
+ARTWORK_CARD_CODE_RE = re.compile(r'(?:^|[ _])[a-z]{1,5}\d{0,3}-[a-z0-9]*\d')
+ARTWORK_REJECT_NAME_TOKENS = frozenset({
+    "stats", "card", "cards", "collectors", "championship",
+    "cardgame", "logo", "sleeve", "sleeves", "booster",
+})
+
+# --artwork manual denylist: species whose *only* discovered candidate at
+# fetch time passed ARTWORK_MAX_OPAQUE_RATIO (each measured 55-78%
+# opaque, well under the 0.85 gate) but was confirmed by direct visual
+# inspection to not be a character portrait at all -- a game-HUD stats
+# screenshot (Gracenovamon: "DSTS Stats Gracenovamon.jpg"), a
+# two-character promo gag scene (Falcomon (2006 Anime Version):
+# "Agumon falcomon digimonweb.jpg"), a franchise-wide 9-character collage
+# (Mugen Dramon: "All Digimon Are Here Art.jpg"), and an anime
+# battle-scene screengrab (Belphemon: Rage Mode: "Belphemon Rage Mode
+# full power.jpg"). Opacity can't catch these on its own because their
+# backgrounds (game UI panels, scenery) DO get partly flood-filled, the
+# same as real character art -- only a human looking at the image can
+# tell "background partly removed" apart from "this isn't a portrait of
+# the species at all". Matched as a normalized (tokenized, concatenated)
+# substring rather than an exact filename -- confirmed necessary
+# directly: re-searching Mugen Dramon's page for a replacement re-picked
+# the exact same collage under a per-species-cropped name,
+# "Mugendramon All Digimon Are Here Art.jpg", which an exact-filename
+# denylist entry for "All Digimon Are Here Art.jpg" does not match. Keyed
+# by the asset's own name, not the species id, so a future re-run that
+# finds a genuinely different upload for the same species isn't blocked.
+ARTWORK_FILENAME_DENYLIST = frozenset({
+    "dstsstatsgracenovamon",
+    "agumonfalcomondigimonweb",
+    "alldigimonarehereart",
+    "belphemonragemodefullpower",
+})
+
+# --artwork ranking boost: a filename containing "model" names a
+# specific game/media's dedicated 3D-model render (e.g. "Model DSR",
+# "Model SC", "Model DW", "DSAM Model"). Measured directly across this
+# module's 76-species re-search for clean replacements after the
+# card-scan purge: every single "*model*"-named candidate turned out to
+# be a clean isolated single-character render, with zero
+# counterexamples. Ranked ahead of plain-named candidates because a
+# generic filename (no card-code/reject-token signal either way) isn't
+# reliably clean either -- Mugen Dramon's non-card-coded
+# "All Digimon Are Here Art.jpg" (a 9-character franchise collage) beat
+# the actually-clean "Mugendramon Kai Model DSR.png" on a plain
+# alphabetical tie-break before this was added.
+ARTWORK_PREFERRED_NAME_TOKENS = frozenset({"model"})
+
+# Cap on how many candidates get downloaded+measured per species when the
+# first (direct title.jpg or first-enumerated) pick fails the gate above --
+# mirrors PORTRAIT_MAX_CANDIDATES's reasoning: most species only need 1
+# candidate, a few need a couple more, and nothing should download a
+# species' entire page of dozens of card scans looking for one clean hit.
+ARTWORK_MAX_CANDIDATES = 5
 
 
 def title_to_filename(title, suffix):
@@ -1147,6 +1250,40 @@ def normalize_artwork(raw_bytes):
 
     return img
 
+
+def _artwork_opaque_ratio(img):
+    """Fraction of `img`'s (RGBA) pixels with alpha==255 -- see
+    ARTWORK_MAX_OPAQUE_RATIO for what this measures and why. Uses the
+    alpha channel's histogram (one pass in C via Pillow) rather than a
+    Python-level per-pixel loop -- this runs once per downloaded
+    candidate, not once per species, so it matters at
+    ARTWORK_MAX_CANDIDATES-deep fallback."""
+    w, h = img.size
+    total = w * h
+    if total == 0:
+        return 0.0
+    opaque = img.getchannel("A").histogram()[255]
+    return opaque / total
+
+
+def _looks_like_card_scan(img):
+    """True if `img` (already through normalize_artwork -- backdrop
+    flood-filled) is still almost entirely opaque, i.e. no plain
+    background existed for the flood fill to remove. See
+    ARTWORK_MAX_OPAQUE_RATIO for the measured threshold this is built on."""
+    return _artwork_opaque_ratio(img) > ARTWORK_MAX_OPAQUE_RATIO
+
+
+def _looks_like_bad_artwork_filename(filename):
+    """Rank-only pre-filter for --artwork candidates -- see
+    ARTWORK_CARD_CODE_RE/ARTWORK_REJECT_NAME_TOKENS for what this catches
+    and why it's a ranking hint, never a hard exclude, on its own."""
+    stem = filename.rsplit(".", 1)[0].lower()
+    if ARTWORK_CARD_CODE_RE.search(stem):
+        return True
+    return bool(set(_tokenize(stem)) & ARTWORK_REJECT_NAME_TOKENS)
+
+
 def normalize_vpet_portrait(raw_bytes):
     """Portrait counterpart of normalize_vpet_dot: same preprocessing (RGBA
     convert -> border-flood backdrop removal -> integer-block downsample),
@@ -1257,89 +1394,175 @@ def pick_portrait_source(candidates, max_candidates=PORTRAIT_MAX_CANDIDATES, tit
     return None, "unavailable", truncated, corrupted, download_failed
 
 
-def resolve_artwork_species(species_list):
-    """Resolve a species list to official artwork downloads (File:<title>.jpg).
-    Uses automatic title resolution: redirects=1 to follow Wikimon redirects,
-    then fallback to per-title file enumeration (prop=images) to find .jpg
-    candidates when the title-derived filename doesn't exist.
-    Returns records with {id, title, filename, info} for fetch_and_write."""
+def _artwork_matches_title(filename, title):
+    """True if `filename` (extension stripped, tokenized) names the same
+    species as `title`, loosely: either string's concatenated tokens is a
+    prefix of the other's. Looser than _matches_full_title/
+    _is_variant_filename (built for --portrait's vpet/map suffix
+    vocabulary, which assumes the filename only ever *appends* to the
+    title) because artwork filenames commonly *drop* a title's
+    parenthetical qualifier instead -- e.g. "Falcomon2006.jpg" for title
+    "Falcomon (2006 Anime Version)". Used as a hard filter (not a
+    tie-break like _matches_full_title): a page enumeration returns every
+    image linked from a species' page, which includes other species'
+    thumbnails and cross-promotional art -- confirmed directly, Mugen
+    Dramon's page-first .jpg under the old "just take jpg_candidates[0]"
+    logic was "All Digimon Are Here Art.jpg", a 9-character franchise
+    collage that doesn't name Mugendramon at all."""
+    stem = filename.rsplit(".", 1)[0]
+    f_tokens = "".join(_tokenize(stem))
+    t_tokens = "".join(_tokenize(title))
+    if not f_tokens or not t_tokens:
+        return False
+    return f_tokens.startswith(t_tokens) or t_tokens.startswith(f_tokens)
 
-    # Step 1: Try direct File:<title>.jpg for all species
+
+# Filename fragments identifying images linked from nearly every Wikimon
+# species page that are never a species' own artwork under any
+# circumstance: virtual-pet/overworld sprite sets (already served by
+# --portrait/the node dot), franchise/region/language icons, and site
+# chrome. Unlike ARTWORK_REJECT_NAME_TOKENS (a ranking hint), a match here
+# is a hard exclude -- these are never a usable substitute.
+ARTWORK_NON_ART_TOKENS = frozenset({
+    "vpet", "dot", "sprite", "map", "dst", "dsle",
+    "logo", "flag", "jap", "kor", "usa", "china", "cn",
+})
+
+
+def _artwork_candidates_for(title, page_files):
+    """Filter+rank one species' page_files (enumerate_species_files
+    output) down to --artwork candidates: .jpg/.png only, non-art
+    uploads and this module's denylist hard-excluded, must name the same
+    species as `title` (_artwork_matches_title). Ranked non-card-coded
+    before card-coded (ARTWORK_REJECT_NAME_TOKENS/ARTWORK_CARD_CODE_RE is
+    a ranking hint, not a filter here either -- see
+    _looks_like_bad_artwork_filename), capped at ARTWORK_MAX_CANDIDATES."""
+    candidates = []
+    for f in page_files:
+        ext = f.rsplit(".", 1)[-1].lower() if "." in f else ""
+        if ext not in ("jpg", "jpeg", "png"):
+            continue
+        stem = f.rsplit(".", 1)[0]
+        normalized_core = "".join(_tokenize(stem))
+        if any(pat in normalized_core for pat in ARTWORK_FILENAME_DENYLIST):
+            continue
+        if set(_tokenize(stem)) & ARTWORK_NON_ART_TOKENS:
+            continue
+        if not _artwork_matches_title(f, title):
+            continue
+        candidates.append(f)
+    candidates.sort(key=lambda f: (
+        _looks_like_bad_artwork_filename(f),
+        0 if set(_tokenize(f)) & ARTWORK_PREFERRED_NAME_TOKENS else 1,
+        f,
+    ))
+    return candidates[:ARTWORK_MAX_CANDIDATES]
+
+
+def resolve_artwork_species(species_list):
+    """Resolve a species list to ranked --artwork candidate lists.
+    Uses automatic title resolution: redirects=1 to follow Wikimon
+    redirects, then per-title file enumeration (prop=images) to find
+    every .jpg/.png candidate linked from the species' page when the
+    title-derived filename doesn't exist verbatim.
+
+    Returns records with {id, title, candidates} for
+    pick_artwork_source/fetch_and_write, where `candidates` is a list of
+    (filename, imageinfo) pairs, most-promising first (never just one
+    filename -- see pick_artwork_source for why a single pick isn't
+    enough to keep card scans out)."""
+
+    # Step 1: Try direct File:<title>.jpg and File:<title>.png for all
+    # species -- these two are attempted regardless of the enumeration
+    # below so a species with a clean, plainly-titled upload never pays
+    # for a full page enumeration.
+    direct_filenames = []
+    for spec in species_list:
+        title = spec["title"]
+        direct_filenames.append(f"{title}.jpg")
+        direct_filenames.append(f"{title}.png")
+    direct_resolved, _ = resolve_titles(direct_filenames)
+
     titles_for_enum = []
     records = []
-
     for spec in species_list:
         spec_id = spec["id"]
         title = spec["title"]
-        filename = f"{title}.jpg"
+        direct_candidates = []
+        for ext in ("jpg", "png"):
+            fn = f"{title}.{ext}"
+            info = direct_resolved.get(fn)
+            if info is not None:
+                direct_candidates.append((fn, info))
+        records.append({
+            "id": spec_id,
+            "title": title,
+            "candidates": direct_candidates,
+        })
+        titles_for_enum.append(spec)
 
-        filenames_to_resolve = [filename]
-        resolved, errors = resolve_titles(filenames_to_resolve)
+    # Step 2: enumerate every species' page files regardless of whether
+    # Step 1 already found a direct hit -- a direct File:<title>.jpg can
+    # still be the wrong pick (nothing stops a species' plainly-titled
+    # upload from being a corrupted/card-coded one too), and
+    # pick_artwork_source needs the full ranked list to fall back past a
+    # gate failure instead of declaring the species unavailable.
+    titles = [s["title"] for s in titles_for_enum]
+    files_for, enum_errors = enumerate_species_files(titles)
 
-        info = resolved.get(filename)
-        if info is not None:
-            records.append({
-                "id": spec_id,
-                "title": title,
-                "filename": filename,
-                "info": info
-            })
-        else:
-            # Mark for file enumeration
-            titles_for_enum.append(spec)
-
-    # Step 2: For failed titles, enumerate their Wikimon page files
-    if titles_for_enum:
-        titles = [s["title"] for s in titles_for_enum]
-        files_for, enum_errors = enumerate_species_files(titles)
-
-        for spec in titles_for_enum:
-            spec_id = spec["id"]
-            title = spec["title"]
-
-            if title in enum_errors:
-                records.append({
-                    "id": spec_id,
-                    "title": title,
-                    "filename": None,
-                    "info": None,
-                    "enum_error": enum_errors[title]
-                })
-                continue
-
-            # Find .jpg candidates (prefer exact <Title>.jpg match)
-            page_files = files_for.get(title, [])
-            jpg_candidates = [f for f in page_files if f.lower().endswith('.jpg')]
-
-            # Try exact match first
-            exact_match = f"{title}.jpg"
-            if exact_match in jpg_candidates:
-                best_candidate = exact_match
-            elif jpg_candidates:
-                # Fallback: first .jpg found
-                best_candidate = jpg_candidates[0]
-            else:
-                records.append({
-                    "id": spec_id,
-                    "title": title,
-                    "filename": None,
-                    "info": None
-                })
-                continue
-
-            # Resolve the chosen candidate
-            resolved, errors = resolve_titles([best_candidate])
-            info = resolved.get(best_candidate)
-
-            records.append({
-                "id": spec_id,
-                "title": title,
-                "filename": best_candidate,
-                "info": info,
-                "enum_error": errors.get(best_candidate) if info is None else None
-            })
+    by_id = {r["id"]: r for r in records}
+    for spec in titles_for_enum:
+        spec_id = spec["id"]
+        title = spec["title"]
+        record = by_id[spec_id]
+        if title in enum_errors:
+            record["enum_error"] = enum_errors[title]
+            continue
+        page_files = files_for.get(title, [])
+        enumerated = _artwork_candidates_for(title, page_files)
+        # Direct hits stay first (already resolved, no extra request);
+        # append enumerated candidates not already present.
+        seen = {fn for fn, _ in record["candidates"]}
+        new_names = [f for f in enumerated if f not in seen][:ARTWORK_MAX_CANDIDATES]
+        if new_names:
+            resolved, errors = resolve_titles(new_names)
+            for fn in new_names:
+                info = resolved.get(fn)
+                if info is not None:
+                    record["candidates"].append((fn, info))
 
     return records
+
+
+def pick_artwork_source(candidates):
+    """Pick the best --artwork source among one species' ranked
+    candidates (as returned by resolve_artwork_species, most-promising
+    first). Downloads+normalizes each in order and returns the first one
+    that clears ARTWORK_MAX_OPAQUE_RATIO (_looks_like_card_scan) --
+    mirrors pick_portrait_source's "rank once, try in order, fall
+    through on a per-candidate rejection" shape, except the rejection
+    test here is the opacity gate instead of native size.
+
+    Returns (winner, status, rejected) where status is "ok" (winner is
+    (filename, info, normalized_image)), or "unavailable" (every
+    candidate was either undownloadable or gate-rejected, winner is
+    None). `rejected` is the count of candidates that downloaded fine
+    but failed the opacity gate -- surfaced so a bulk run can report how
+    many species had *a* candidate that just wasn't a portrait, distinct
+    from species with no candidate at all."""
+    rejected = 0
+    for fn, info in candidates:
+        cache_path = os.path.join(CACHE_DIR, fn)
+        try:
+            raw = fetch_bytes(info["url"], cache_path)
+        except RuntimeError:
+            continue
+        normalized = normalize_artwork(raw)
+        if _looks_like_card_scan(normalized):
+            rejected += 1
+            continue
+        return (fn, info, normalized), "ok", rejected
+    return None, "unavailable", rejected
 
 def resolve_portrait_species(species_list, max_candidates=PORTRAIT_MAX_CANDIDATES):
     """Resolve each species' --portrait source by enumerating every file
@@ -1481,6 +1704,19 @@ def unavailable_reason(record):
 
 def print_dry_run(records):
     for r in records:
+        if "candidates" in r:
+            # --artwork records: the opacity gate (pick_artwork_source)
+            # only runs against a downloaded+normalized image, so a dry
+            # run can report candidate counts but not a final ok/reject
+            # verdict -- that's only known at fetch_and_write time.
+            if r.get("enum_error"):
+                print(f"[unavailable] {r['id']} ({r['title']}): network fault enumerating its Wikimon page ({r['enum_error']})")
+            elif not r["candidates"]:
+                print(f"[unavailable] {r['id']} ({r['title']}): no jpg/png artwork candidate found on its Wikimon page")
+            else:
+                names = ", ".join(fn for fn, _ in r["candidates"])
+                print(f"[candidates] {r['id']} ({r['title']}): {len(r['candidates'])} candidate(s) -- {names}")
+            continue
         if r.get("no_gain"):
             print(f"[no-gain] {r['id']} ({r['title']}): every candidate already fits within {CANVAS}px")
         elif r["info"] is None:
@@ -1501,7 +1737,41 @@ def fetch_and_write(records, force, portrait=False, artwork=False, truncated=0, 
     largest_id = None
     largest_size = None
 
+    rejected_by_gate = 0
     for r in records:
+        if artwork:
+            out_path = os.path.join(NODES_DIR, f"artwork-{r['id']}-0.png")
+            if os.path.exists(out_path) and not force:
+                skip += 1
+                print(f"[skip] {r['id']}: {out_path} already exists (use --force to overwrite)")
+                continue
+            candidates = r.get("candidates", [])
+            if r.get("enum_error") and not candidates:
+                unavailable += 1
+                network_unavailable += 1
+                print(f"[unavailable] {r['id']} ({r['title']}): network fault enumerating its Wikimon page ({r['enum_error']})")
+                continue
+            winner, status, gate_rejected = pick_artwork_source(candidates)
+            rejected_by_gate += gate_rejected
+            if status != "ok":
+                unavailable += 1
+                if candidates:
+                    print(
+                        f"[unavailable] {r['id']} ({r['title']}): {len(candidates)} candidate(s) tried, "
+                        f"{gate_rejected} rejected by the opacity gate "
+                        f"(ARTWORK_MAX_OPAQUE_RATIO={ARTWORK_MAX_OPAQUE_RATIO}) -- falls back to pixel portrait"
+                    )
+                else:
+                    print(f"[unavailable] {r['id']} ({r['title']}): no jpg/png artwork candidate found on its Wikimon page")
+                continue
+            fn, info, dot = winner
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            dot.save(out_path)
+            ok += 1
+            note = f" (rejected {gate_rejected} card-scan-shaped candidate(s) first)" if gate_rejected else ""
+            print(f"[ok] {r['id']}: {fn} ({info['width']}x{info['height']}) -> {out_path}{note}")
+            continue
+
         if r.get("no_gain"):
             nogain += 1
             print(f"[no-gain] {r['id']} ({r['title']}): every candidate already fits within {CANVAS}px, skipping portrait")
@@ -1513,9 +1783,7 @@ def fetch_and_write(records, force, portrait=False, artwork=False, truncated=0, 
             print(f"[unavailable] {r['id']} ({r['title']}): {unavailable_reason(r)}")
             continue
 
-        if artwork:
-            out_path = os.path.join(NODES_DIR, f"artwork-{r['id']}-0.png")
-        elif portrait:
+        if portrait:
             out_path = os.path.join(NODES_DIR, f"portrait-{r['id']}-0.png")
         else:
             out_path = os.path.join(NODES_DIR, f"{r['id']}-0.png")
@@ -1527,9 +1795,7 @@ def fetch_and_write(records, force, portrait=False, artwork=False, truncated=0, 
         cache_path = os.path.join(CACHE_DIR, r["filename"])
         raw = fetch_bytes(r["info"]["url"], cache_path)
 
-        if artwork:
-            dot = normalize_artwork(raw)
-        elif portrait:
+        if portrait:
             dot = normalize_vpet_portrait(raw)
             if dot is None:
                 nogain += 1
@@ -1561,6 +1827,8 @@ def fetch_and_write(records, force, portrait=False, artwork=False, truncated=0, 
             f" no-gain={nogain} truncated={truncated} corrupted={corrupted} "
             f"variant-rejected={variant_rejected} network-unavailable={network_unavailable}"
         )
+    if artwork:
+        summary += f" candidates-rejected-by-opacity-gate={rejected_by_gate}"
     print(summary)
 
     if portrait and largest_id is not None:
@@ -1699,6 +1967,8 @@ def main():
                 print(f"off-title variant tokens: {breakdown}")
             network_unavailable = sum(1 for r in records if r.get("enum_error") or r.get("download_failures"))
             print(f"unavailable due to network error (not confirmed absent): {network_unavailable}")
+        if args.artwork:
+            sys.exit(1 if any(not r.get("candidates") for r in records) else 0)
         sys.exit(1 if any(r["info"] is None and not r.get("no_gain") for r in records) else 0)
 
     unavailable = fetch_and_write(
