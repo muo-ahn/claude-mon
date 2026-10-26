@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const { findMissingDots } = require('../scripts/materialize-sprites');
+const { findNodesWithoutDot } = require('../scripts/audit-node-dots');
 
 test('sprites/nodes/ 의 도트가 필요한 모든 팩에 복사되어 있다', () => {
   const missing = findMissingDots();
@@ -14,5 +15,14 @@ test('sprites/nodes/ 의 도트가 필요한 모든 팩에 복사되어 있다',
     missing,
     [],
     `node scripts/materialize-sprites.js --write 를 실행하라. 누락 ${missing.length}장`
+  );
+});
+
+test('그래프의 모든 노드에 sprites/nodes/<sprite>-0.png 도트가 있다', () => {
+  const missing = findNodesWithoutDot();
+  assert.deepStrictEqual(
+    missing,
+    [],
+    `python3 scripts/fetch-wikimon-dots.py 로 도트를 받아라. 누락 ${missing.length}종: ${missing.join(', ')}`
   );
 });

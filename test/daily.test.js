@@ -920,6 +920,38 @@ test('selectRoute is stable for a date and moves between dates', () => {
   assert.ok(ids.size > 1, `adult stage never varied across 20 days: ${[...ids]}`);
 });
 
+// Writes a dot file for every fixture sprite except those in `skip`.
+function writeNodeDots(t, skip) {
+  const nodesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-nodes-'));
+  t.after(() => fs.rmSync(nodesDir, { recursive: true, force: true }));
+  for (const stageNodes of Object.values(TREE)) {
+    for (const node of stageNodes) {
+      if (!skip.includes(node.sprite)) fs.writeFileSync(path.join(nodesDir, `${node.sprite}-0.png`), 'png');
+    }
+  }
+  return nodesDir;
+}
+
+test('selectRoute skips a candidate whose dot file is missing', (t) => {
+  const graph = { ...treeToGraph(TREE), nodesDir: writeNodeDots(t, ['adult-dead']) };
+  for (let d = 1; d <= 40; d++) {
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    assert.notStrictEqual(route.adult.id, 'deadA', `day ${d} picked a node without a dot`);
+  }
+});
+
+test('selectRoute keeps every candidate when none has a dot file', (t) => {
+  const skip = Object.values(TREE).flat().map((n) => n.sprite);
+  const graph = { ...treeToGraph(TREE), nodesDir: writeNodeDots(t, skip) };
+  const ids = new Set();
+  for (let d = 1; d <= 40; d++) {
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    assert.strictEqual(route.superultimate.id, 'top');
+    ids.add(route.adult.id);
+  }
+  assert.ok(ids.has('deadA') && ids.has('spineA'), `fallback lost candidates: ${[...ids]}`);
+});
+
 test('selectRoute always reaches the top stage, even through a dead end', () => {
   const graph = treeToGraph(TREE);
   for (let d = 1; d <= 40; d++) {
