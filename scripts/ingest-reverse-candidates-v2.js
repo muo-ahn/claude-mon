@@ -5,6 +5,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { auditNodeDots } = require('./audit-node-dots');
+
 const ROOT = path.join(__dirname, '..');
 const GRAPH_PATH = path.join(ROOT, 'evolution-graph.json');
 const CANDIDATES_PATH = path.join(ROOT, 'docs', 'reverse-index-candidates.json');
@@ -157,6 +159,9 @@ function main() {
   saveGraph(graph);
   console.log('');
   console.log('저장:', GRAPH_PATH);
+
+  // 편입한 종의 도트가 없으면 비정상 종료해 수집 누락을 놓치지 않는다.
+  if (!auditNodeDots()) process.exitCode = 1;
 }
 
 main();
