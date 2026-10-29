@@ -2764,7 +2764,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         applyNotifyMode()
         recordPetMessage(request)
         if petListVisible { refreshPetList() }
-        guard let bubble = petBubbleView else { return }
+        guard petBubbleView != nil else { return }
 
         // 대기 중인 critical("입력 대기") 은 뒤늦게 온 일반 알림이 덮어쓰지 못한다. 일반은
         // 개수만 올리고, 타이머도 건드리지 않는다 (critical 이 8초 타이머를 물려받으면 안 된다).
@@ -2776,9 +2776,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 그 외에는 최신만 보이고 개수만 센다.
         petBubbleCount = (petBubbleRequest == nil) ? 1 : petBubbleCount + 1
+        presentPetBubble(request, sawAwaiting: false)
+    }
+
+    // 말풍선을 실제로 띄우고 수명 타이머를 건다. showPetBubble(새 알림)과
+    // showNextAwaitingPetBubble(해제 뒤 재표시)이 공유한다 — 기록(recordPetMessage)은 하지 않는다.
+    func presentPetBubble(_ request: NotifyRequest, sawAwaiting: Bool) {
+        guard let bubble = petBubbleView else { return }
         petBubbleRequest = request
         petBubbleShownAt = Date()
-        petBubbleSawAwaiting = false
+        petBubbleSawAwaiting = sawAwaiting
         bubble.isHidden = false
         refreshPetBubbleText(request)
 
@@ -2826,12 +2833,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 || ($0.path as NSString).lastPathComponent == sessionId + ".json"
         }
         guard let json = entry?.json else { return }
-        if let ended = json["endedAt"] as? String, !ended.isEmpty { hidePetBubble(); return }
+        if let ended = json["endedAt"] as? String, !ended.isEmpty {
+            resolvePetBubble(resolvedSessionId: sessionId)
+            return
+        }
         if let awaiting = json["awaitingUserSince"] as? String, !awaiting.isEmpty {
             petBubbleSawAwaiting = true
         } else if petBubbleSawAwaiting {
-            hidePetBubble()
+            resolvePetBubble(resolvedSessionId: sessionId)
         }
+    }
+
+    // 해제된 critical 말풍선을 내리고, 아직 입력 대기 중인 다른 세션이 있으면 그 요청을 다시 띄운다.
+    // (A 의 "입력 대기" 가 B 의 새 critical 에 덮인 채 B 만 해제되면 A 를 놓치는 문제.)
+    // 재표시 말풍선이 해제돼도 같은 경로로 다음 후보를 찾는다 — 해제된 세션은 대기 조건에서
+    // 빠지므로 후보가 매번 줄어 무한 루프는 없다.
+    func resolvePetBubble(resolvedSessionId: String) {
+        hidePetBubble()
+        showNextAwaitingPetBubble(excluding: resolvedSessionId)
+    }
+
+    // 세션 JSON 에 awaitingUserSince 가 있고 endedAt 이 없는 세션 중, critical 요청이 기록된
+    // 가장 최근 세션을 다시 띄운다. 이미 awaiting 을 관찰한 상태이므로 sawAwaiting 은 true 로 시작해
+    // 그 세션이 해제되면 곧바로 내려간다.
+    func showNextAwaitingPetBubble(excluding excluded: String) {
+        var best: (request: NotifyRequest, at: Date)?
+        for history in petHistory.values {
+            guard let sessionId = history.sessionId, sessionId != excluded,
+                  isSessionAwaitingInput(sessionId: sessionId),
+                  let request = latestCriticalRequest(history) else { continue }
+            if best == nil || history.lastAt > best!.at { best = (request, history.lastAt) }
+        }
+        guard let next = best?.request else { return }
+        petBubbleCount = 1
+        presentPetBubble(next, sawAwaiting: true)
+        layoutPetPanel()
+    }
+
+    func isSessionAwaitingInput(sessionId: String) -> Bool {
+        let entry = lastSessions.first {
+            ($0.json["sessionId"] as? String) == sessionId
+                || ($0.path as NSString).lastPathComponent == sessionId + ".json"
+        }
+        guard let json = entry?.json else { return false }
+        if let ended = json["endedAt"] as? String, !ended.isEmpty { return false }
+        guard let awaiting = json["awaitingUserSince"] as? String else { return false }
+        return !awaiting.isEmpty
+    }
+
+    // 세션 기록에서 다시 띄울 critical 요청. 마지막 요청이 critical 이면 그대로(포커스 정보 보존),
+    // 아니면 가장 최근 critical 메시지 본문으로 마지막 요청을 복원한다.
+    func latestCriticalRequest(_ history: PetSessionHistory) -> NotifyRequest? {
+        let last = history.request
+        if last.urgency == "critical" { return last }
+        guard let message = history.messages.first(where: { $0.urgency == "critical" }) else { return nil }
+        return NotifyRequest(title: history.title, body: message.body, subtitle: last.subtitle,
+                             urgency: "critical", threadId: last.threadId, sessionId: last.sessionId,
+                             tmuxPane: last.tmuxPane, tmuxSocket: last.tmuxSocket,
+                             kittyWindowId: last.kittyWindowId, kittyListenOn: last.kittyListenOn)
     }
 
     // MARK: - 호버 세션 목록
