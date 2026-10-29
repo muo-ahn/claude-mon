@@ -55,6 +55,8 @@ node scripts/materialize-sprites.js --write
 }
 ```
 
+> 주의: 훅 command의 `node`는 절대 경로(예: `$(command -v node)`가 출력한 경로)로 적는다. `kitty @ launch`로 띄운 세션은 kitty GUI PATH(`/Applications/kitty.app/Contents/MacOS:/usr/bin:/bin:/usr/sbin:/sbin`)를 상속해 node가 없어 훅이 조용히 실패한다.
+
 - `PostToolUse`만 등록해도 진화는 동작한다. `UserPromptSubmit`/`Stop`/`SessionStart`는 [working 플래그](#working-플래그)(작업 중/대기 중 표시)를 정확히 하기 위한 것으로 선택 사항이다.
 - 실패한 도구 호출도 세고 싶으면 `PostToolUseFailure`에 `hook.js tool-failure` 훅을 등록한다(`PostToolUse`가 아니다 — Claude Code는 도구 호출 성공에만 `PostToolUse`를 발화하고, 실패는 별도 이벤트 `PostToolUseFailure`로 보낸다. `PostToolUse`에 걸면 성공할 때마다 실패로 집계된다). 블랙 계열 진화(`failureRatioPct` 게이트)가 이 값에 의존하므로 위 설치 스니펫에 기본 포함했다.
 - 새 세션부터 적용된다. 등록 후 Claude Code 세션을 새로 열면 statusline에 마스코트가 나타난다.
@@ -147,6 +149,8 @@ launchctl bootout gui/$(id -u)/com.muo.claudemon-menubar        # 해제
   }
 }
 ```
+
+> 주의: 훅 command의 `node`는 절대 경로(예: `$(command -v node)`가 출력한 경로)로 적는다. `kitty @ launch`로 띄운 세션은 kitty GUI PATH(`/Applications/kitty.app/Contents/MacOS:/usr/bin:/bin:/usr/sbin:/sbin`)를 상속해 node가 없어 훅이 조용히 실패한다.
 
 등록하면 `Notification`(권한 대기/입력 유휴 시 발화)은 `state.awaitingUserSince`를, `SessionEnd`는 `state.endedAt`을 기록한다 — 자세한 동작은 [대기/종료 기록](#대기종료-기록-awaitingusersinceendedat) 참고.
 
