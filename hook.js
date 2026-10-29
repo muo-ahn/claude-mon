@@ -11,6 +11,9 @@
 //   "Notification" (permission_prompt|agent_needs_input): [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js notify-awaiting" }] }]
 //   "Notification" (agent_completed): [{ "hooks": [{ "type": "command", "command": "node /path/to/hook.js notify-agent-done" }] }]
 //
+// Use an absolute node path in the commands (e.g. $(command -v node)): sessions started
+// by `kitty @ launch` inherit kitty's GUI PATH, which has no node, so the hook fails silently.
+//
 // Claude Code hooks pass a JSON payload on stdin (session_id, cwd, tool_name, ...).
 // When session_id is present, state is tracked per-session under
 // ~/.claude/claudemon/sessions/<session_id>.json so multiple concurrent
@@ -46,10 +49,12 @@ function readStdinPayload() {
   }
 }
 
-// Detects sub-agent context using the same fields delegation_guard.py checks.
+// Detects sub-agent context via agent_id / parent_session_id / subagent_type.
+// agent_type is deliberately excluded: it only names the agent definition, and the
+// main thread of `claude --agent <name>` carries it too (without agent_id).
 // Banners from sub-agents are noise - only host notifications matter.
 function isSubagentContext(payload) {
-  return !!(payload.agent_id || payload.agent_type || payload.subagent_type || payload.parent_session_id);
+  return !!(payload.agent_id || payload.subagent_type || payload.parent_session_id);
 }
 
 // Checks if a completion banner was fired within the last 5 seconds.
