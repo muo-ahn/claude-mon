@@ -36,7 +36,10 @@ const {
   monHistoryFilePath,
   readMonHistory,
   recordMonHistory,
-  MON_HISTORY_MAX
+  MON_HISTORY_MAX,
+  linksWithDots,
+  readNodeDenylist,
+  defaultDenylistPath
 } = require('../lib/daily');
 
 // Aliased: this file also declares its own local `TREE` pack-tree fixture
@@ -2527,4 +2530,157 @@ test('computeDailyTokens combines Claude and Codex output and turns', (t) => {
   assert.equal(result.outputTokens, 150);
   assert.deepEqual(result.sessionTokens, { [SESSION]: 100, 'codex-abc': 50 });
   assert.equal(result.dailyUserTurns, 2);
+});
+
+// --- 제외 목록(sprites/nodes-denylist.json) -------------------------------
+// 제외 노드는 추첨 후보(linksWithDots, selectRoute)와 덱(listValidPacks,
+// listRotationPacks)에서 빠진다. 도트 파일은 건드리지 않는다.
+
+function denylistFile(t, content) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-denylist-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'nodes-denylist.json');
+  if (content !== undefined) fs.writeFileSync(file, content);
+  return file;
+}
+
+test('readNodeDenylist 는 파일이 없으면 빈 Set 을 돌려준다', (t) => {
+  const file = path.join(denylistFile(t), 'missing.json');
+  const result = readNodeDenylist(file);
+  assert.ok(result instanceof Set);
+  assert.strictEqual(result.size, 0);
+});
+
+test('readNodeDenylist 는 깨진 JSON, null, version 불일치, 배열 nodes 를 모두 빈 Set 으로 본다', (t) => {
+  const cases = [
+    '{ not json',
+    'null',
+    JSON.stringify({ version: 2, nodes: { kid: '깨짐' } }),
+    JSON.stringify({ version: 1, nodes: ['kid'] }),
+    JSON.stringify({ nodes: { kid: '깨짐' } })
+  ];
+  for (const content of cases) {
+    assert.strictEqual(readNodeDenylist(denylistFile(t, content)).size, 0, `입력 ${content}`);
+  }
+});
+
+test('readNodeDenylist 는 사유가 빈 문자열이거나 문자열이 아닌 항목만 뺀다', (t) => {
+  const content = JSON.stringify({
+    version: 1,
+    nodes: { rosemon_burstmode: '도트 깨짐', kid: '', adult: 5, spine: '   ', perfect: '잘림' }
+  });
+  const result = readNodeDenylist(denylistFile(t, content));
+  assert.deepStrictEqual([...result].sort(), ['perfect', 'rosemon_burstmode']);
+});
+
+test('readNodeDenylist 기본 경로는 저장소의 sprites/nodes-denylist.json 이고 실제 파일을 읽는다', () => {
+  assert.strictEqual(defaultDenylistPath(), path.join(__dirname, '..', 'sprites', 'nodes-denylist.json'));
+  assert.ok(readNodeDenylist() instanceof Set);
+});
+
+// 링크 하나: { node, when } 모양. 도트 파일 존재 여부는 nodesDir 가 정한다.
+function linkTo(id, stage = 'child') {
+  return { node: { id, sprite: id, stage, name: id, evolvesFrom: [] }, when: null };
+}
+
+function dotsDir(t, ids) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-dots-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const id of ids) fs.writeFileSync(path.join(dir, `${id}-0.png`), 'png');
+  return dir;
+}
+
+test('linksWithDots 는 제외 노드 링크를 거른다', (t) => {
+  const nodesDir = dotsDir(t, ['kid', 'spineA']);
+  const result = linksWithDots([linkTo('kid'), linkTo('spineA')], nodesDir, new Set(['kid']));
+  assert.deepStrictEqual(result.map((e) => e.node.id), ['spineA']);
+});
+
+test('linksWithDots 는 제외 목록이 비면 입력과 같은 결과를 낸다', (t) => {
+  const nodesDir = dotsDir(t, ['kid']);
+  // spineA has no dot here, so the dot filter keeps only kid. An empty
+  // denylist must leave that result unchanged, not bring spineA back.
+  const links = [linkTo('kid'), linkTo('spineA')];
+  assert.deepStrictEqual(linksWithDots(links, nodesDir, new Set()), linksWithDots(links, nodesDir));
+  assert.deepStrictEqual(linksWithDots(links, nodesDir, new Set()).map((e) => e.node.id), ['kid']);
+});
+
+test('linksWithDots 의 도트 없음 폴백은 제외 노드를 되살리지 않는다', (t) => {
+  // kid 는 도트가 있지만 제외됐고, spineA 는 도트가 없다. 폴백이 원본 목록을
+  // 돌려주면 kid 가 되살아난다. 제외를 먼저 적용하므로 spineA 만 남아야 한다.
+  const nodesDir = dotsDir(t, ['kid']);
+  const result = linksWithDots([linkTo('kid'), linkTo('spineA')], nodesDir, new Set(['kid']));
+  assert.deepStrictEqual(result.map((e) => e.node.id), ['spineA']);
+});
+
+test('linksWithDots 는 자식이 전부 제외되면 빈 목록을 돌려준다(부활 없음)', (t) => {
+  const nodesDir = dotsDir(t, ['kid', 'spineA']);
+  assert.deepStrictEqual(linksWithDots([linkTo('kid')], nodesDir, new Set(['kid'])), []);
+});
+
+test('selectRoute 는 graph.denylist 의 노드를 40일 동안 고르지 않고 형제가 남으면 그쪽으로 간다', (t) => {
+  const graph = { ...treeToGraph(TREE), nodesDir: writeNodeDots(t, []), denylist: new Set(['spineA', 'darkA']) };
+  for (let d = 1; d <= 40; d++) {
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    assert.strictEqual(route.adult.id, 'deadA', `day ${d} picked ${route.adult.id}`);
+  }
+});
+
+test('selectRoute 는 자식이 전부 제외되면 제외 노드를 경로에 넣지 않는다', (t) => {
+  const denied = new Set(['spineA', 'darkA', 'deadA']);
+  const graph = { ...treeToGraph(TREE), nodesDir: writeNodeDots(t, []), denylist: denied };
+  for (let d = 1; d <= 40; d++) {
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    for (const stage of Object.keys(route)) {
+      assert.ok(!denied.has(route[stage].id), `day ${d} ${stage} 에 제외 노드 ${route[stage].id}`);
+    }
+  }
+});
+
+test('selectRoute 는 부모가 전부 제외돼도 예외 없이 끝난다', () => {
+  const graph = { ...treeToGraph(TREE), denylist: new Set(['baby1']) };
+  const { route } = selectRoute('2026-09-01', 'kid', graph, {});
+  assert.ok(!Object.values(route).some((n) => n.id === 'baby1'));
+});
+
+// 자식이 있는 부모 중 자식이 전부 제외된 부모 id 목록. 빈 배열이어야 정상이다.
+function parentsWithAllChildrenDenied(graph, denylist) {
+  const bad = [];
+  for (const [parentId, links] of graph.childrenOf.entries()) {
+    if (links.length > 0 && links.every((e) => denylist.has(e.node.id))) bad.push(parentId);
+  }
+  return bad;
+}
+
+test('실제 그래프와 실제 제외 목록에서 자식이 전부 제외된 부모는 없다', () => {
+  const graph = readGraph(graphFilePath());
+  assert.deepStrictEqual(parentsWithAllChildrenDenied(graph, readNodeDenylist()), []);
+});
+
+test('자식이 전부 제외된 부모는 검사가 잡는다(픽스처)', () => {
+  const graph = treeToGraph(TREE);
+  assert.deepStrictEqual(parentsWithAllChildrenDenied(graph, new Set(['spineA', 'darkA', 'deadA'])), ['kid']);
+  assert.deepStrictEqual(parentsWithAllChildrenDenied(graph, new Set(['spineA', 'darkA'])), []);
+});
+
+test('listValidPacks 는 제외 노드의 팩을 건너뛴다', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  writePack(packsDir, 'agumon', FULL);
+  writePack(packsDir, 'impmon', FULL);
+  writePack(packsDir, 'veemon', FULL);
+  writeSharedEgg(sharedDir);
+  assert.deepStrictEqual(listValidPacks(packsDir, sharedDir, new Set(['impmon'])), ['agumon', 'veemon']);
+  assert.deepStrictEqual(listValidPacks(packsDir, sharedDir, new Set()), ['agumon', 'impmon', 'veemon']);
+});
+
+test('listRotationPacks 는 제외 노드의 팩을 돌려주지 않는다', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  writePack(packsDir, 'legacy-full', FULL);
+  writePack(packsDir, 'legacy-other', FULL);
+  writeSharedEgg(sharedDir);
+  assert.deepStrictEqual(listRotationPacks(packsDir, sharedDir, new Set(['legacy-full'])), ['legacy-other']);
+
+  const real = listRotationPacks(defaultPacksDir(), undefined, new Set(['gaomon']));
+  assert.ok(!real.includes('gaomon'), `gaomon 이 제외됐는데 남았다: ${real}`);
+  assert.ok(real.includes('falcomon'), `falcomon 이 빠졌다: ${real}`);
 });
