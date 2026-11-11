@@ -325,9 +325,11 @@ node daily-tokens.js
 
 ## 스프라이트 팩 (`sprites/packs/`)
 
-**도트 이미지가 레포에 들어있다.** 커밋되는 것은 정본뿐이다 — 전역 그래프 노드 도트 `sprites/nodes/`(750장), 공용 알 `sprites/shared/`, 그리고 `sprites/nodes/`로 재생성할 수 없는 팩 전용 도트(`pack.json`의 레거시 `tree`가 쓰는 스테이지 프레임, `idle-*`/`limit80-*`/`limit95-*` 오버라이드, `portrait-*` 컷인).
+**도트 이미지가 레포에 들어있다.** 커밋되는 것은 정본뿐이다 — 전역 그래프 노드 도트 `sprites/nodes/`(1024장: 노드 프레임 711장과 `portrait-*` 313장), 공용 알 `sprites/shared/`, 그리고 `sprites/nodes/`로 재생성할 수 없는 팩 전용 도트(`pack.json`의 레거시 `tree`가 쓰는 스테이지 프레임, `idle-*`/`limit80-*`/`limit95-*` 오버라이드, `portrait-*` 컷인).
 
 `sprites/packs/` 안의 나머지 `<노드 id>-N.png`는 `scripts/materialize-sprites.js`가 `sprites/nodes/`에서 복사한 산출물이라 커밋하지 않는다(`.gitignore`가 `*.png`/`*.gif`를 차단하고 `sprites/nodes/`·`sprites/shared/`만 예외로 뺀다). 노드 id와 팩 역할 이름이 접두를 공유하기 때문에(예: 노드 id `ultimate-chaosdukemon`) glob으로는 둘을 가를 수 없다 — 그래서 **팩 전용 도트를 새로 추가할 때는 `git add -f`가 필요하다.** 이미 추적 중인 파일은 영향을 받지 않는다.
+
+성장기 덱에 child 를 추가할 때는 `node scripts/audit-deck-candidates.js`로 후보(도트, 최상위 도달, 제외 목록, baby 부모)와 신규 목록을 보고, `node scripts/add-deck-packs.js --write`로 신규 팩(`idle-0/1.png`, `pack.json`)을 만든 뒤 `node scripts/materialize-sprites.js --write`를 실행한다. 만든 `idle-*.png`는 `git add -f`가 필요하다.
 
 ROM 립 원본 시트(`sprites/sheets/`)도 커밋하지 않는다. 자작 픽셀아트나 별도 라이선스 에셋으로 팩을 갈아끼우고 싶다면 아래 규격만 맞추면 된다.
 
@@ -382,7 +384,7 @@ ROM 립 원본 시트(`sprites/sheets/`)도 커밋하지 않는다. 자작 픽�
 
 디지몬은 같은 종족이라도 성장 배경에 따라 다른 형태로 진화한다. claudemon도 하루 단위로 **루트**를 뽑는다 — 오늘의 마스코트는 (팩, 루트) 쌍이다.
 
-**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(314개, 2026-08-20 Wikimon `Digimon Story` 오버월드 립 235종 편입 이후)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
+**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(325개, 2026-08-20 Wikimon `Digimon Story` 오버월드 립 235종 편입 이후)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
 
 **`evolvesFrom`은 부모별로 조건을 갖는다.**
 
