@@ -39,7 +39,16 @@ const {
   MON_HISTORY_MAX,
   linksWithDots,
   readNodeDenylist,
-  defaultDenylistPath
+  defaultDenylistPath,
+  dailyFilePath,
+  dateKSTString,
+  tokenHistoryFilePath,
+  readTokenHistory,
+  recordTokenHistory,
+  topTierThreshold,
+  nearestRank,
+  TOKEN_HISTORY_MAX,
+  TOP_TIER_FLOOR
 } = require('../lib/daily');
 
 // Aliased: this file also declares its own local `TREE` pack-tree fixture
@@ -2683,4 +2692,205 @@ test('listRotationPacks 는 제외 노드의 팩을 돌려주지 않는다', (t)
   const real = listRotationPacks(defaultPacksDir(), undefined, new Set(['gaomon']));
   assert.ok(!real.includes('gaomon'), `gaomon 이 제외됐는데 남았다: ${real}`);
   assert.ok(real.includes('falcomon'), `falcomon 이 빠졌다: ${real}`);
+});
+
+// --- C3: per-day token history and the relative superultimate floor -----
+//
+// token-history.json keeps one dailyOutputTokens (Claude + Codex) per KST
+// day. topTierThreshold reads it, leaves today out, and returns the
+// nearest-rank P90 of the 14 most recent recorded days, never below 2M.
+// Every test here writes only under a temp CLAUDEMON_DIR (makeRoot).
+
+const TODAY_KST = '2026-07-29'; // dateAt(0)
+
+// Distinct January 2026 dates for fixtures, oldest first.
+function dayKey(i) {
+  return new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10);
+}
+
+function daysOf(count, outputTokens) {
+  const entries = [];
+  for (let i = 0; i < count; i++) entries.push({ date: dayKey(i), outputTokens });
+  return entries;
+}
+
+function writeTokenHistory(claudemonDir, entries) {
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), JSON.stringify({ version: 1, entries }));
+}
+
+test('topTierThreshold is the 2M floor with no history', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(TOP_TIER_FLOOR, 2000000);
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold stays at the floor with fewer than 14 past days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeTokenHistory(claudemonDir, daysOf(13, 9000000));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold is the nearest-rank P90 of 14 past days when that exceeds the floor', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const entries = [];
+  for (let i = 0; i < 14; i++) entries.push({ date: dayKey(i), outputTokens: (i + 1) * 1000000 });
+  // Newest first on disk: the date order, not the file order, decides the window.
+  writeTokenHistory(claudemonDir, entries.reverse());
+  // Sorted 1M..14M: ceil(0.9 * 14) = 13th value.
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 13000000);
+});
+
+test('topTierThreshold returns the floor when the 14-day P90 is at or below 2M', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeTokenHistory(claudemonDir, daysOf(14, 1500000));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+  writeTokenHistory(claudemonDir, daysOf(14, 2000000));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold leaves today out of the P90', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeTokenHistory(claudemonDir, [...daysOf(13, 3000000), { date: TODAY_KST, outputTokens: 9000000 }]);
+  // Counting today would give 14 days with P90 3M. Left out, only 13 remain.
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold uses only the 14 most recent recorded days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const entries = [];
+  for (let i = 0; i < 6; i++) entries.push({ date: dayKey(i), outputTokens: 1000000 });
+  for (let i = 6; i < 20; i++) entries.push({ date: dayKey(i), outputTokens: (i - 2) * 1000000 });
+  writeTokenHistory(claudemonDir, entries);
+  // Recent 14 are 4M..17M: index 12 is 16M. All 20 would give 10M.
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 16000000);
+});
+
+test('topTierThreshold reads a missing, corrupt, or wrong-version history as the floor', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(topTierThreshold(path.join(claudemonDir, 'absent'), TODAY_KST), 2000000);
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), '{not json');
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), JSON.stringify({ version: 2, entries: daysOf(14, 9000000) }));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('readTokenHistory drops entries with a bad date or outputTokens', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), JSON.stringify({
+    version: 1,
+    entries: [
+      { date: '2026-07-01', outputTokens: 5 },
+      { date: 7, outputTokens: 5 },
+      { date: '2026-07-02', outputTokens: -1 },
+      { date: '2026-07-03', outputTokens: '9' },
+      { date: '2026-07-04', outputTokens: null },
+      null,
+      { date: '2026-07-05', outputTokens: 0 }
+    ]
+  }));
+  assert.deepStrictEqual(readTokenHistory(claudemonDir).entries, [
+    { date: '2026-07-01', outputTokens: 5 },
+    { date: '2026-07-05', outputTokens: 0 }
+  ]);
+});
+
+test('nearestRank picks the value at ceil(p * n) from a sorted list', () => {
+  const fourteen = Array.from({ length: 14 }, (_, i) => i + 1);
+  assert.strictEqual(nearestRank(fourteen, 0.9), 13);
+  assert.strictEqual(nearestRank([7], 0.9), 7);
+  assert.strictEqual(nearestRank([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.9), 9);
+});
+
+test('recordTokenHistory appends a new date', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordTokenHistory(claudemonDir, '2026-11-10', 100);
+  recordTokenHistory(claudemonDir, '2026-11-11', 200);
+  assert.deepStrictEqual(readTokenHistory(claudemonDir).entries, [
+    { date: '2026-11-10', outputTokens: 100 },
+    { date: '2026-11-11', outputTokens: 200 }
+  ]);
+  assert.strictEqual(JSON.parse(fs.readFileSync(tokenHistoryFilePath(claudemonDir), 'utf8')).version, 1);
+});
+
+test('recordTokenHistory overwrites the same day with the latest value', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordTokenHistory(claudemonDir, '2026-11-11', 100);
+  recordTokenHistory(claudemonDir, '2026-11-11', 250);
+  assert.deepStrictEqual(readTokenHistory(claudemonDir).entries, [{ date: '2026-11-11', outputTokens: 250 }]);
+});
+
+test('recordTokenHistory does not rewrite the file when date and value both repeat', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordTokenHistory(claudemonDir, '2026-11-11', 100);
+  const file = tokenHistoryFilePath(claudemonDir);
+  fs.utimesSync(file, new Date(0), new Date(0));
+  recordTokenHistory(claudemonDir, '2026-11-11', 100);
+  assert.strictEqual(fs.statSync(file).mtimeMs, 0, 'file was rewritten despite an unchanged (date, value) pair');
+});
+
+test('recordTokenHistory keeps only the newest TOKEN_HISTORY_MAX days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(TOKEN_HISTORY_MAX, 30);
+  for (let i = 0; i <= TOKEN_HISTORY_MAX; i++) recordTokenHistory(claudemonDir, dayKey(i), i + 1);
+  const { entries } = readTokenHistory(claudemonDir);
+  assert.strictEqual(entries.length, TOKEN_HISTORY_MAX);
+  assert.strictEqual(entries[0].date, dayKey(1));
+  assert.strictEqual(entries[entries.length - 1].outputTokens, TOKEN_HISTORY_MAX + 1);
+});
+
+test('computeDailyTokens keeps one token-history row per day across polls', (t) => {
+  const dirs = setupDaily(t);
+  const file = writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_p', 300000)]);
+  computeDailyTokens(dateAt(0), dirs);
+  computeDailyTokens(dateAt(0), dirs);
+  fs.appendFileSync(file, `${assistantLine('msg_q', 200000)}\n`);
+  computeDailyTokens(dateAt(0), dirs);
+
+  assert.deepStrictEqual(readTokenHistory(dirs.claudemonDir).entries, [
+    { date: dateKSTString(dateAt(0)), outputTokens: 500000 }
+  ]);
+});
+
+test('a failing token-history write does not stop daily.json from being written', (t) => {
+  const dirs = setupDaily(t);
+  // A directory sitting where the history file goes makes its write throw.
+  fs.mkdirSync(tokenHistoryFilePath(dirs.claudemonDir), { recursive: true });
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_w', 500000)]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 500000);
+  assert.strictEqual(JSON.parse(fs.readFileSync(dailyFilePath(dirs.claudemonDir), 'utf8')).outputTokens, 500000);
+});
+
+test('a 14-day history with 3M+ days keeps today at 2.1M below superultimate', (t) => {
+  const dirs = setupDaily(t);
+  const entries = daysOf(14, 1000000);
+  entries[5].outputTokens = 3200000;
+  entries[9].outputTokens = 3500000;
+  writeTokenHistory(dirs.claudemonDir, entries);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_big', 2100000)]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 2100000);
+  // Sorted: twelve 1M, 3.2M, 3.5M, so the P90 bar is 3.2M and 2.1M falls short.
+  assert.notStrictEqual(result.stageId, topStageId(),
+    'today 2.1M must not reach superultimate while the 14-day P90 is 3.2M');
+});
+
+test('the same 2.1M reaches superultimate with no history (2M bar)', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_nohist', 2100000)]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 2100000);
+  // As in the test above, a route that ends early clamps stageId to its
+  // terminal stage; assert whichever of the two the line actually reports.
+  if (result.terminalFrom) {
+    assert.strictEqual(result.stageId, result.terminalFrom);
+  } else {
+    assert.strictEqual(result.stageId, topStageId());
+  }
 });

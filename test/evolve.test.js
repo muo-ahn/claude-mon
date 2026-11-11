@@ -8,7 +8,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { conditionMet } = require('../lib/evolve');
+const { conditionMet, applyEvolution, TREE } = require('../lib/evolve');
 
 // --- checkCondition: new types -----------------------------------------
 
@@ -195,4 +195,77 @@ test('and now recurses through a chained and.and (old limit: only the first and 
 test('when: null or undefined is the unconditional edge', () => {
   assert.strictEqual(conditionMet(null, {}), true);
   assert.strictEqual(conditionMet(undefined, {}), true);
+});
+
+// --- dailyOutputTokens relative floor (C3) -----------------------------
+//
+// `relative: true` on a dailyOutputTokens condition means the bar is
+// max(cond.gte, ctx.dailyOutputTokensFloor). The floor is computed per day
+// by computeDailyTokens (lib/daily.js topTierThreshold); this file only
+// checks how the condition reads it.
+
+test('relative dailyOutputTokens takes the floor when the floor is higher', () => {
+  const cond = { type: 'dailyOutputTokens', gte: 2000000, relative: true };
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 2100000, dailyOutputTokensFloor: 3000000 }), false);
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 3000000, dailyOutputTokensFloor: 3000000 }), true);
+});
+
+test('relative dailyOutputTokens keeps cond.gte when the floor is lower', () => {
+  const cond = { type: 'dailyOutputTokens', gte: 2000000, relative: true };
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 2000000, dailyOutputTokensFloor: 2000000 }), true);
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 1999999, dailyOutputTokensFloor: 2000000 }), false);
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 2100000, dailyOutputTokensFloor: 1000000 }), true);
+});
+
+test('relative dailyOutputTokens falls back to cond.gte when ctx has no floor', () => {
+  const cond = { type: 'dailyOutputTokens', gte: 2000000, relative: true };
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 2000000 }), true);
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 1999999 }), false);
+});
+
+test('dailyOutputTokens without the relative flag ignores a ctx floor', () => {
+  const cond = { type: 'dailyOutputTokens', gte: 2000000 };
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 2100000, dailyOutputTokensFloor: 3000000 }), true);
+  assert.strictEqual(conditionMet(cond, { dailyOutputTokens: 1999999, dailyOutputTokensFloor: 1000000 }), false);
+});
+
+test('superultimate first branch is marked relative and keeps its 2M lower bound', () => {
+  const superultimate = TREE.stages.find((s) => s.id === 'superultimate');
+  assert.deepStrictEqual(superultimate.condition.any[0], { type: 'dailyOutputTokens', gte: 2000000, relative: true });
+});
+
+test('superultimate second branch is unchanged by the floor', () => {
+  const superultimate = TREE.stages.find((s) => s.id === 'superultimate');
+  assert.deepStrictEqual(superultimate.condition.any[1], {
+    all: [
+      { type: 'dailyUserTurns', gte: 80 },
+      { type: 'outputPerTurn', lte: 6000 },
+      { type: 'dailyUserTurns', gte: 500 }
+    ]
+  });
+});
+
+test('a high floor blocks superultimate on tokens alone', () => {
+  const state = { stageId: 'ultimate', dailyOutputTokens: 2100000, dailyUserTurns: 0, outputPerTurn: 0, dailyOutputTokensFloor: 3000000 };
+  applyEvolution(state);
+  assert.strictEqual(state.stageId, 'ultimate');
+});
+
+test('without a floor the same tokens reach superultimate at 2M', () => {
+  const state = { stageId: 'ultimate', dailyOutputTokens: 2100000, dailyUserTurns: 0, outputPerTurn: 0 };
+  applyEvolution(state);
+  assert.strictEqual(state.stageId, 'superultimate');
+});
+
+test('a high floor does not block superultimate through the turn-count branch', () => {
+  // 500 turns at 6000 output per turn: 3,000,000 tokens, floor far above it.
+  const state = {
+    stageId: 'ultimate',
+    dailyOutputTokens: 3000000,
+    dailyUserTurns: 500,
+    outputPerTurn: 6000,
+    dailyOutputTokensFloor: 1000000000
+  };
+  applyEvolution(state);
+  assert.strictEqual(state.stageId, 'superultimate');
 });

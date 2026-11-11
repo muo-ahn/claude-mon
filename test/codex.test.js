@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { scanCodex } = require('../lib/codex');
+const { computeDailyTokens, readTokenHistory } = require('../lib/daily');
 
 function line(timestamp, type, payload) {
   return JSON.stringify({ timestamp, type, payload }) + '\n';
@@ -137,4 +138,30 @@ test('child lifecycle without inherited history boundary remains visible', (t) =
   fs.appendFileSync(file, line('2026-11-08T15:02:00Z', 'event_msg', { type: 'task_complete', turn_id: 't' }));
   scan(dir);
   assert.equal(JSON.parse(fs.readFileSync(stateFile)).working, false);
+});
+
+test('computeDailyTokens stores the Claude plus Codex total in token-history.json', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-test-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const logs = path.join(dir, 'logs'); fs.mkdirSync(logs);
+  const projects = path.join(dir, 'projects', '-Users-me-repo'); fs.mkdirSync(projects, { recursive: true });
+  const claudemonDir = path.join(dir, 'claudemon');
+  // Same rollout shape as the first test: 50 Codex tokens land on 2026-11-09 KST.
+  fs.writeFileSync(path.join(logs, 'rollout.jsonl'),
+    line('2026-11-08T14:00:00Z', 'session_meta', { id: 'abc', cwd: '/work/project' }) +
+    usage('2026-11-08T14:30:00Z', 100, 100) +
+    usage('2026-11-08T15:02:00Z', 150, 50));
+  // 30 Claude tokens on the same KST day (11:00 KST on 2026-11-09).
+  fs.writeFileSync(path.join(projects, 'session.jsonl'),
+    JSON.stringify({ timestamp: '2026-11-09T02:00:00.000Z', message: { role: 'assistant', id: 'msg_claude', usage: { output_tokens: 30 } } }) + '\n');
+  const start = Date.parse('2026-11-09T00:00:00+09:00');
+  const result = computeDailyTokens(new Date(start + 3600000), {
+    claudemonDir,
+    projectsDir: path.join(dir, 'projects'),
+    packsDir: path.join(dir, 'packs'),
+    sharedDir: path.join(dir, 'shared'),
+    codexDirs: [logs]
+  });
+  assert.equal(result.outputTokens, 80);
+  assert.deepEqual(readTokenHistory(claudemonDir).entries, [{ date: '2026-11-09', outputTokens: 80 }]);
 });

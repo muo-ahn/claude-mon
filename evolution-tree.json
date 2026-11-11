@@ -87,7 +87,7 @@
       "sprite": ["✨🔥\\(◎▽◎)/🔥✨", "✨⚡\\(◎▽◎)/⚡✨"],
       "condition": {
         "any": [
-          { "type": "dailyOutputTokens", "gte": 2000000 },
+          { "type": "dailyOutputTokens", "gte": 2000000, "relative": true },
           { "all": [
             { "type": "dailyUserTurns", "gte": 80 },
             { "type": "outputPerTurn", "lte": 6000 },
