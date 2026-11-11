@@ -188,10 +188,12 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 | child → adult | 오늘 output 토큰 ≥ 100,000 |
 | adult → perfect | 오늘 output 토큰 ≥ 300,000 |
 | perfect → ultimate | 오늘 output 토큰 ≥ 1,000,000 |
-| ultimate → superultimate | 오늘 output 토큰 ≥ 2,000,000 |
+| ultimate → superultimate | 오늘 output 토큰 ≥ max(2,000,000, 최근 14일 P90) |
 
 - 매일 KST 자정에 합계가 0으로 리셋된다(고정 오프셋 UTC+9, DST 없음).
-- `superultimate`(초궁극체, 2M) 임계값은 실측으로 정했다. 집계를 고친 뒤 16일치를 재계산했을 때 1M+는 4일, 2M+는 1일(최고 2.75M)이었다 — 1M이 4일에 한 번꼴이 되면서 궁극체의 희소성이 사라진 자리를 메우는 단계다.
+- `superultimate`(초궁극체) 기준은 고정값이 아니라 상대값이다. 하한은 2,000,000이고, 오늘을 뺀 최근 14일 일별 output 토큰 합계(Claude + Codex)의 nearest-rank P90이 그보다 크면 그 값이 기준이 된다. 기록이 14일 미만이면 2,000,000이다. 토큰 총량이 늘어도 기준이 같이 올라가서, 최상위가 매일 쉽게 열리지 않게 하려는 장치다.
+- 일별 합계 기록은 `~/.claude/claudemon/token-history.json`(`{version, entries:[{date, outputTokens}]}`)에 남는다. 최대 30일 링버퍼이고, 같은 날 여러 번 폴링되면 마지막 값으로 덮어쓴다. 과거 transcript에서 소급 계산하지 않으므로, 기록은 앱(메뉴바 또는 훅)이 폴링하며 돌아간 날에만 쌓인다. 앱이 꺼진 날은 기록되지 않아 14일 수에서 빠진다.
+- 상대 기준은 조건에 `"relative": true`를 붙여 쓴다(`{ "type": "dailyOutputTokens", "gte": 2000000, "relative": true }`). `gte`는 하한으로 남고, 실제 기준은 `max(gte, 오늘의 P90 기준)`이다. `relative`가 없는 `dailyOutputTokens` 조건은 기존처럼 `gte`만 본다. 커스텀 팩에서도 같은 방식으로 쓸 수 있다.
 - **최상위 단계에 도달하지 못하는 팩은 로테이션 후보에서 빠진다 — 단, 계보가 그보다 아래에서 끝나는 종점 라인은 예외다(D7).** 전역 그래프(`evolution-graph.json`)에서 종점은 "다음 칸의 노드 중 나를 부모(`evolvesFrom`)로 지목한 것이 없음"으로 파생된다. 종점에 닿은 라인은 그 스테이지에서 머무는 것 자체가 "도달"이라 로테이션에서 빠지지 않는다.
 - `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
 - `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
