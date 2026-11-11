@@ -504,6 +504,15 @@ func pidIsAlive(_ pid: Int?) -> Bool {
 //   6. otherwise -> idle
 func projectState(_ entry: SessionEntry, now: Date = Date()) -> SessionState {
     if let ended = entry.json["endedAt"] as? String, !ended.isEmpty { return .dead }
+    if entry.json["provider"] as? String == "codex" {
+        guard let updated = entry.json["updatedAt"] as? String,
+              let timestamp = parseISO8601(updated),
+              now.timeIntervalSince(timestamp) < 24 * 3600 else { return .dead }
+        if workingFieldPresent(entry.json) == true {
+            return now.timeIntervalSince(timestamp) > orphanSessionThreshold ? .stalled : .working
+        }
+        return .idle
+    }
     guard let pid = entry.json["pid"] as? Int, pidIsAlive(pid) else { return .dead }
     if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty {
         if let awaitingSince = parseISO8601(awaiting), now.timeIntervalSince(awaitingSince) > abandonedWaitThreshold {
@@ -750,7 +759,9 @@ func scanSessions(dir: String) -> [SessionEntry] {
         guard let data = FileManager.default.contents(atPath: path),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { continue }
-        let mtime = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        let fileMtime = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        let mtime = (json["provider"] as? String == "codex")
+            ? (json["updatedAt"] as? String).flatMap { parseISO8601($0) } : fileMtime
         result.append(SessionEntry(path: path, json: json, mtime: mtime))
     }
     return result
@@ -884,8 +895,10 @@ func dumpState() {
         let json = entry.json
         let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
         let fullSid = json["sessionId"] as? String ?? ""
-        let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
-        print("session \(sid) \(sessState.rawValue) \(project)")
+        let displaySid = fullSid.hasPrefix("codex-") ? String(fullSid.dropFirst(6)) : fullSid
+        let sid = displaySid.isEmpty ? "--------" : String(displaySid.prefix(8))
+        let provider = json["provider"] as? String ?? "claude"
+        print("session \(sid) \(sessState.rawValue) \(project) \(provider)")
     }
 }
 
@@ -2386,12 +2399,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func focusedSessionLabel() -> String {
         if let sessionId = focusedSessionState["sessionId"] as? String, !sessionId.isEmpty {
+            let displayId = sessionId.hasPrefix("codex-") ? String(sessionId.dropFirst(6)) : sessionId
             // Project name makes the row human-verifiable at a glance; the
             // raw id alone is meaningless to the person reading the menu.
             if let cwd = focusedSessionState["cwd"] as? String, !cwd.isEmpty {
-                return "세션 \(sessionId.prefix(8)) · \((cwd as NSString).lastPathComponent)"
+                return "세션 \(displayId.prefix(8)) · \((cwd as NSString).lastPathComponent)"
             }
-            return "세션 \(sessionId.prefix(8))"
+            return "세션 \(displayId.prefix(8))"
         }
         if let cwd = focusedSessionState["cwd"] as? String, !cwd.isEmpty {
             return "세션 \((cwd as NSString).lastPathComponent)"
@@ -2407,6 +2421,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func focusedSessionLine() -> String {
         if focusedUnregistered {
             return "새 세션 — 미등록"
+        }
+        if focusedSessionState["provider"] as? String == "codex" {
+            return "Codex · \(focusedSessionLabel()) — 기록 기반"
         }
         let ok = focusedSessionState["toolSuccessCount"] as? Int ?? 0
         let fail = focusedSessionState["toolFailureCount"] as? Int ?? 0
@@ -2424,11 +2441,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let json = entry.json
             let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
             let fullSid = json["sessionId"] as? String ?? ""
-            let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
+            let displaySid = fullSid.hasPrefix("codex-") ? String(fullSid.dropFirst(6)) : fullSid
+            let sid = displaySid.isEmpty ? "--------" : String(displaySid.prefix(8))
+            let provider = json["provider"] as? String ?? "claude"
             let focused = !focusedLastResolvedPath.isEmpty && entry.path == focusedLastResolvedPath
             let status = sessionStatusLabel(state, json: json)
             let tokens = sessionTokens[fullSid] ?? 0
-            lines.append("\(focused ? "▶" : "  ") \(project) · \(status) · \(formatTokenCount(tokens)) tok · \(sid)")
+            lines.append("\(focused ? "▶" : "  ") \(project) · \(provider) · \(status) · \(formatTokenCount(tokens)) tok · \(sid)")
         }
         return lines
     }

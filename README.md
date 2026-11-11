@@ -2,7 +2,7 @@
 
 > **도트 이미지가 레포에 포함된다.** 클론 직후 `node scripts/materialize-sprites.js --write` 한 번이면 팩이 채워진다 — 아래 [스프라이트 팩](#스프라이트-팩-spritespacks) 참고. 도트의 출처와 저작권은 [에셋 출처](#에셋-출처)를 읽어라.
 
-그날 사용한 토큰량에 따라 성장·진화하는 Claude Code 마스코트. statusline과 macOS 메뉴바 앱 두 곳에서 렌더링된다. 스프라이트는 팩(pack) 단위로 교체·확장할 수 있다.
+그날 사용한 토큰량에 따라 성장·진화하는 Claude Code와 Codex 마스코트. statusline과 macOS 메뉴바 앱 두 곳에서 렌더링된다. 스프라이트는 팩(pack) 단위로 교체·확장할 수 있다.
 
 ## 설치
 
@@ -787,3 +787,11 @@ rm ~/.claude/claudemon/daily.json ~/.claude/claudemon/token-scan-cache.json
 - 프로토타입 단계다. 메뉴바 앱(`menubar/`)은 macOS 전용이며 직접 빌드해야 한다.
 - 진화는 output 토큰 총량 기준이라, 실제 코드 산출량이 아니라 대화가 길어져도 단계가 오른다.
 - `limit80`/`limit95` 오버라이드는 statusline HUD의 사용량 캐시에 의존하므로, 해당 데이터가 없으면 동작하지 않는다.
+
+### Codex 집계
+
+`daily-tokens.js`는 같은 30초 폴링에서 Codex rollout도 읽는다. 기본 경로는 `$CODEX_HOME/sessions`와 `$CODEX_HOME/archived_sessions`이며 `CODEX_HOME`이 없으면 `~/.codex`를 쓴다. 각각 `CLAUDEMON_CODEX_SESSIONS_DIR`, `CLAUDEMON_CODEX_ARCHIVED_DIR`로 바꿀 수 있고 없는 디렉터리는 무시한다. 하위 디렉터리도 검색하며 Codex 설정이나 훅을 수정할 필요가 없다.
+
+KST 날짜별 `token_usage_record`의 응답별 `usage.output_tokens`를 응답 ID로 중복 제거한다. `reasoning_output_tokens`는 output에 포함되어 별도로 더하지 않는다. 이전 형식의 `event_msg/token_count`는 누적 output 차이를 사용하며 첫 스냅샷은 `last_token_usage`가 있을 때만 그 값을 센다. 두 형식이 섞이면 thread 누적값의 구간을 대조해 겹치는 토큰을 한 번만 센다. 응답 기록에 누적값이 없으면 중복 방지를 위해 해당 응답 합계와 남은 이전 형식 합계 중 큰 값만 세므로 서로 다른 사용량이 일부 누락될 수 있다. 서브에이전트의 이전 형식 기록에 상속 경계가 없으면 중복 방지를 위해 해당 기록을 제외한다. 복사본과 상속된 응답은 한 번만 센다. 불완전한 마지막 줄은 완성될 때까지 보류하고, 날짜가 바뀌면 이전 기록을 다시 읽어 누적값 기준을 복원한다. `$CLAUDEMON_DIR/codex-scan-cache.json`에 증분 오프셋과 집계 메타데이터를 저장하며 대화 내용은 저장하지 않는다. 세션 키는 Claude와 충돌하지 않도록 `codex-` 접두어를 쓴다.
+
+Codex 세션 목록은 기록된 작업 시작·완료 이벤트와 cwd를 표시한다. PID, 터미널 포커스, 권한 요청 알림은 추정하지 않으며, 작업 중 기록이 10분 이상 갱신되지 않으면 오래된 상태로 표시한다. 종료 여부는 알 수 없고 마지막 기록 후 24시간이 지나면 목록에서 빠진다. 폴링 간격과 rollout 기록 지연 때문에 실시간 상태와 차이가 날 수 있다. 메인 세션의 기록된 작업 시작을 턴 수로 집계하며 서브에이전트의 턴은 제외한다. Codex 도구 성공·실패는 추정하지 않는다.

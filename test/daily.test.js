@@ -56,7 +56,8 @@ function makeRoot(t) {
     packsDir: path.join(root, 'packs'),
     sharedDir: path.join(root, 'shared'),
     claudemonDir: path.join(root, 'claudemon'),
-    projectsDir: path.join(root, 'projects')
+    projectsDir: path.join(root, 'projects'),
+    codexDirs: []
   };
 }
 
@@ -2511,3 +2512,19 @@ test('global graph runtime reproduces pack-tree golden routes', (t) => {
   assert.strictEqual(failures.length, 0, `${failures.length}/${totalCases} cases failed golden equality`);
 });
 
+
+test('computeDailyTokens combines Claude and Codex output and turns', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('combined', 100), userLine('test')]);
+  const codexDir = path.join(dirs.root, 'codex');
+  fs.mkdirSync(codexDir);
+  fs.writeFileSync(path.join(codexDir, 'rollout.jsonl'), [
+    { timestamp: '2026-07-29T02:00:00Z', type: 'session_meta', payload: { id: 'abc' } },
+    { timestamp: '2026-07-29T02:01:00Z', type: 'event_msg', payload: { type: 'task_started', turn_id: 't' } },
+    { timestamp: '2026-07-29T02:02:00Z', type: 'token_usage_record', payload: { session_id: 'abc', response_id: 'r', usage: { output_tokens: 50 } } }
+  ].map(row => JSON.stringify(row)).join('\n') + '\n');
+  const result = computeDailyTokens(dateAt(0), { ...dirs, codexDirs: [codexDir] });
+  assert.equal(result.outputTokens, 150);
+  assert.deepEqual(result.sessionTokens, { [SESSION]: 100, 'codex-abc': 50 });
+  assert.equal(result.dailyUserTurns, 2);
+});
