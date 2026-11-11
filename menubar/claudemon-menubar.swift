@@ -705,6 +705,33 @@ func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, 
     return (stageId, tokens, dateKST, mon, sessionTokens, route, terminalFrom, routeReasons)
 }
 
+// MARK: - Dex (도감)
+
+// The optional "dex" block lib/daily.js writes into daily.json: found/total
+// (N/M), today's first finds, and an optional hint sentence. Read on its own
+// so readDailyState's tuple and its three call sites stay unchanged.
+struct DexStatus {
+    let found: Int
+    let total: Int
+    let newToday: [String]
+    let hint: String?
+}
+
+// Returns nil (display nothing) when the block is missing or malformed.
+// intValue gives 0 for a missing key, so total == 0 also means "no dex".
+func readDexState() -> DexStatus? {
+    guard let data = FileManager.default.contents(atPath: dailyStateFile),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let dex = json["dex"] as? [String: Any]
+    else { return nil }
+    let total = intValue(dex["total"])
+    guard total > 0 else { return nil }
+    return DexStatus(found: intValue(dex["found"]),
+                     total: total,
+                     newToday: dex["newToday"] as? [String] ?? [],
+                     hint: dex["hint"] as? String)
+}
+
 // Resolves which pack directory should actually be used for a requested
 // mon: the requested pack if it has at least a first idle frame on disk,
 // otherwise the guilmon pack. Pure filesystem check (no NSImage decoding),
@@ -889,6 +916,13 @@ func dumpState() {
                 print("reason \(stage): \(line)")
             }
         }
+    }
+
+    // Dex (도감): printed only when the daily.json block is present.
+    if let dex = readDexState() {
+        print("dex: \(dex.found)/\(dex.total)")
+        if !dex.newToday.isEmpty { print("dexNew: \(dex.newToday.joined(separator: ", "))") }
+        if let hint = dex.hint { print("dexHint: \(hint)") }
     }
 
     for (entry, sessState) in orderedSessionStates(sessions: sessions) {
@@ -1606,6 +1640,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Route reasons explaining why each stage was chosen (from lib/daily.js).
     // nil means the field is absent (pre-route-reasons daily.json).
     var currentRouteReasons: [String: [String: Any]]? = nil
+    // Dex status for the menu (도감 N/M, new finds, hint). nil shows nothing.
+    var currentDex: DexStatus? = nil
     var currentRoute: [String: [String: String]] = [:]
     var workingSessionCount = 0
     var currentLimitLevel: String? = nil
@@ -1647,6 +1683,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentTerminalFrom = daily.terminalFrom
         dailyOutputTokens = daily.outputTokens
         currentRouteReasons = daily.routeReasons
+        currentDex = readDexState()
         currentRoute = daily.route
         _ = applyRoute(daily.route, mon: daily.mon)
         switchMonIfNeeded(daily.mon)
@@ -2055,6 +2092,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
         currentRouteReasons = daily.routeReasons
+        currentDex = readDexState()
         currentRoute = daily.route
         switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route, mon: daily.mon))
 
@@ -2528,6 +2566,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let reasonLine = formatRouteReason(stageId: stageId, reason: reasons[stageId], route: currentRoute) {
                     menu.addItem(withTitle: reasonLine, action: nil, keyEquivalent: "")
                 }
+            }
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // Dex (도감): N/M, today's first finds (3 names, then "외 N"), and a hint.
+        // Menu rows only; no macOS notification for new finds.
+        if let dex = currentDex {
+            menu.addItem(withTitle: "도감 \(dex.found)/\(dex.total)", action: nil, keyEquivalent: "")
+            if !dex.newToday.isEmpty {
+                let shown = dex.newToday.prefix(3).joined(separator: ", ")
+                let rest = dex.newToday.count - min(3, dex.newToday.count)
+                let more = rest > 0 ? " 외 \(rest)" : ""
+                menu.addItem(withTitle: "오늘 신규: \(shown)\(more)", action: nil, keyEquivalent: "")
+            }
+            if let hint = dex.hint, !hint.isEmpty {
+                menu.addItem(withTitle: "힌트: \(hint)", action: nil, keyEquivalent: "")
             }
             menu.addItem(NSMenuItem.separator())
         }

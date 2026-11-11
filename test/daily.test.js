@@ -48,7 +48,16 @@ const {
   topTierThreshold,
   nearestRank,
   TOKEN_HISTORY_MAX,
-  TOP_TIER_FLOOR
+  TOP_TIER_FLOOR,
+  DEX_VERSION,
+  dexFilePath,
+  readDex,
+  recordDex,
+  reachableNodes,
+  hintFor,
+  describeCondition,
+  dexFieldFor,
+  routeNodeIdsOf
 } = require('../lib/daily');
 
 // Aliased: this file also declares its own local `TREE` pack-tree fixture
@@ -2893,4 +2902,267 @@ test('the same 2.1M reaches superultimate with no history (2M bar)', (t) => {
   } else {
     assert.strictEqual(result.stageId, topStageId());
   }
+});
+
+// --- dex (도감) -----------------------------------------------------------
+
+// A hand-built graph in the readGraph shape (byId, childrenOf with `when`),
+// plus a nodesDir where every node has a dot so linksWithDots keeps them all.
+// `specs` items: { id, name?, from?: [{ from, when }] }.
+function miniGraph(t, specs) {
+  const nodesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-dex-nodes-'));
+  t.after(() => fs.rmSync(nodesDir, { recursive: true, force: true }));
+  const nodes = specs.map((s) => ({
+    id: s.id,
+    name: s.name || s.id,
+    stage: 'child',
+    sprite: s.id,
+    evolvesFrom: s.from || []
+  }));
+  for (const n of nodes) fs.writeFileSync(path.join(nodesDir, `${n.sprite}-0.png`), 'png');
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const childrenOf = new Map();
+  for (const n of nodes) {
+    for (const e of n.evolvesFrom) {
+      if (!childrenOf.has(e.from)) childrenOf.set(e.from, []);
+      childrenOf.get(e.from).push({ node: n, when: e.when });
+    }
+  }
+  return { nodes, byId, childrenOf, nodesDir };
+}
+
+function emptyDexObject() {
+  return { version: DEX_VERSION, nodes: {}, days: {} };
+}
+
+test('readDex returns an empty dex for a missing, broken, or wrong-version file', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(dexFilePath(claudemonDir), 'not json');
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+
+  fs.writeFileSync(dexFilePath(claudemonDir), JSON.stringify({ version: 2, nodes: {}, days: {} }));
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+
+  fs.writeFileSync(dexFilePath(claudemonDir), JSON.stringify({ version: 1, nodes: [], days: {} }));
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+});
+
+test('readDex drops nodes whose first-seen date is not a date string and days whose value is not a string array', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(dexFilePath(claudemonDir), JSON.stringify({
+    version: 1,
+    nodes: { a: '2026-01-01', b: 5, c: 'bad' },
+    days: { '2026-01-01': ['a'], '2026-01-02': 'str' }
+  }));
+  const dex = readDex(claudemonDir);
+  assert.deepStrictEqual(dex.nodes, { a: '2026-01-01' });
+  assert.deepStrictEqual(dex.days, { '2026-01-01': ['a'] });
+});
+
+test('recordDex keeps a node first-seen date once set', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordDex(claudemonDir, '2026-01-01', ['n1', 'n2']);
+  const later = recordDex(claudemonDir, '2026-01-05', ['n1', 'n3']);
+  assert.strictEqual(later.nodes.n1, '2026-01-01');
+  assert.strictEqual(later.nodes.n2, '2026-01-01');
+  assert.strictEqual(later.nodes.n3, '2026-01-05');
+});
+
+test('recordDex overwrites the same day with the latest route (one entry per day)', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordDex(claudemonDir, '2026-01-01', ['a']);
+  recordDex(claudemonDir, '2026-01-01', ['a', 'b']);
+  const dex = readDex(claudemonDir);
+  assert.deepStrictEqual(Object.keys(dex.days), ['2026-01-01']);
+  assert.deepStrictEqual(dex.days['2026-01-01'], ['a', 'b']);
+});
+
+test('recordDex does no file I/O when nothing changed', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordDex(claudemonDir, '2026-01-01', ['a']);
+  const file = dexFilePath(claudemonDir);
+  const past = new Date('2020-01-01T00:00:00Z');
+  fs.utimesSync(file, past, past);
+  recordDex(claudemonDir, '2026-01-01', ['a']);
+  assert.strictEqual(fs.statSync(file).mtimeMs, past.getTime());
+});
+
+test('routeNodeIdsOf keeps stage order and drops repeats from terminal fill', () => {
+  const route = {
+    digitama: { id: 'd' },
+    baby: { id: 'b' },
+    child: { id: 'c' },
+    adult: { id: 'c' },
+    perfect: { id: 'c' }
+  };
+  assert.deepStrictEqual(routeNodeIdsOf(route), ['d', 'b', 'c']);
+});
+
+test('dex history keeps 60 mon rows while the dex keeps all 61 days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  for (let i = 0; i <= MON_HISTORY_MAX; i++) {
+    const day = `2025-01-${String(i + 1).padStart(2, '0')}`;
+    recordMonHistory(claudemonDir, day, `mon${i}`);
+    recordDex(claudemonDir, day, [`n${i}`]);
+  }
+  assert.strictEqual(readMonHistory(claudemonDir).entries.length, MON_HISTORY_MAX);
+  const dex = readDex(claudemonDir);
+  assert.strictEqual(Object.keys(dex.days).length, MON_HISTORY_MAX + 1);
+  assert.strictEqual(Object.keys(dex.nodes).length, MON_HISTORY_MAX + 1);
+});
+
+test('reachableNodes: deck rookies and descendants, minus the denylist and what hangs below a denied node', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'c1', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: null }] },
+    { id: 'a2', from: [{ from: 'a1', when: null }] },
+    { id: 'x', from: [{ from: 'a1', when: null }] },
+    { id: 'y', from: [{ from: 'x', when: null }] },
+    { id: 'z' }
+  ]);
+  const reachable = reachableNodes(graph, dirs.packsDir, dirs.sharedDir, new Set(['x']));
+  assert.deepStrictEqual([...reachable].sort(), ['a1', 'a2', 'c1']);
+});
+
+test('dexFieldFor: total is the reachable set, found counts only discovered reachable nodes', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'c1', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: null }] },
+    { id: 'a2', from: [{ from: 'a1', when: null }] },
+    { id: 'x', from: [{ from: 'a1', when: null }] },
+    { id: 'z' }
+  ]);
+  // x (denied) and z (unreachable) are in dex.nodes but must not count.
+  const dex = {
+    version: DEX_VERSION,
+    nodes: { c1: '2026-01-01', x: '2026-01-02', z: '2026-01-03', a2: '2026-01-03' },
+    days: {}
+  };
+  const field = dexFieldFor({
+    dex,
+    graph,
+    dateKST: '2026-01-03',
+    routeIds: ['c1', 'a1', 'a2'],
+    packsDir: dirs.packsDir,
+    sharedDir: dirs.sharedDir,
+    denylist: new Set(['x'])
+  });
+  assert.strictEqual(field.found, 2);
+  assert.strictEqual(field.total, 3);
+  assert.deepStrictEqual(field.newToday, ['a2']);
+  assert.strictEqual(field.hint, 'a1 ← c1: 조건 없음(운)');
+});
+
+test('describeCondition: null is luck, leaves read as Korean bounds, all/any join, unknown types do not throw', () => {
+  assert.strictEqual(describeCondition(null), '조건 없음(운)');
+  assert.strictEqual(describeCondition(undefined), '조건 없음(운)');
+  assert.strictEqual(describeCondition({ type: 'sessionCount', gte: 5 }), '세션 수 5 이상');
+  assert.strictEqual(describeCondition({ type: 'topSharePct', gte: 10, lte: 50 }), '최다 세션 비중(%) 10 이상 50 이하');
+  assert.strictEqual(
+    describeCondition({ all: [{ type: 'sessionCount', gte: 5 }, { type: 'failureRatioPct', lte: 20 }] }),
+    '세션 수 5 이상 그리고 실패율(%) 20 이하'
+  );
+  assert.strictEqual(
+    describeCondition({ any: [{ type: 'sessionCount', gte: 5 }, { type: 'dailyUserTurns', gte: 80 }] }),
+    '세션 수 5 이상 또는 사용자 턴 80 이상'
+  );
+  assert.strictEqual(describeCondition({ type: 'mystery', gte: 3 }), 'mystery 3 이상');
+  assert.doesNotThrow(() => describeCondition({ type: 'milestone', key: 'x', gte: 1 }));
+});
+
+test('describeCondition: relative dailyOutputTokens reads as a lower bound', () => {
+  const text = describeCondition({ type: 'dailyOutputTokens', gte: 2000000, relative: true });
+  assert.ok(text.includes('2000000 이상'));
+  assert.ok(text.includes('하한'));
+});
+
+test('hintFor describes a conditional edge from a discovered parent, deterministically', (t) => {
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: { type: 'sessionCount', gte: 3 } }] }
+  ]);
+  const reachable = new Set(['c1', 'a1']);
+  const dex = { version: DEX_VERSION, nodes: { c1: '2026-01-01' }, days: {} };
+  const hint = hintFor('2026-01-02', graph, reachable, dex, ['c1']);
+  assert.strictEqual(hint, 'a1 ← c1: 세션 수 3 이상');
+  assert.strictEqual(hintFor('2026-01-02', graph, reachable, dex, ['c1']), hint);
+});
+
+test('hintFor on an empty dex still gives a sentence and never throws', (t) => {
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: null }] }
+  ]);
+  const hint = hintFor('2026-01-02', graph, new Set(['c1', 'a1']), emptyDexObject(), ['c1']);
+  assert.strictEqual(typeof hint, 'string');
+  assert.ok(hint.length > 0);
+});
+
+test('hintFor is omitted when every reachable node is already discovered', (t) => {
+  const graph = miniGraph(t, [{ id: 'c1' }]);
+  const dex = { version: DEX_VERSION, nodes: { c1: '2026-01-01' }, days: {} };
+  assert.strictEqual(hintFor('2026-01-02', graph, new Set(['c1']), dex, ['c1']), undefined);
+});
+
+// Writes enough output tokens (>= 30000, the child-stage bar) that the route
+// actually reaches child, so dex integration tests are not vacuous.
+function dexSetup(t) {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('m1', 40000)]);
+  return dirs;
+}
+
+test('computeDailyTokens adds a dex field with invariants and records the route into dex.json', (t) => {
+  const dirs = dexSetup(t);
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(result.route && result.route.child, 'route should reach child');
+  assert.ok(result.dex, 'dex field present when graph and route exist');
+  assert.ok(result.dex.total > 0);
+  assert.ok(result.dex.found >= 1 && result.dex.found <= result.dex.total);
+  assert.ok(Array.isArray(result.dex.newToday));
+  assert.ok(result.route.child.id in readDex(dirs.claudemonDir).nodes);
+  // Existing fields keep their shape.
+  for (const key of ['dateKST', 'outputTokens', 'stageId', 'mon', 'route', 'traits']) {
+    assert.ok(key in result, `missing ${key}`);
+  }
+});
+
+test('computeDailyTokens without a graph node for the pack leaves no dex field and writes no dex.json', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'zzz-legacy', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.route, null);
+  assert.strictEqual('dex' in result, false);
+  assert.strictEqual(fs.existsSync(dexFilePath(dirs.claudemonDir)), false);
+});
+
+test('computeDailyTokens still writes daily.json when dex.json is garbage', (t) => {
+  const dirs = dexSetup(t);
+  fs.mkdirSync(dirs.claudemonDir, { recursive: true });
+  fs.writeFileSync(dexFilePath(dirs.claudemonDir), '{{{ broken');
+  const result = computeDailyTokens(dateAt(0), dirs);
+  const written = JSON.parse(fs.readFileSync(dailyFilePath(dirs.claudemonDir), 'utf8'));
+  assert.strictEqual(written.dateKST, result.dateKST);
+  assert.ok(result.dex && result.dex.total > 0);
+});
+
+test('computeDailyTokens still writes daily.json when dex.json cannot be written (a directory)', (t) => {
+  const dirs = dexSetup(t);
+  fs.mkdirSync(path.join(dirs.claudemonDir, 'dex.json'), { recursive: true });
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(fs.existsSync(dailyFilePath(dirs.claudemonDir)));
+  // The in-memory fallback still yields counts for the menu.
+  assert.ok(result.dex && result.dex.found >= 1);
 });
