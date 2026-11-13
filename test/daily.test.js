@@ -20,6 +20,10 @@ const {
   topStageId,
   selectRoute,
   candidatesFor,
+  buildDexWeighting,
+  DEX_WEIGHT_SCALE,
+  DEX_UNDISCOVERED_MULT,
+  DEX_RECENT_MULT,
   readGraph,
   validateGraph,
   graphFilePath,
@@ -3300,4 +3304,168 @@ test('computeDailyTokens still writes daily.json when dex.json cannot be written
   assert.ok(fs.existsSync(dailyFilePath(dirs.claudemonDir)));
   // The in-memory fallback still yields counts for the menu.
   assert.ok(result.dex && result.dex.found >= 1);
+});
+
+// --- C4: 도감 가중치 (미발견 배수 / 최근 7일 출현 감점) -------------------
+//
+// 작은 픽스처: dx-kid 는 무조건 자식 셋(dx-a 발견, dx-b 미발견, dx-c 발견).
+// dx-cond 는 조건부 자식 dx-g(sessionCount>=5) 와 무조건 dx-h, dx-miss 는 두
+// 조건 모두 안 맞는 자식만 가진 노드(균등 가중 폴백 회귀용).
+const DX_TREE = {
+  digitama: [{ id: 'dx-digitama', name: '알', sprite: 'digitama', evolutions: [{ to: 'dx-baby', when: null }] }],
+  baby: [{ id: 'dx-baby', name: '유년', sprite: 'baby', evolutions: [
+    { to: 'dx-kid', when: null }, { to: 'dx-cond', when: null }, { to: 'dx-miss', when: null }
+  ] }],
+  child: [
+    { id: 'dx-kid', name: '성장', sprite: 'child', evolutions: [
+      { to: 'dx-a', when: null }, { to: 'dx-b', when: null }, { to: 'dx-c', when: null }
+    ] },
+    { id: 'dx-cond', name: '조건성장', sprite: 'child-cond', evolutions: [
+      { to: 'dx-g', when: { type: 'sessionCount', gte: 5 } }, { to: 'dx-h', when: null }
+    ] },
+    { id: 'dx-miss', name: '미충족성장', sprite: 'child-miss', evolutions: [
+      { to: 'dx-m1', when: { type: 'sessionCount', gte: 5 } },
+      { to: 'dx-m2', when: { type: 'outputPerTurn', gte: 15000 } }
+    ] }
+  ],
+  adult: [
+    { id: 'dx-a', name: 'A', sprite: 'adult-a', evolutions: [] },
+    { id: 'dx-b', name: 'B', sprite: 'adult-b', evolutions: [] },
+    { id: 'dx-c', name: 'C', sprite: 'adult-c', evolutions: [] },
+    { id: 'dx-g', name: 'G', sprite: 'adult-g', evolutions: [] },
+    { id: 'dx-h', name: 'H', sprite: 'adult-h', evolutions: [] },
+    { id: 'dx-m1', name: 'M1', sprite: 'adult-m1', evolutions: [] },
+    { id: 'dx-m2', name: 'M2', sprite: 'adult-m2', evolutions: [] }
+  ]
+};
+
+const DX_DATE = '2026-11-11';
+
+function dexFixture(nodes, days) {
+  return { version: 1, nodes, days };
+}
+
+function dxWeights(graph, rookieId, ctx) {
+  return new Map(candidatesFor(graph.byId.get(rookieId), ctx, graph.childrenOf).map((c) => [c.node.id, c.weight]));
+}
+
+function withEnvValue(name, value, fn) {
+  const prev = process.env[name];
+  process.env[name] = value;
+  try {
+    return fn();
+  } finally {
+    if (prev === undefined) delete process.env[name];
+    else process.env[name] = prev;
+  }
+}
+
+test('[C4] 배수 상수는 정수 척도로 환산되어 가중치가 정수다', () => {
+  assert.ok(Number.isInteger(DEX_WEIGHT_SCALE * DEX_UNDISCOVERED_MULT));
+  assert.ok(Number.isInteger(DEX_WEIGHT_SCALE * DEX_RECENT_MULT));
+  assert.ok(DEX_WEIGHT_SCALE * DEX_RECENT_MULT >= 1);
+});
+
+test('[C4] 미발견 노드는 미발견 배수, 발견된 노드는 척도만 곱해 뽑힌다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': '2026-10-01', 'dx-c': '2026-10-01' }, { '2026-10-01': ['dx-a', 'dx-c'] });
+  const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-a'), DEX_WEIGHT_SCALE);
+  assert.strictEqual(w.get('dx-c'), DEX_WEIGHT_SCALE);
+  assert.strictEqual(w.get('dx-b'), DEX_WEIGHT_SCALE * DEX_UNDISCOVERED_MULT);
+});
+
+test('[C4] 직전 7일 안에 나온 노드는 감점 배수, 8일 전은 감점이 풀린다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture(
+    { 'dx-a': '2026-11-10', 'dx-b': '2026-11-04', 'dx-c': '2026-11-03' },
+    { '2026-11-10': ['dx-a'], '2026-11-04': ['dx-b'], '2026-11-03': ['dx-c'] }
+  );
+  const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-a'), DEX_WEIGHT_SCALE * DEX_RECENT_MULT, '어제 나온 노드');
+  assert.strictEqual(w.get('dx-b'), DEX_WEIGHT_SCALE * DEX_RECENT_MULT, '7일 전 경계는 포함');
+  assert.strictEqual(w.get('dx-c'), DEX_WEIGHT_SCALE, '8일 전은 제외');
+});
+
+test('[C4] 오늘 기록된 노드는 최근 창에서 빠진다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': DX_DATE, 'dx-b': DX_DATE }, { [DX_DATE]: ['dx-a', 'dx-b'] });
+  const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-a'), DEX_WEIGHT_SCALE);
+  assert.strictEqual(w.get('dx-b'), DEX_WEIGHT_SCALE);
+});
+
+test('[C4] dex 가 null 이거나 비어 있으면 배수도 척도도 없어 가중치가 기존과 같다', () => {
+  const graph = treeToGraph(DX_TREE);
+  assert.strictEqual(buildDexWeighting(dexFixture({}, {}), DX_DATE), null);
+  assert.strictEqual(buildDexWeighting(null, DX_DATE), null);
+  const w = dxWeights(graph, 'dx-kid', { dex: null });
+  assert.deepStrictEqual([...w.values()], [1, 1, 1]);
+  const plain = selectRoute(DX_DATE, 'dx-kid', graph, {});
+  const empty = selectRoute(DX_DATE, 'dx-kid', graph, { dex: buildDexWeighting(dexFixture({}, {}), DX_DATE) });
+  assert.deepStrictEqual(empty.route, plain.route);
+});
+
+test('[C4] 조건 가중치 8 은 상수 그대로 두고 도감 배수만 곱해진다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-h': '2026-10-01' }, { '2026-10-01': ['dx-h'] });
+  const w = dxWeights(graph, 'dx-cond', { sessionCount: 5, dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-g'), 8 * DEX_WEIGHT_SCALE * DEX_UNDISCOVERED_MULT);
+  assert.strictEqual(w.get('dx-h'), 1 * DEX_WEIGHT_SCALE);
+});
+
+test('[C4] 조건이 안 맞는 후보는 도감 배수로 되살아나지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-h': '2026-10-01' }, { '2026-10-01': ['dx-h'] });
+  const names = candidatesFor(graph.byId.get('dx-cond'), { sessionCount: 0, dex: buildDexWeighting(dex, DX_DATE) }, graph.childrenOf)
+    .map((c) => c.node.id);
+  assert.deepStrictEqual(names, ['dx-h']);
+});
+
+test('[C4] 조건이 하나도 안 맞으면 균등 가중 1 폴백에 배수가 붙지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-x': '2026-10-01' }, { '2026-10-01': ['dx-x'] });
+  const w = dxWeights(graph, 'dx-miss', { sessionCount: 0, outputPerTurn: 0, dex: buildDexWeighting(dex, DX_DATE) });
+  assert.deepStrictEqual([...w.values()], [1, 1]);
+});
+
+test('[C4] CLAUDEMON_DEX_WEIGHTING=0 이면 dex 가 있어도 배수를 적용하지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': '2026-10-01' }, { '2026-10-01': ['dx-a'] });
+  withEnvValue('CLAUDEMON_DEX_WEIGHTING', '0', () => {
+    const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+    assert.deepStrictEqual([...w.values()], [1, 1, 1]);
+  });
+});
+
+test('[C4] CLAUDEMON_GATE_WEIGHTING=0 (legacyTiedPool) 에서는 도감 배수를 적용하지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': '2026-10-01' }, { '2026-10-01': ['dx-a'] });
+  withEnvValue('CLAUDEMON_GATE_WEIGHTING', '0', () => {
+    const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+    for (const weight of w.values()) assert.strictEqual(weight, 1);
+  });
+});
+
+test('[C4] 라우트 사유의 candidates weight 는 기존 8/1 을 유지하고 probability 는 실효 가중 비율이다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-h': '2026-10-01' }, { '2026-10-01': ['dx-h'] });
+  const ctx = { sessionCount: 5, dex: buildDexWeighting(dex, DX_DATE) };
+  const { route, routeReasons } = selectRoute(DX_DATE, 'dx-cond', graph, ctx);
+  const reason = routeReasons.adult;
+  assert.ok(reason, 'adult 사유가 있어야 한다');
+  const baseWeights = reason.candidates.map((c) => c.weight).sort((a, b) => a - b);
+  assert.deepStrictEqual(baseWeights, [1, 8], 'swift 의 weight==8 라벨 판정이 깨지면 안 된다');
+  const effective = dxWeights(graph, 'dx-cond', ctx);
+  const total = [...effective.values()].reduce((a, b) => a + b, 0);
+  assert.strictEqual(reason.probability, effective.get(route.adult.id) / total);
+  assert.strictEqual(reason.fallback, false);
+});
+
+test('[C4] 손상된 dex.json 이 있어도 하루 계산은 던지지 않고 현행 가중치로 돈다', (t) => {
+  const dirs = setupDaily(t);
+  fs.mkdirSync(dirs.claudemonDir, { recursive: true });
+  fs.writeFileSync(path.join(dirs.claudemonDir, 'dex.json'), '{not json');
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(result.mon);
 });
