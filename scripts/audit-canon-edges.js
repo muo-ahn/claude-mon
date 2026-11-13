@@ -3,7 +3,7 @@
 //
 // 사용법:
 //   node scripts/audit-canon-edges.js [--offline] [--fetch] [--stage <stage>] [--refresh]
-//                                     [--terminals] [--check]
+//                                     [--terminals] [--quality] [--check]
 //
 // 모드:
 //   --offline  (기본값) 캐시만 사용, 네트워크 미접촉. 캐시 없으면 "미조회"로 집계.
@@ -15,6 +15,8 @@
 //   --terminals 종점 검사만 돌린다 (나가는 엣지 누락 + 별칭 충돌). 오프라인 전용 로직.
 //   --check     지금 고칠 수 있는 결함(T-A·별칭 충돌)이 있으면 exit 1. CI 용.
 //   --verbose   종점 검사의 단방향 후보까지 펼친다 (기본은 양방향 확정만).
+//   --quality   질 지표 축(C6) 조건 엣지 검사만 돌린다 (오프라인 전용, 네트워크 미접촉).
+//               기본 실행에도 Q 절로 함께 출력된다. --check 가 위반을 게이트한다.
 //
 // 로스터 판정:
 //   태그 약어가 아니라 ref 정의의 **게임 제목 문자열**로 판정한다.
@@ -23,6 +25,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { auditQualityEdges } = require('../lib/quality-edges');
 
 const ROOT = path.join(__dirname, '..');
 const GRAPH_PATH = path.join(ROOT, 'evolution-graph.json');
@@ -86,7 +89,8 @@ function parseArgs() {
   const terminalsOnly = args.includes('--terminals');
   const check = args.includes('--check');
   const verbose = args.includes('--verbose');
-  return { stage, refresh, offline, terminalsOnly, check, verbose };
+  const quality = args.includes('--quality');
+  return { stage, refresh, offline, terminalsOnly, check, verbose, quality };
 }
 
 function loadGraph() {
@@ -1013,10 +1017,27 @@ function reportTerminals(graph, indices, nameMap, stages, opts) {
 //   T-C 스테이지 불인접
 //   T-J 조그레스 전용 (스테이지 승격 판단이 걸린다)
 //   미조회 (캐시 없음)
-function finishCheck(t, opts) {
+function reportQuality(quality) {
+  console.log('\n========================================');
+  console.log('Q. 질 지표 축 조건 엣지 (C6)');
+  console.log('========================================');
+  console.log(`  조건 엣지: ${quality.count}개 (상한 ${quality.cap}, 부모 ${quality.parents}개)`);
+  for (const [axis, n] of Object.entries(quality.perAxis)) {
+    console.log(`    ${axis}: ${n}개`);
+  }
+  if (quality.violations.length === 0) {
+    console.log('  위반: (없음)');
+  } else {
+    console.log(`  위반 ${quality.violations.length}건`);
+    for (const v of quality.violations) console.log(`    ${v}`);
+  }
+}
+
+function finishCheck(t, opts, quality) {
   if (!opts.check) return;
   const violations = t.r10 || [];
-  const blockers = violations.length + t.tA.length + t.collisions.length;
+  const qualityViolations = quality ? quality.violations.length : 0;
+  const blockers = violations.length + t.tA.length + t.collisions.length + qualityViolations;
   console.log('\n========================================');
   console.log('--check 판정');
   console.log('========================================');
@@ -1026,6 +1047,7 @@ function finishCheck(t, opts) {
   }
   console.log(`  T-A (엣지만 추가하면 되는 종점): ${t.tA.length}건`);
   console.log(`  E   (별칭 역방향 충돌):          ${t.collisions.length}건`);
+  console.log(`  Q   (질 축 조건 위반):           ${qualityViolations}건`);
   if (blockers > 0) {
     console.log('  → 실패 (exit 1)');
     process.exitCode = 1;
@@ -1041,11 +1063,18 @@ async function main() {
   const nameMap = loadNameMapping();
 
   const indices = buildIndices(graph, stages);
+  const quality = auditQualityEdges(graph);
+
+  if (opts.quality) {
+    reportQuality(quality);
+    if (opts.check && quality.violations.length > 0) process.exitCode = 1;
+    return;
+  }
 
   if (opts.terminalsOnly) {
     console.log(`종점 검사만 (${opts.offline ? '오프라인' : '온라인'})`);
     const t = reportTerminals(graph, indices, nameMap, stages, opts);
-    finishCheck(t, opts);
+    finishCheck(t, opts, quality);
     return;
   }
 
@@ -1169,7 +1198,8 @@ async function main() {
   console.log(`  T-C (스테이지 불인접): ${t.tC.length}개`);
   console.log(`  T-J (조그레스 전용):  ${t.tJ.length}개`);
   console.log(`  E (별칭 충돌):      ${t.collisions.length}개`);
-  finishCheck(t, opts);
+  reportQuality(quality);
+  finishCheck(t, opts, quality);
 }
 
 main().catch((err) => {

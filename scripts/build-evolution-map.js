@@ -295,6 +295,11 @@ const CONDITION_LABEL = {
   errorRatePct: 'errRate%',
   consecutiveDaysActive: 'daysActive'
 };
+// C6 quality axes (weight-only). gte 'p50' renders as "≥p50" through conditionLabel.
+Object.assign(CONDITION_LABEL, {
+  toolCallsPerTurn: 'toolCalls/turn',
+  dailyCommitCount: 'commits'
+});
 
 function conditionLabel(when) {
   if (when === null || when === undefined) return null;

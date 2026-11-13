@@ -13,6 +13,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const {
   listValidPacks,
@@ -61,15 +62,28 @@ const {
   hintFor,
   describeCondition,
   dexFieldFor,
-  routeNodeIdsOf
+  routeNodeIdsOf,
+  countCommitsByDay,
+  refreshDailyCommitCount,
+  qualityHistoryFilePath,
+  readQualityHistory,
+  recordQualityHistory,
+  qualityP50,
+  QUALITY_HISTORY_MAX
 } = require('../lib/daily');
 
 // Aliased: this file also declares its own local `TREE` pack-tree fixture
 // (see below) for selectRoute unit tests, so the real global stage ladder
 // (digitama..superultimate, from evolution-tree.json) needs a different name.
-const { TREE: EVOLVE_TREE } = require('../lib/evolve');
+const { TREE: EVOLVE_TREE, isQualityCondition } = require('../lib/evolve');
 const { indexGraph, deckVerdicts, listDeckCandidates } = require('../scripts/audit-deck-candidates');
 const { writeDeckPacks } = require('../scripts/add-deck-packs');
+const { auditQualityEdges, QUALITY_EDGE_CAP } = require('../lib/quality-edges');
+
+// computeDailyTokens scans ~/Dev for commits by default. Point the scan at a
+// path that does not exist so no test reads this machine's repositories; the
+// commit tests pass their own root explicitly.
+process.env.CLAUDEMON_COMMIT_ROOT = path.join(os.tmpdir(), 'claudemon-no-commit-root', 'missing');
 
 // --- helpers ---------------------------------------------------------
 
@@ -1669,8 +1683,10 @@ test('게르베몬은 케어미스 부모에게만 조건부고 정규 부모에
   const graph = readGraph(graphFilePath());
   const gerbemon = graph.byId.get('gerbemon');
   assert.ok(gerbemon, '게르베몬 노드가 있어야 한다');
-  const conditioned = gerbemon.evolvesFrom.filter((e) => e.when !== null && e.when !== undefined);
-  const unconditional = gerbemon.evolvesFrom.filter((e) => e.when === null || e.when === undefined);
+  // Quality-axis edges (C6) are weight-only and sit outside the care-miss gate.
+  const gated = gerbemon.evolvesFrom.filter((e) => !isQualityCondition(e.when));
+  const conditioned = gated.filter((e) => e.when !== null && e.when !== undefined);
+  const unconditional = gated.filter((e) => e.when === null || e.when === undefined);
   assert.deepStrictEqual(
     conditioned.map((e) => e.from).sort(),
     [...CARE_MISS_ADULTS].sort()
@@ -3468,4 +3484,344 @@ test('[C4] 손상된 dex.json 이 있어도 하루 계산은 던지지 않고 �
   fs.writeFileSync(path.join(dirs.claudemonDir, 'dex.json'), '{not json');
   const result = computeDailyTokens(dateAt(0), dirs);
   assert.ok(result.mon);
+});
+
+// --- quality axes (C6): toolCallsPerTurn / dailyCommitCount -----------
+//
+// Two weight-only axes (D-3, D-9..D-13). Every test writes under makeRoot's
+// temp dirs; commit fixtures are throwaway git repos under the same temp root.
+
+const QUALITY_TODAY = '2026-11-11';
+
+function addDaysKST(dateKST, days) {
+  return new Date(Date.parse(`${dateKST}T00:00:00Z`) + days * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+}
+
+// Unix seconds for a KST wall-clock time on a given KST date.
+function kstSec(dateKST, hhmm) {
+  return Date.parse(`${dateKST}T${hhmm}:00+09:00`) / 1000;
+}
+
+function writeToolCounts(claudemonDir, sessionId, ok, bad) {
+  fs.mkdirSync(path.join(claudemonDir, 'sessions'), { recursive: true });
+  fs.writeFileSync(path.join(claudemonDir, 'sessions', `${sessionId}.json`),
+    JSON.stringify({ toolSuccessCount: ok, toolFailureCount: bad }));
+}
+
+function gitIn(cwd, args, env = {}) {
+  return execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+    cwd,
+    env: { ...process.env, ...env },
+    stdio: 'pipe'
+  }).toString();
+}
+
+// One commit per entry of `commits` ({ at: unix seconds, email? }). Commits
+// with no email are authored by the repo's own user.email.
+function makeRepo(dir, email, commits) {
+  fs.mkdirSync(dir, { recursive: true });
+  gitIn(dir, ['init', '-q']);
+  gitIn(dir, ['config', 'user.email', email]);
+  gitIn(dir, ['config', 'user.name', 'tester']);
+  commits.forEach((c, i) => {
+    fs.writeFileSync(path.join(dir, `f${i}.txt`), String(i));
+    gitIn(dir, ['add', '.']);
+    const when = `${c.at} +0000`;
+    const who = c.email || email;
+    gitIn(dir, ['commit', '-q', '-m', `c${i}`], {
+      GIT_AUTHOR_DATE: when,
+      GIT_COMMITTER_DATE: when,
+      GIT_AUTHOR_EMAIL: who,
+      GIT_COMMITTER_EMAIL: who
+    });
+  });
+}
+
+test('daySignals reports toolCallsPerTurn and the given dailyCommitCount', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeToolCounts(claudemonDir, 's1', 30, 2);
+  writeToolCounts(claudemonDir, 's2', 10, 0);
+  const sig = daySignals(claudemonDir, { s1: 100, s2: 50 }, 16, 150, 3);
+  assert.strictEqual(sig.toolCallsPerTurn, 42 / 16);
+  assert.strictEqual(sig.dailyCommitCount, 3);
+});
+
+test('daySignals gives toolCallsPerTurn null when there are no user turns', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeToolCounts(claudemonDir, 's1', 5, 0);
+  const sig = daySignals(claudemonDir, { s1: 10 }, 0, 10, 0);
+  assert.strictEqual(sig.toolCallsPerTurn, null);
+});
+
+test('countCommitsByDay counts only the repo author and buckets by KST day', (t) => {
+  const { root } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  const repoA = path.join(commons, 'a');
+  makeRepo(repoA, 'me@example.com', [
+    { at: kstSec('2026-11-10', '10:00') },
+    { at: kstSec('2026-11-10', '23:30') },
+    { at: kstSec('2026-11-11', '00:30') },
+    { at: kstSec('2026-11-10', '12:00'), email: 'other@example.com' }
+  ]);
+  const counts = countCommitsByDay(commons, kstSec('2026-11-10', '00:00') * 1000,
+    kstSec('2026-11-12', '00:00') * 1000);
+  assert.deepStrictEqual(counts, { '2026-11-10': 2, '2026-11-11': 1 });
+});
+
+test('countCommitsByDay counts a commit once when a worktree shares the repo', (t) => {
+  const { root } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  const repoA = path.join(commons, 'a');
+  makeRepo(repoA, 'me@example.com', [{ at: kstSec('2026-11-10', '10:00') }]);
+  gitIn(repoA, ['worktree', 'add', '-q', '-b', 'wt', path.join(commons, 'wt-a')]);
+  const counts = countCommitsByDay(commons, kstSec('2026-11-10', '00:00') * 1000,
+    kstSec('2026-11-11', '00:00') * 1000);
+  assert.deepStrictEqual(counts, { '2026-11-10': 1 });
+});
+
+test('countCommitsByDay reads a missing root, a non-repo, and a repo without user.email as zero', (t) => {
+  const { root } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  fs.mkdirSync(path.join(commons, 'plain'), { recursive: true });
+  fs.writeFileSync(path.join(commons, 'plain', 'x.txt'), 'x');
+  const since = kstSec('2026-11-10', '00:00') * 1000;
+  const until = kstSec('2026-11-12', '00:00') * 1000;
+  assert.deepStrictEqual(countCommitsByDay(commons, since, until), {});
+  assert.deepStrictEqual(countCommitsByDay(path.join(root, 'nope'), since, until), {});
+  const noEmail = path.join(commons, 'noemail');
+  fs.mkdirSync(noEmail, { recursive: true });
+  gitIn(noEmail, ['init', '-q']);
+  assert.deepStrictEqual(countCommitsByDay(commons, since, until), {});
+});
+
+test('first refresh backfills the 14 past days of commit counts only', (t) => {
+  const { root, claudemonDir } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  makeRepo(path.join(commons, 'a'), 'me@example.com', [
+    { at: kstSec('2026-11-03', '10:00') },
+    { at: kstSec(QUALITY_TODAY, '09:00') }
+  ]);
+  const now = kstSec(QUALITY_TODAY, '12:00') * 1000;
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now, commons), 1);
+
+  const history = readQualityHistory(claudemonDir);
+  const past = history.entries.filter((e) => e.date !== QUALITY_TODAY);
+  assert.strictEqual(past.length, 14);
+  assert.strictEqual(past[0].date, '2026-10-28');
+  assert.strictEqual(past[past.length - 1].date, '2026-11-10');
+  assert.strictEqual(past.find((e) => e.date === '2026-11-03').dailyCommitCount, 1);
+  for (const e of past) assert.strictEqual(e.toolCallsPerTurn, null, 'toolCallsPerTurn is never backfilled');
+});
+
+test('refresh reuses today count inside the 10 minute TTL, rescans after it', (t) => {
+  const { root, claudemonDir } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  const repo = path.join(commons, 'a');
+  makeRepo(repo, 'me@example.com', [{ at: kstSec(QUALITY_TODAY, '09:00') }]);
+  const now = kstSec(QUALITY_TODAY, '12:00') * 1000;
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now, commons), 1);
+  gitIn(repo, ['commit', '-q', '--allow-empty', '-m', 'late'], {
+    GIT_AUTHOR_DATE: `${kstSec(QUALITY_TODAY, '12:01')} +0000`,
+    GIT_COMMITTER_DATE: `${kstSec(QUALITY_TODAY, '12:01')} +0000`
+  });
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now + 5 * 60 * 1000, commons), 1);
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now + 11 * 60 * 1000, commons), 2);
+});
+
+test('recordQualityHistory upserts today and keeps the newest QUALITY_HISTORY_MAX rows', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(QUALITY_HISTORY_MAX, 60);
+  recordQualityHistory(claudemonDir, QUALITY_TODAY, { toolCallsPerTurn: 3 });
+  recordQualityHistory(claudemonDir, QUALITY_TODAY, { toolCallsPerTurn: 4, dailyCommitCount: 2 });
+  let history = readQualityHistory(claudemonDir);
+  assert.strictEqual(history.entries.length, 1);
+  assert.deepStrictEqual(
+    { t: history.entries[0].toolCallsPerTurn, c: history.entries[0].dailyCommitCount },
+    { t: 4, c: 2 }
+  );
+  assert.ok(fs.existsSync(qualityHistoryFilePath(claudemonDir)));
+
+  const ring = makeRoot(t).claudemonDir;
+  for (let i = 0; i < QUALITY_HISTORY_MAX + 5; i++) {
+    recordQualityHistory(ring, addDaysKST('2026-01-01', i), { toolCallsPerTurn: i });
+  }
+  history = readQualityHistory(ring);
+  assert.strictEqual(history.entries.length, QUALITY_HISTORY_MAX);
+  assert.strictEqual(history.entries[0].date, addDaysKST('2026-01-01', 5));
+  assert.strictEqual(history.entries[history.entries.length - 1].date, addDaysKST('2026-01-01', QUALITY_HISTORY_MAX + 4));
+});
+
+test('qualityP50 is null below 14 past days and nearest-rank P50 of the newest 14 at 14', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  for (let i = 0; i < 13; i++) {
+    recordQualityHistory(claudemonDir, addDaysKST('2026-01-01', i), { toolCallsPerTurn: i + 1 });
+  }
+  assert.strictEqual(qualityP50(claudemonDir, '2026-01-14').toolCallsPerTurn, null);
+
+  recordQualityHistory(claudemonDir, addDaysKST('2026-01-01', 13), { toolCallsPerTurn: 14 });
+  recordQualityHistory(claudemonDir, '2026-01-15', { toolCallsPerTurn: 999 });
+  assert.strictEqual(qualityP50(claudemonDir, '2026-01-15').toolCallsPerTurn, 7);
+
+  recordQualityHistory(claudemonDir, addDaysKST('2026-01-01', 14), { toolCallsPerTurn: 15 });
+  assert.strictEqual(qualityP50(claudemonDir, '2026-01-16').toolCallsPerTurn, 8);
+});
+
+// --- weightedCandidates: quality edges ---------------------------------
+
+// One child of the 'parent' fixture node, carrying the given condition.
+function qualityChild(id, when) {
+  return { id, name: id, stage: 'child', sprite: id, evolvesFrom: [{ from: 'parent', when }] };
+}
+
+// A parent with three children: an unconditional one, a toolCallsPerTurn
+// p50 edge, and a sessionCount edge. Returned as a readGraph graph.
+function qualityFixtureGraph(t, extraChildren = []) {
+  const { root } = makeRoot(t);
+  const graphPath = path.join(root, 'graph.json');
+  const nodes = [
+    { id: 'parent', name: 'parent', stage: 'baby', sprite: 'parent', evolvesFrom: [] },
+    qualityChild('plain', null),
+    qualityChild('quality', { type: 'toolCallsPerTurn', gte: 'p50' }),
+    qualityChild('session', { type: 'sessionCount', gte: 5 }),
+    ...extraChildren
+  ];
+  fs.writeFileSync(graphPath, JSON.stringify({ version: '1.0.0', nodes }));
+  return readGraph(graphPath);
+}
+
+function weightsOf(candidates) {
+  return candidates.map((c) => [c.node.id, c.weight]);
+}
+
+test('quality edge without p50 history is an unconditional edge of weight 1', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const ctx = { sessionCount: 0, toolCallsPerTurn: 2, qualityP50: { toolCallsPerTurn: null, dailyCommitCount: null } };
+  const got = candidatesFor(graph.byId.get('parent'), ctx, graph.childrenOf);
+  assert.deepStrictEqual(weightsOf(got).sort(), [['plain', 1], ['quality', 1]]);
+});
+
+test('quality edge met against p50 weighs CONDITION_EDGE_WEIGHT, unmet is excluded', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const met = { sessionCount: 5, toolCallsPerTurn: 2, qualityP50: { toolCallsPerTurn: 2, dailyCommitCount: null } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), met, graph.childrenOf)).sort(),
+    [['plain', 1], ['quality', 8], ['session', 8]]
+  );
+  const unmet = { sessionCount: 0, toolCallsPerTurn: 1, qualityP50: { toolCallsPerTurn: 2, dailyCommitCount: null } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), unmet, graph.childrenOf)).sort(),
+    [['plain', 1]]
+  );
+});
+
+test('a zero or missing quality value never satisfies a p50 edge', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const zero = { sessionCount: 0, toolCallsPerTurn: 0, qualityP50: { toolCallsPerTurn: 0, dailyCommitCount: null } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), zero, graph.childrenOf)).sort(),
+    [['plain', 1]]
+  );
+});
+
+test('all-unmet conditional fan-out falls back to uniform weight 1', (t) => {
+  const { root } = makeRoot(t);
+  const graphPath = path.join(root, 'graph.json');
+  fs.writeFileSync(graphPath, JSON.stringify({ version: '1.0.0', nodes: [
+    { id: 'parent', name: 'parent', stage: 'baby', sprite: 'parent', evolvesFrom: [] },
+    qualityChild('a', { type: 'toolCallsPerTurn', gte: 'p50' }),
+    qualityChild('b', { type: 'dailyCommitCount', gte: 'p50' })
+  ] }));
+  const graph = readGraph(graphPath);
+  const ctx = { toolCallsPerTurn: 0, dailyCommitCount: 0, qualityP50: { toolCallsPerTurn: 3, dailyCommitCount: 3 } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), ctx, graph.childrenOf)).sort(),
+    [['a', 1], ['b', 1]]
+  );
+});
+
+test('CLAUDEMON_GATE_WEIGHTING=0 routes the same with or without quality conditions', (t) => {
+  const { root } = makeRoot(t);
+  const raw = JSON.parse(fs.readFileSync(graphFilePath(), 'utf8'));
+  const quality = new Set(['toolCallsPerTurn', 'dailyCommitCount']);
+  let qualityEdges = 0;
+  for (const node of raw.nodes) {
+    for (const e of node.evolvesFrom || []) {
+      if (e.when && quality.has(e.when.type)) {
+        qualityEdges++;
+        e.when = null;
+      }
+    }
+  }
+  assert.ok(qualityEdges > 0, 'real graph carries quality edges');
+  const withQuality = readGraph(graphFilePath());
+  const plainPath = path.join(root, 'plain-graph.json');
+  fs.writeFileSync(plainPath, JSON.stringify(raw));
+  const withoutQuality = readGraph(plainPath);
+
+  const prev = process.env.CLAUDEMON_GATE_WEIGHTING;
+  process.env.CLAUDEMON_GATE_WEIGHTING = '0';
+  t.after(() => {
+    if (prev === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
+    else process.env.CLAUDEMON_GATE_WEIGHTING = prev;
+  });
+  const ctx = {
+    dailyOutputTokens: 5000000,
+    dailyOutputTokensFloor: 2000000,
+    dailyUserTurns: 50,
+    outputPerTurn: 1000,
+    sessionCount: 3,
+    topSharePct: 50,
+    failureRatioPct: 1,
+    global: {},
+    toolCallsPerTurn: 1,
+    dailyCommitCount: 2,
+    qualityP50: { toolCallsPerTurn: 1, dailyCommitCount: 1 }
+  };
+  const lock = {
+    route: null,
+    routeReasons: null,
+    throughStage: EVOLVE_TREE.stages[EVOLVE_TREE.stages.length - 1].id,
+    random: false
+  };
+  const rookies = raw.nodes.filter((n) => n.stage === 'child').map((n) => n.id).slice(0, 40);
+  assert.ok(rookies.length > 0);
+  for (const rookie of rookies) {
+    const a = selectRoute('2026-11-11', rookie, withQuality, ctx, lock).route;
+    const b = selectRoute('2026-11-11', rookie, withoutQuality, ctx, lock).route;
+    assert.deepStrictEqual(a, b, `route for ${rookie}`);
+  }
+});
+
+test('gate weighting constants still give 8 for a met condition and 1 for an unconditional edge', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const ctx = { sessionCount: 5, toolCallsPerTurn: 0, qualityP50: { toolCallsPerTurn: null, dailyCommitCount: null } };
+  const weights = Object.fromEntries(weightsOf(candidatesFor(graph.byId.get('parent'), ctx, graph.childrenOf)));
+  assert.strictEqual(weights.session, 8);
+  assert.strictEqual(weights.plain, 1);
+});
+
+test('real graph: quality edges are capped, one per parent, on parents with fan-out >= 4, alternating axes', () => {
+  const graph = JSON.parse(fs.readFileSync(graphFilePath(), 'utf8'));
+  const audit = auditQualityEdges(graph);
+  assert.strictEqual(QUALITY_EDGE_CAP, 111);
+  assert.deepStrictEqual(audit.violations, []);
+  assert.ok(audit.count > 0 && audit.count <= 111);
+  assert.ok(audit.perAxis.toolCallsPerTurn > 0 && audit.perAxis.dailyCommitCount > 0);
+});
+
+test('validateGraph flags a quality axis nested in all/any or with a gte that is neither p50 nor a number', (t) => {
+  const { root } = makeRoot(t);
+  const graphPath = path.join(root, 'graph.json');
+  fs.writeFileSync(graphPath, JSON.stringify({ version: '1.0.0', nodes: [
+    { id: 'parent', name: 'parent', stage: 'baby', sprite: 'parent', evolvesFrom: [] },
+    qualityChild('nested', { all: [{ type: 'toolCallsPerTurn', gte: 'p50' }] }),
+    qualityChild('badgte', { type: 'dailyCommitCount', gte: 'high' }),
+    qualityChild('fine', { type: 'dailyCommitCount', gte: 'p50' })
+  ] }));
+  const flagged = validateGraph(readGraph(graphPath))
+    .filter((v) => v.rule === 'quality-condition-shape')
+    .map((v) => v.node)
+    .sort();
+  assert.deepStrictEqual(flagged, ['badgte', 'nested']);
 });

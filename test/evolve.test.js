@@ -8,7 +8,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { conditionMet, applyEvolution, TREE } = require('../lib/evolve');
+const {
+  conditionMet,
+  applyEvolution,
+  TREE,
+  KNOWN_CONDITION_TYPES,
+  QUALITY_CONDITION_TYPES,
+  isQualityPending,
+  isQualityCondition
+} = require('../lib/evolve');
 
 // --- checkCondition: new types -----------------------------------------
 
@@ -268,4 +276,59 @@ test('a high floor does not block superultimate through the turn-count branch', 
   };
   applyEvolution(state);
   assert.strictEqual(state.stageId, 'superultimate');
+});
+
+// --- quality axes (C6) -------------------------------------------------
+
+test('quality axes are known condition types', () => {
+  assert.deepStrictEqual(QUALITY_CONDITION_TYPES, ['toolCallsPerTurn', 'dailyCommitCount']);
+  for (const type of QUALITY_CONDITION_TYPES) assert.ok(KNOWN_CONDITION_TYPES.includes(type));
+});
+
+test('quality axis with a numeric gte compares the raw value', () => {
+  assert.strictEqual(conditionMet({ type: 'toolCallsPerTurn', gte: 3 }, { toolCallsPerTurn: 3 }), true);
+  assert.strictEqual(conditionMet({ type: 'toolCallsPerTurn', gte: 3 }, { toolCallsPerTurn: 2.9 }), false);
+  assert.strictEqual(conditionMet({ type: 'dailyCommitCount', gte: 1 }, { dailyCommitCount: 0 }), false);
+  assert.strictEqual(conditionMet({ type: 'dailyCommitCount', gte: 1 }, {}), false);
+});
+
+// Context for a toolCallsPerTurn quality edge: today's value and its p50.
+function qualityCtx(value, p50) {
+  return { toolCallsPerTurn: value, qualityP50: { toolCallsPerTurn: p50 } };
+}
+
+test('quality axis gte p50 is met at the p50 boundary and not below it', () => {
+  const cond = { type: 'toolCallsPerTurn', gte: 'p50' };
+  assert.strictEqual(conditionMet(cond, qualityCtx(5, 5)), true);
+  assert.strictEqual(conditionMet(cond, qualityCtx(4, 5)), false);
+  assert.strictEqual(conditionMet(cond, qualityCtx(6, 5)), true);
+});
+
+test('quality axis gte p50 is false without p50 or with a p50 of zero or less', () => {
+  const cond = { type: 'dailyCommitCount', gte: 'p50' };
+  assert.strictEqual(conditionMet(cond, { dailyCommitCount: 3 }), false);
+  assert.strictEqual(conditionMet(cond, { dailyCommitCount: 3, qualityP50: { dailyCommitCount: null } }), false);
+  assert.strictEqual(conditionMet(cond, { dailyCommitCount: 0, qualityP50: { dailyCommitCount: 0 } }), false);
+  assert.strictEqual(conditionMet(cond, { dailyCommitCount: 2, qualityP50: { dailyCommitCount: 0 } }), false);
+});
+
+test('isQualityPending is true only for a single p50 quality condition without history', () => {
+  const cond = { type: 'toolCallsPerTurn', gte: 'p50' };
+  assert.strictEqual(isQualityPending(cond, { qualityP50: { toolCallsPerTurn: null } }), true);
+  assert.strictEqual(isQualityPending(cond, {}), true);
+  assert.strictEqual(isQualityPending(cond, { qualityP50: { toolCallsPerTurn: 4 } }), false);
+  assert.strictEqual(isQualityPending({ type: 'toolCallsPerTurn', gte: 3 }, {}), false);
+  assert.strictEqual(isQualityPending({ type: 'sessionCount', gte: 'p50' }, {}), false);
+  assert.strictEqual(isQualityPending(null, {}), false);
+  assert.strictEqual(
+    isQualityPending({ all: [cond, { type: 'sessionCount', gte: 1 }] }, {}),
+    false
+  );
+});
+
+test('isQualityCondition recognizes a direct quality leaf only', () => {
+  assert.strictEqual(isQualityCondition({ type: 'dailyCommitCount', gte: 'p50' }), true);
+  assert.strictEqual(isQualityCondition({ type: 'dailyCommitCount', gte: 2 }), true);
+  assert.strictEqual(isQualityCondition({ type: 'sessionCount', gte: 2 }), false);
+  assert.strictEqual(isQualityCondition(null), false);
 });
