@@ -64,6 +64,8 @@ const {
 // (see below) for selectRoute unit tests, so the real global stage ladder
 // (digitama..superultimate, from evolution-tree.json) needs a different name.
 const { TREE: EVOLVE_TREE } = require('../lib/evolve');
+const { indexGraph, deckVerdicts, listDeckCandidates } = require('../scripts/audit-deck-candidates');
+const { writeDeckPacks } = require('../scripts/add-deck-packs');
 
 // --- helpers ---------------------------------------------------------
 
@@ -765,6 +767,139 @@ test('gaomon appears in the real rotation deck now that its tree loads', () => {
     seen.add(selectMon(key, defaultPacksDir(), undefined, null));
   }
   assert.ok(seen.has('gaomon'), `gaomon never came up across 60 days: ${[...seen]}`);
+});
+
+// --- C5: 성장기 덱 확장 (scripts/audit-deck-candidates.js) ----------------
+// 후보 규칙: child 마다 (a) 도트 (b) 도트 있는 링크만 따라 superultimate 도달
+// (c) 제외 목록 밖 (d) 도트 있는 baby 부모. 탈락 사유는 이 순서로 하나만 고른다.
+
+function deckNode(id, stage, parents = []) {
+  return { id, name: id, stage, sprite: id, evolvesFrom: parents.map((from) => ({ from, when: null })) };
+}
+
+// 덱 픽스처: 노드 목록과 도트가 있는 id 목록으로 임시 nodesDir 를 만든다.
+function deckFixture(t, nodes, dotted) {
+  const nodesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-deck-'));
+  t.after(() => fs.rmSync(nodesDir, { recursive: true, force: true }));
+  for (const id of dotted) fs.writeFileSync(path.join(nodesDir, `${id}-0.png`), 'png');
+  return { graph: indexGraph(nodes), nodesDir };
+}
+
+const DECK_NODES = [
+  deckNode('bA', 'baby'),
+  deckNode('bNoDot', 'baby'),
+  deckNode('kOK', 'child', ['bA']),
+  deckNode('kNoDot', 'child', ['bA']),
+  deckNode('kDenied', 'child', ['bA']),
+  deckNode('kTop', 'child', ['bA']),
+  deckNode('kNoBaby', 'child', ['bNoDot']),
+  deckNode('kSkip', 'child', ['bA']),
+  deckNode('kBlocked', 'child', ['bA']),
+  deckNode('aOK', 'adult', ['kOK', 'kNoBaby', 'kDenied', 'kSkip']),
+  deckNode('aNoDot', 'adult', ['kSkip', 'kBlocked']),
+  deckNode('aDead', 'adult', ['kTop']),
+  deckNode('pOK', 'perfect', ['aOK']),
+  deckNode('uOK', 'ultimate', ['pOK']),
+  deckNode('sOK', 'superultimate', ['uOK']),
+  deckNode('pDead', 'perfect', ['aDead']),
+  deckNode('uDead', 'ultimate', ['pDead'])
+];
+const DECK_DOTTED = [
+  'bA', 'kOK', 'kDenied', 'kTop', 'kNoBaby', 'kSkip', 'kBlocked', 'aOK', 'aDead',
+  'pOK', 'uOK', 'sOK', 'pDead', 'uDead'
+];
+
+function verdictMap(verdicts) {
+  return Object.fromEntries(verdicts.map((v) => [v.id, v.reason]));
+}
+
+test('C5 덱 후보 규칙은 탈락 사유를 도트, 제외, 최상위, baby 순으로 하나씩 준다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  const verdicts = verdictMap(deckVerdicts({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['kDenied']) }));
+  assert.deepStrictEqual(verdicts, {
+    kOK: null,
+    kNoDot: '도트 없음',
+    kDenied: '제외 목록',
+    kTop: '최상위 미도달',
+    kNoBaby: 'baby 부모 없음',
+    kSkip: null,
+    kBlocked: '최상위 미도달'
+  });
+});
+
+test('C5 덱 후보는 도트 없는 중간 노드를 건너뛰어 도달하면 통과한다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  // kSkip 의 자식 aNoDot 은 도트가 없어 빠지고, 같은 자식 aOK 를 거쳐 superultimate 에 닿는다.
+  const candidates = listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['kDenied']) });
+  assert.deepStrictEqual(candidates, ['kOK', 'kSkip']);
+});
+
+test('C5 덱 후보는 제외 목록이 비어 있어도 동작하고, 주입한 Set 으로 걸러진다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  assert.deepStrictEqual(
+    listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set() }),
+    ['kDenied', 'kOK', 'kSkip']
+  );
+  assert.deepStrictEqual(
+    listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['kOK']) }),
+    ['kDenied', 'kSkip']
+  );
+});
+
+test('C5 덱 후보에서 제외 목록 노드는 최상위 도달 경로도 끊는다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  // aOK 가 빠지면 kOK, kSkip, kDenied 모두 superultimate 에 닿지 못한다.
+  assert.deepStrictEqual(listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['aOK']) }), []);
+});
+
+test('C5 실제 레포: 덱은 후보와 같고 후보 팩은 전부 덱에 있다', () => {
+  const graph = indexGraph(JSON.parse(fs.readFileSync(graphFilePath(), 'utf8')).nodes);
+  const nodesDir = path.join(__dirname, '..', 'sprites', 'nodes');
+  const candidates = listDeckCandidates({ graph, nodesDir, denylist: readNodeDenylist() });
+  const deck = listRotationPacks(defaultPacksDir(), undefined);
+  const extra = deck.filter((p) => !candidates.includes(p));
+  const missing = candidates.filter((p) => !deck.includes(p));
+  assert.deepStrictEqual(extra, [], `덱이 후보보다 크다: ${extra}`);
+  assert.deepStrictEqual(missing, [], `후보가 덱에 없다(add-deck-packs 를 실행하라): ${missing}`);
+});
+
+test('C5 덱 후보 팩마다 idle-0.png, idle-1.png, pack.json(stageNames.child) 가 있고 공용 알이 있다', () => {
+  const candidates = listDeckCandidates({
+    graph: indexGraph(JSON.parse(fs.readFileSync(graphFilePath(), 'utf8')).nodes),
+    nodesDir: path.join(__dirname, '..', 'sprites', 'nodes'),
+    denylist: readNodeDenylist()
+  });
+  for (const id of candidates) {
+    const dir = path.join(defaultPacksDir(), id);
+    for (const file of ['idle-0.png', 'idle-1.png', 'pack.json']) {
+      assert.ok(fs.existsSync(path.join(dir, file)), `${id}/${file} 가 없다`);
+    }
+    const names = JSON.parse(fs.readFileSync(path.join(dir, 'pack.json'), 'utf8')).stageNames;
+    assert.ok(names && typeof names.child === 'string' && names.child.trim(), `${id} 의 stageNames.child 가 비었다`);
+  }
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'sprites', 'shared', 'digitama-0.png')));
+});
+
+test('C5 add-deck-packs 는 idle 과 pack.json 을 만들고, 다시 돌리면 건너뛰며, 다른 내용은 덮어쓰지 않는다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  const packsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-packs-'));
+  t.after(() => fs.rmSync(packsDir, { recursive: true, force: true }));
+  // -1 도트가 없으면 -0 을 복사한다(report 의 fallback 으로 드러난다).
+  const first = writeDeckPacks({ ids: ['kOK'], graph: f.graph, nodesDir: f.nodesDir, packsDir, write: true });
+  assert.deepStrictEqual(first, [{ id: 'kOK', action: 'create', idle1Fallback: true }]);
+  const pack = path.join(packsDir, 'kOK');
+  assert.ok(fs.existsSync(path.join(pack, 'idle-0.png')));
+  assert.ok(fs.existsSync(path.join(pack, 'idle-1.png')));
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(pack, 'pack.json'), 'utf8')), {
+    name: 'kOK',
+    stageNames: { child: 'kOK' }
+  });
+  const second = writeDeckPacks({ ids: ['kOK'], graph: f.graph, nodesDir: f.nodesDir, packsDir, write: true });
+  assert.deepStrictEqual(second, [{ id: 'kOK', action: 'skip', idle1Fallback: false }]);
+  fs.writeFileSync(path.join(pack, 'pack.json'), '{"name":"손댐"}');
+  const third = writeDeckPacks({ ids: ['kOK'], graph: f.graph, nodesDir: f.nodesDir, packsDir, write: true });
+  assert.deepStrictEqual(third, [{ id: 'kOK', action: 'conflict', idle1Fallback: false }]);
+  assert.strictEqual(fs.readFileSync(path.join(pack, 'pack.json'), 'utf8'), '{"name":"손댐"}');
 });
 
 test('computeDailyTokens reaches the top stage past its threshold', (t) => {
