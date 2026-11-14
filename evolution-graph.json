@@ -990,6 +990,10 @@
         {
           "from": "darkdramon",
           "when": null
+        },
+        {
+          "from": "mugendramon",
+          "when": null
         }
       ]
     },
@@ -1098,6 +1102,18 @@
       "evolvesFrom": [
         {
           "from": "diablomon",
+          "when": null
+        },
+        {
+          "from": "metalseadramon",
+          "when": null
+        },
+        {
+          "from": "mugendramon",
+          "when": null
+        },
+        {
+          "from": "piemon",
           "when": null
         }
       ]
@@ -7640,6 +7656,10 @@
         },
         {
           "from": "moonmillenniumon",
+          "when": null
+        },
+        {
+          "from": "mugendramon",
           "when": null
         }
       ]
