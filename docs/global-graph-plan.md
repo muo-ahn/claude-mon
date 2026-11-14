@@ -560,6 +560,9 @@ in-edge를 전량 게이팅하면 그 노드는 "게이트 밖에서 도달 불�
   **6번째 일일 축**이 됐다. 상세는 `docs/evolution-routes.md` §Q4.
 - **조그레스** — 전역 그래프면 `parents: [워그레이몬, 메탈가루몬]` 같은 표현을 얹을 자리가
   생기지만, claudemon은 하루에 마스코트가 1마리라 **발동 조건이 존재하지 않는다.**
+  - **예외 (결정 D-20, C7, 2026-11-13)** — apocalymon 단일 자식 완전체 10개가 원작 조그레스 재료인
+    최종체(armagemon, omegamon, zeedmillenniumon)에 한해 재료 1개만으로 `when:null` 엣지를 허용한다.
+    다른 노드는 정책 그대로. 목록·근거는 `docs/apocalymon-fanout-c7.md`.
 - **Swift를 노드 경로로 전환할지** — B-2의 대안 (a). B 이후 롤아웃 창 감수 여부로 별도 결정.
 
 ## 8. NOT in scope
