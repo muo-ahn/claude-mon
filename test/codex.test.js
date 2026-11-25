@@ -165,3 +165,78 @@ test('computeDailyTokens stores the Claude plus Codex total in token-history.jso
   assert.equal(result.outputTokens, 80);
   assert.deepEqual(readTokenHistory(claudemonDir).entries, [{ date: '2026-11-09', outputTokens: 80 }]);
 });
+
+function orow(timestamp, type, payload, ordinal) {
+  return JSON.stringify({ timestamp, type, ordinal, payload }) + '\n';
+}
+function question(timestamp, ordinal) {
+  return orow(timestamp, 'response_item', { type: 'function_call', name: 'request_user_input_async', call_id: 'c', arguments: '{}' }, ordinal);
+}
+function answer(timestamp) {
+  return line(timestamp, 'event_msg', { type: 'item_completed', item: { type: 'UserMessage' } });
+}
+function awaitingOf(dir, id) {
+  return JSON.parse(fs.readFileSync(path.join(dir, `state/sessions/${id}.json`))).awaitingUserSince;
+}
+function setup(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-test-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(dir, 'logs'));
+  return dir;
+}
+
+test('Codex user question marks awaitingUserSince at the first question', (t) => {
+  const dir = setup(t);
+  fs.writeFileSync(path.join(dir, 'logs/r.jsonl'),
+    line('2026-11-08T15:00:00Z', 'session_meta', { id: 'q1' }) +
+    line('2026-11-08T15:01:00Z', 'event_msg', { type: 'task_started' }) +
+    question('2026-11-08T15:02:00Z', 5) + question('2026-11-08T15:03:00Z', 6));
+  scan(dir);
+  assert.equal(awaitingOf(dir, 'codex-q1'), '2026-11-08T15:02:00Z');
+});
+
+test('Codex question stays pending across task_started and task_complete', (t) => {
+  const dir = setup(t);
+  fs.writeFileSync(path.join(dir, 'logs/r.jsonl'),
+    line('2026-11-08T15:00:00Z', 'session_meta', { id: 'q2' }) +
+    question('2026-11-08T15:02:00Z', 5) +
+    line('2026-11-08T15:03:00Z', 'event_msg', { type: 'task_started' }) +
+    line('2026-11-08T15:04:00Z', 'event_msg', { type: 'task_complete' }));
+  scan(dir);
+  assert.equal(awaitingOf(dir, 'codex-q2'), '2026-11-08T15:02:00Z');
+});
+
+test('Codex user message clears the pending question, incrementally too', (t) => {
+  const dir = setup(t);
+  const file = path.join(dir, 'logs/r.jsonl');
+  fs.writeFileSync(file,
+    line('2026-11-08T15:00:00Z', 'session_meta', { id: 'q3' }) +
+    line('2026-11-08T15:01:00Z', 'event_msg', { type: 'task_started' }) +
+    question('2026-11-08T15:02:00Z', 5));
+  scan(dir);
+  assert.equal(awaitingOf(dir, 'codex-q3'), '2026-11-08T15:02:00Z');
+  fs.appendFileSync(file, answer('2026-11-08T15:05:00Z'));
+  scan(dir);
+  assert.equal('awaitingUserSince' in JSON.parse(fs.readFileSync(path.join(dir, 'state/sessions/codex-q3.json'))), false);
+  fs.appendFileSync(file, question('2026-11-08T15:06:00Z', 9) + line('2026-11-08T15:07:00Z', 'event_msg', { type: 'user_message' }));
+  scan(dir);
+  assert.equal(awaitingOf(dir, 'codex-q3'), undefined);
+});
+
+test('Codex child questions: inherited and boundaryless are ignored', (t) => {
+  const dir = setup(t);
+  fs.writeFileSync(path.join(dir, 'logs/inherit.jsonl'),
+    line('2026-11-08T15:00:00Z', 'session_meta', { id: 'kid', parent_thread_id: 'p', subagent_history_start_ordinal: 10 }) +
+    line('2026-11-08T15:01:00Z', 'event_msg', { type: 'task_started' }) +
+    question('2026-11-08T15:02:00Z', 3));
+  fs.writeFileSync(path.join(dir, 'logs/nobound.jsonl'),
+    line('2026-11-08T15:00:00Z', 'session_meta', { id: 'kid2', parent_thread_id: 'p' }) +
+    line('2026-11-08T15:01:00Z', 'event_msg', { type: 'task_started' }) +
+    question('2026-11-08T15:02:00Z', 3));
+  scan(dir);
+  assert.equal(awaitingOf(dir, 'codex-kid'), undefined);
+  assert.equal(awaitingOf(dir, 'codex-kid2'), undefined);
+  fs.appendFileSync(path.join(dir, 'logs/inherit.jsonl'), question('2026-11-08T15:03:00Z', 12));
+  scan(dir);
+  assert.equal(awaitingOf(dir, 'codex-kid'), '2026-11-08T15:03:00Z');
+});

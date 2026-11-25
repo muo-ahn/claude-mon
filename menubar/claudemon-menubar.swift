@@ -464,6 +464,11 @@ let orphanSessionThreshold: TimeInterval = 10 * 60
 // the global state; .idle is the correct "nothing to see here" bucket.
 let abandonedWaitThreshold: TimeInterval = 60 * 60
 
+// Codex questions are asynchronous and send no banner, and people often answer
+// them hours later, so they stay "waiting for input" longer than Claude's.
+// 24h matches the point where a Codex session drops off the list.
+let codexAbandonedWaitThreshold: TimeInterval = 24 * 60 * 60
+
 // How long a `.dead` session keeps a row in the dropdown/--dump-state list
 // after its file stopped being touched, so "it just ended" is visible for
 // a moment instead of the row disappearing the instant the pid exits.
@@ -498,6 +503,9 @@ func pidIsAlive(_ pid: Int?) -> Bool {
 //      before working), unless it has been sitting for longer than
 //      abandonedWaitThreshold, in which case the user is presumed to have
 //      left and it demotes to idle instead
+//      Codex sessions (no pid) use the same field for async user questions;
+//      one left unanswered past codexAbandonedWaitThreshold (24h) falls through to 4-6 below
+//      since Codex may keep working while the question sits.
 //   4. working == true but stale (mtime older than orphanSessionThreshold)
 //      -> stalled (reported working from a session that stopped updating)
 //   5. working == true and fresh -> working
@@ -508,6 +516,9 @@ func projectState(_ entry: SessionEntry, now: Date = Date()) -> SessionState {
         guard let updated = entry.json["updatedAt"] as? String,
               let timestamp = parseISO8601(updated),
               now.timeIntervalSince(timestamp) < 24 * 3600 else { return .dead }
+        if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty,
+           let awaitingSince = parseISO8601(awaiting),
+           now.timeIntervalSince(awaitingSince) <= codexAbandonedWaitThreshold { return .waitingUser }
         if workingFieldPresent(entry.json) == true {
             return now.timeIntervalSince(timestamp) > orphanSessionThreshold ? .stalled : .working
         }
