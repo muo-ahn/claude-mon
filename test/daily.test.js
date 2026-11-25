@@ -13,6 +13,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const {
   listValidPacks,
@@ -20,6 +21,10 @@ const {
   topStageId,
   selectRoute,
   candidatesFor,
+  buildDexWeighting,
+  DEX_WEIGHT_SCALE,
+  DEX_UNDISCOVERED_MULT,
+  DEX_RECENT_MULT,
   readGraph,
   validateGraph,
   graphFilePath,
@@ -36,13 +41,49 @@ const {
   monHistoryFilePath,
   readMonHistory,
   recordMonHistory,
-  MON_HISTORY_MAX
+  MON_HISTORY_MAX,
+  linksWithDots,
+  readNodeDenylist,
+  defaultDenylistPath,
+  dailyFilePath,
+  dateKSTString,
+  tokenHistoryFilePath,
+  readTokenHistory,
+  recordTokenHistory,
+  topTierThreshold,
+  nearestRank,
+  TOKEN_HISTORY_MAX,
+  TOP_TIER_FLOOR,
+  DEX_VERSION,
+  dexFilePath,
+  readDex,
+  recordDex,
+  reachableNodes,
+  hintFor,
+  describeCondition,
+  dexFieldFor,
+  routeNodeIdsOf,
+  countCommitsByDay,
+  refreshDailyCommitCount,
+  qualityHistoryFilePath,
+  readQualityHistory,
+  recordQualityHistory,
+  qualityP50,
+  QUALITY_HISTORY_MAX
 } = require('../lib/daily');
 
 // Aliased: this file also declares its own local `TREE` pack-tree fixture
 // (see below) for selectRoute unit tests, so the real global stage ladder
 // (digitama..superultimate, from evolution-tree.json) needs a different name.
-const { TREE: EVOLVE_TREE } = require('../lib/evolve');
+const { TREE: EVOLVE_TREE, isQualityCondition } = require('../lib/evolve');
+const { indexGraph, deckVerdicts, listDeckCandidates } = require('../scripts/audit-deck-candidates');
+const { writeDeckPacks } = require('../scripts/add-deck-packs');
+const { auditQualityEdges, QUALITY_EDGE_CAP } = require('../lib/quality-edges');
+
+// computeDailyTokens scans ~/Dev for commits by default. Point the scan at a
+// path that does not exist so no test reads this machine's repositories; the
+// commit tests pass their own root explicitly.
+process.env.CLAUDEMON_COMMIT_ROOT = path.join(os.tmpdir(), 'claudemon-no-commit-root', 'missing');
 
 // --- helpers ---------------------------------------------------------
 
@@ -56,7 +97,8 @@ function makeRoot(t) {
     packsDir: path.join(root, 'packs'),
     sharedDir: path.join(root, 'shared'),
     claudemonDir: path.join(root, 'claudemon'),
-    projectsDir: path.join(root, 'projects')
+    projectsDir: path.join(root, 'projects'),
+    codexDirs: []
   };
 }
 
@@ -743,6 +785,139 @@ test('gaomon appears in the real rotation deck now that its tree loads', () => {
     seen.add(selectMon(key, defaultPacksDir(), undefined, null));
   }
   assert.ok(seen.has('gaomon'), `gaomon never came up across 60 days: ${[...seen]}`);
+});
+
+// --- C5: 성장기 덱 확장 (scripts/audit-deck-candidates.js) ----------------
+// 후보 규칙: child 마다 (a) 도트 (b) 도트 있는 링크만 따라 superultimate 도달
+// (c) 제외 목록 밖 (d) 도트 있는 baby 부모. 탈락 사유는 이 순서로 하나만 고른다.
+
+function deckNode(id, stage, parents = []) {
+  return { id, name: id, stage, sprite: id, evolvesFrom: parents.map((from) => ({ from, when: null })) };
+}
+
+// 덱 픽스처: 노드 목록과 도트가 있는 id 목록으로 임시 nodesDir 를 만든다.
+function deckFixture(t, nodes, dotted) {
+  const nodesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-deck-'));
+  t.after(() => fs.rmSync(nodesDir, { recursive: true, force: true }));
+  for (const id of dotted) fs.writeFileSync(path.join(nodesDir, `${id}-0.png`), 'png');
+  return { graph: indexGraph(nodes), nodesDir };
+}
+
+const DECK_NODES = [
+  deckNode('bA', 'baby'),
+  deckNode('bNoDot', 'baby'),
+  deckNode('kOK', 'child', ['bA']),
+  deckNode('kNoDot', 'child', ['bA']),
+  deckNode('kDenied', 'child', ['bA']),
+  deckNode('kTop', 'child', ['bA']),
+  deckNode('kNoBaby', 'child', ['bNoDot']),
+  deckNode('kSkip', 'child', ['bA']),
+  deckNode('kBlocked', 'child', ['bA']),
+  deckNode('aOK', 'adult', ['kOK', 'kNoBaby', 'kDenied', 'kSkip']),
+  deckNode('aNoDot', 'adult', ['kSkip', 'kBlocked']),
+  deckNode('aDead', 'adult', ['kTop']),
+  deckNode('pOK', 'perfect', ['aOK']),
+  deckNode('uOK', 'ultimate', ['pOK']),
+  deckNode('sOK', 'superultimate', ['uOK']),
+  deckNode('pDead', 'perfect', ['aDead']),
+  deckNode('uDead', 'ultimate', ['pDead'])
+];
+const DECK_DOTTED = [
+  'bA', 'kOK', 'kDenied', 'kTop', 'kNoBaby', 'kSkip', 'kBlocked', 'aOK', 'aDead',
+  'pOK', 'uOK', 'sOK', 'pDead', 'uDead'
+];
+
+function verdictMap(verdicts) {
+  return Object.fromEntries(verdicts.map((v) => [v.id, v.reason]));
+}
+
+test('C5 덱 후보 규칙은 탈락 사유를 도트, 제외, 최상위, baby 순으로 하나씩 준다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  const verdicts = verdictMap(deckVerdicts({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['kDenied']) }));
+  assert.deepStrictEqual(verdicts, {
+    kOK: null,
+    kNoDot: '도트 없음',
+    kDenied: '제외 목록',
+    kTop: '최상위 미도달',
+    kNoBaby: 'baby 부모 없음',
+    kSkip: null,
+    kBlocked: '최상위 미도달'
+  });
+});
+
+test('C5 덱 후보는 도트 없는 중간 노드를 건너뛰어 도달하면 통과한다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  // kSkip 의 자식 aNoDot 은 도트가 없어 빠지고, 같은 자식 aOK 를 거쳐 superultimate 에 닿는다.
+  const candidates = listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['kDenied']) });
+  assert.deepStrictEqual(candidates, ['kOK', 'kSkip']);
+});
+
+test('C5 덱 후보는 제외 목록이 비어 있어도 동작하고, 주입한 Set 으로 걸러진다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  assert.deepStrictEqual(
+    listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set() }),
+    ['kDenied', 'kOK', 'kSkip']
+  );
+  assert.deepStrictEqual(
+    listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['kOK']) }),
+    ['kDenied', 'kSkip']
+  );
+});
+
+test('C5 덱 후보에서 제외 목록 노드는 최상위 도달 경로도 끊는다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  // aOK 가 빠지면 kOK, kSkip, kDenied 모두 superultimate 에 닿지 못한다.
+  assert.deepStrictEqual(listDeckCandidates({ graph: f.graph, nodesDir: f.nodesDir, denylist: new Set(['aOK']) }), []);
+});
+
+test('C5 실제 레포: 덱은 후보와 같고 후보 팩은 전부 덱에 있다', () => {
+  const graph = indexGraph(JSON.parse(fs.readFileSync(graphFilePath(), 'utf8')).nodes);
+  const nodesDir = path.join(__dirname, '..', 'sprites', 'nodes');
+  const candidates = listDeckCandidates({ graph, nodesDir, denylist: readNodeDenylist() });
+  const deck = listRotationPacks(defaultPacksDir(), undefined);
+  const extra = deck.filter((p) => !candidates.includes(p));
+  const missing = candidates.filter((p) => !deck.includes(p));
+  assert.deepStrictEqual(extra, [], `덱이 후보보다 크다: ${extra}`);
+  assert.deepStrictEqual(missing, [], `후보가 덱에 없다(add-deck-packs 를 실행하라): ${missing}`);
+});
+
+test('C5 덱 후보 팩마다 idle-0.png, idle-1.png, pack.json(stageNames.child) 가 있고 공용 알이 있다', () => {
+  const candidates = listDeckCandidates({
+    graph: indexGraph(JSON.parse(fs.readFileSync(graphFilePath(), 'utf8')).nodes),
+    nodesDir: path.join(__dirname, '..', 'sprites', 'nodes'),
+    denylist: readNodeDenylist()
+  });
+  for (const id of candidates) {
+    const dir = path.join(defaultPacksDir(), id);
+    for (const file of ['idle-0.png', 'idle-1.png', 'pack.json']) {
+      assert.ok(fs.existsSync(path.join(dir, file)), `${id}/${file} 가 없다`);
+    }
+    const names = JSON.parse(fs.readFileSync(path.join(dir, 'pack.json'), 'utf8')).stageNames;
+    assert.ok(names && typeof names.child === 'string' && names.child.trim(), `${id} 의 stageNames.child 가 비었다`);
+  }
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'sprites', 'shared', 'digitama-0.png')));
+});
+
+test('C5 add-deck-packs 는 idle 과 pack.json 을 만들고, 다시 돌리면 건너뛰며, 다른 내용은 덮어쓰지 않는다', (t) => {
+  const f = deckFixture(t, DECK_NODES, DECK_DOTTED);
+  const packsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-packs-'));
+  t.after(() => fs.rmSync(packsDir, { recursive: true, force: true }));
+  // -1 도트가 없으면 -0 을 복사한다(report 의 fallback 으로 드러난다).
+  const first = writeDeckPacks({ ids: ['kOK'], graph: f.graph, nodesDir: f.nodesDir, packsDir, write: true });
+  assert.deepStrictEqual(first, [{ id: 'kOK', action: 'create', idle1Fallback: true }]);
+  const pack = path.join(packsDir, 'kOK');
+  assert.ok(fs.existsSync(path.join(pack, 'idle-0.png')));
+  assert.ok(fs.existsSync(path.join(pack, 'idle-1.png')));
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(pack, 'pack.json'), 'utf8')), {
+    name: 'kOK',
+    stageNames: { child: 'kOK' }
+  });
+  const second = writeDeckPacks({ ids: ['kOK'], graph: f.graph, nodesDir: f.nodesDir, packsDir, write: true });
+  assert.deepStrictEqual(second, [{ id: 'kOK', action: 'skip', idle1Fallback: false }]);
+  fs.writeFileSync(path.join(pack, 'pack.json'), '{"name":"손댐"}');
+  const third = writeDeckPacks({ ids: ['kOK'], graph: f.graph, nodesDir: f.nodesDir, packsDir, write: true });
+  assert.deepStrictEqual(third, [{ id: 'kOK', action: 'conflict', idle1Fallback: false }]);
+  assert.strictEqual(fs.readFileSync(path.join(pack, 'pack.json'), 'utf8'), '{"name":"손댐"}');
 });
 
 test('computeDailyTokens reaches the top stage past its threshold', (t) => {
@@ -1508,8 +1683,10 @@ test('게르베몬은 케어미스 부모에게만 조건부고 정규 부모에
   const graph = readGraph(graphFilePath());
   const gerbemon = graph.byId.get('gerbemon');
   assert.ok(gerbemon, '게르베몬 노드가 있어야 한다');
-  const conditioned = gerbemon.evolvesFrom.filter((e) => e.when !== null && e.when !== undefined);
-  const unconditional = gerbemon.evolvesFrom.filter((e) => e.when === null || e.when === undefined);
+  // Quality-axis edges (C6) are weight-only and sit outside the care-miss gate.
+  const gated = gerbemon.evolvesFrom.filter((e) => !isQualityCondition(e.when));
+  const conditioned = gated.filter((e) => e.when !== null && e.when !== undefined);
+  const unconditional = gated.filter((e) => e.when === null || e.when === undefined);
   assert.deepStrictEqual(
     conditioned.map((e) => e.from).sort(),
     [...CARE_MISS_ADULTS].sort()
@@ -2511,3 +2688,1140 @@ test('global graph runtime reproduces pack-tree golden routes', (t) => {
   assert.strictEqual(failures.length, 0, `${failures.length}/${totalCases} cases failed golden equality`);
 });
 
+
+test('computeDailyTokens combines Claude and Codex output and turns', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('combined', 100), userLine('test')]);
+  const codexDir = path.join(dirs.root, 'codex');
+  fs.mkdirSync(codexDir);
+  fs.writeFileSync(path.join(codexDir, 'rollout.jsonl'), [
+    { timestamp: '2026-07-29T02:00:00Z', type: 'session_meta', payload: { id: 'abc' } },
+    { timestamp: '2026-07-29T02:01:00Z', type: 'event_msg', payload: { type: 'task_started', turn_id: 't' } },
+    { timestamp: '2026-07-29T02:02:00Z', type: 'token_usage_record', payload: { session_id: 'abc', response_id: 'r', usage: { output_tokens: 50 } } }
+  ].map(row => JSON.stringify(row)).join('\n') + '\n');
+  const result = computeDailyTokens(dateAt(0), { ...dirs, codexDirs: [codexDir] });
+  assert.equal(result.outputTokens, 150);
+  assert.deepEqual(result.sessionTokens, { [SESSION]: 100, 'codex-abc': 50 });
+  assert.equal(result.dailyUserTurns, 2);
+});
+
+// --- 제외 목록(sprites/nodes-denylist.json) -------------------------------
+// 제외 노드는 추첨 후보(linksWithDots, selectRoute)와 덱(listValidPacks,
+// listRotationPacks)에서 빠진다. 도트 파일은 건드리지 않는다.
+
+function denylistFile(t, content) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-denylist-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'nodes-denylist.json');
+  if (content !== undefined) fs.writeFileSync(file, content);
+  return file;
+}
+
+test('readNodeDenylist 는 파일이 없으면 빈 Set 을 돌려준다', (t) => {
+  const file = path.join(denylistFile(t), 'missing.json');
+  const result = readNodeDenylist(file);
+  assert.ok(result instanceof Set);
+  assert.strictEqual(result.size, 0);
+});
+
+test('readNodeDenylist 는 깨진 JSON, null, version 불일치, 배열 nodes 를 모두 빈 Set 으로 본다', (t) => {
+  const cases = [
+    '{ not json',
+    'null',
+    JSON.stringify({ version: 2, nodes: { kid: '깨짐' } }),
+    JSON.stringify({ version: 1, nodes: ['kid'] }),
+    JSON.stringify({ nodes: { kid: '깨짐' } })
+  ];
+  for (const content of cases) {
+    assert.strictEqual(readNodeDenylist(denylistFile(t, content)).size, 0, `입력 ${content}`);
+  }
+});
+
+test('readNodeDenylist 는 사유가 빈 문자열이거나 문자열이 아닌 항목만 뺀다', (t) => {
+  const content = JSON.stringify({
+    version: 1,
+    nodes: { rosemon_burstmode: '도트 깨짐', kid: '', adult: 5, spine: '   ', perfect: '잘림' }
+  });
+  const result = readNodeDenylist(denylistFile(t, content));
+  assert.deepStrictEqual([...result].sort(), ['perfect', 'rosemon_burstmode']);
+});
+
+test('readNodeDenylist 기본 경로는 저장소의 sprites/nodes-denylist.json 이고 실제 파일을 읽는다', () => {
+  assert.strictEqual(defaultDenylistPath(), path.join(__dirname, '..', 'sprites', 'nodes-denylist.json'));
+  assert.ok(readNodeDenylist() instanceof Set);
+});
+
+// 링크 하나: { node, when } 모양. 도트 파일 존재 여부는 nodesDir 가 정한다.
+function linkTo(id, stage = 'child') {
+  return { node: { id, sprite: id, stage, name: id, evolvesFrom: [] }, when: null };
+}
+
+function dotsDir(t, ids) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-dots-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const id of ids) fs.writeFileSync(path.join(dir, `${id}-0.png`), 'png');
+  return dir;
+}
+
+test('linksWithDots 는 제외 노드 링크를 거른다', (t) => {
+  const nodesDir = dotsDir(t, ['kid', 'spineA']);
+  const result = linksWithDots([linkTo('kid'), linkTo('spineA')], nodesDir, new Set(['kid']));
+  assert.deepStrictEqual(result.map((e) => e.node.id), ['spineA']);
+});
+
+test('linksWithDots 는 제외 목록이 비면 입력과 같은 결과를 낸다', (t) => {
+  const nodesDir = dotsDir(t, ['kid']);
+  // spineA has no dot here, so the dot filter keeps only kid. An empty
+  // denylist must leave that result unchanged, not bring spineA back.
+  const links = [linkTo('kid'), linkTo('spineA')];
+  assert.deepStrictEqual(linksWithDots(links, nodesDir, new Set()), linksWithDots(links, nodesDir));
+  assert.deepStrictEqual(linksWithDots(links, nodesDir, new Set()).map((e) => e.node.id), ['kid']);
+});
+
+test('linksWithDots 의 도트 없음 폴백은 제외 노드를 되살리지 않는다', (t) => {
+  // kid 는 도트가 있지만 제외됐고, spineA 는 도트가 없다. 폴백이 원본 목록을
+  // 돌려주면 kid 가 되살아난다. 제외를 먼저 적용하므로 spineA 만 남아야 한다.
+  const nodesDir = dotsDir(t, ['kid']);
+  const result = linksWithDots([linkTo('kid'), linkTo('spineA')], nodesDir, new Set(['kid']));
+  assert.deepStrictEqual(result.map((e) => e.node.id), ['spineA']);
+});
+
+test('linksWithDots 는 자식이 전부 제외되면 빈 목록을 돌려준다(부활 없음)', (t) => {
+  const nodesDir = dotsDir(t, ['kid', 'spineA']);
+  assert.deepStrictEqual(linksWithDots([linkTo('kid')], nodesDir, new Set(['kid'])), []);
+});
+
+test('selectRoute 는 graph.denylist 의 노드를 40일 동안 고르지 않고 형제가 남으면 그쪽으로 간다', (t) => {
+  const graph = { ...treeToGraph(TREE), nodesDir: writeNodeDots(t, []), denylist: new Set(['spineA', 'darkA']) };
+  for (let d = 1; d <= 40; d++) {
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    assert.strictEqual(route.adult.id, 'deadA', `day ${d} picked ${route.adult.id}`);
+  }
+});
+
+test('selectRoute 는 자식이 전부 제외되면 제외 노드를 경로에 넣지 않는다', (t) => {
+  const denied = new Set(['spineA', 'darkA', 'deadA']);
+  const graph = { ...treeToGraph(TREE), nodesDir: writeNodeDots(t, []), denylist: denied };
+  for (let d = 1; d <= 40; d++) {
+    const { route } = selectRoute(`2026-09-${String(d).padStart(2, '0')}`, 'kid', graph, {});
+    for (const stage of Object.keys(route)) {
+      assert.ok(!denied.has(route[stage].id), `day ${d} ${stage} 에 제외 노드 ${route[stage].id}`);
+    }
+  }
+});
+
+test('selectRoute 는 부모가 전부 제외돼도 예외 없이 끝난다', () => {
+  const graph = { ...treeToGraph(TREE), denylist: new Set(['baby1']) };
+  const { route } = selectRoute('2026-09-01', 'kid', graph, {});
+  assert.ok(!Object.values(route).some((n) => n.id === 'baby1'));
+});
+
+// 자식이 있는 부모 중 자식이 전부 제외된 부모 id 목록. 빈 배열이어야 정상이다.
+function parentsWithAllChildrenDenied(graph, denylist) {
+  const bad = [];
+  for (const [parentId, links] of graph.childrenOf.entries()) {
+    if (links.length > 0 && links.every((e) => denylist.has(e.node.id))) bad.push(parentId);
+  }
+  return bad;
+}
+
+test('실제 그래프와 실제 제외 목록에서 자식이 전부 제외된 부모는 없다', () => {
+  const graph = readGraph(graphFilePath());
+  assert.deepStrictEqual(parentsWithAllChildrenDenied(graph, readNodeDenylist()), []);
+});
+
+test('자식이 전부 제외된 부모는 검사가 잡는다(픽스처)', () => {
+  const graph = treeToGraph(TREE);
+  assert.deepStrictEqual(parentsWithAllChildrenDenied(graph, new Set(['spineA', 'darkA', 'deadA'])), ['kid']);
+  assert.deepStrictEqual(parentsWithAllChildrenDenied(graph, new Set(['spineA', 'darkA'])), []);
+});
+
+test('listValidPacks 는 제외 노드의 팩을 건너뛴다', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  writePack(packsDir, 'agumon', FULL);
+  writePack(packsDir, 'impmon', FULL);
+  writePack(packsDir, 'veemon', FULL);
+  writeSharedEgg(sharedDir);
+  assert.deepStrictEqual(listValidPacks(packsDir, sharedDir, new Set(['impmon'])), ['agumon', 'veemon']);
+  assert.deepStrictEqual(listValidPacks(packsDir, sharedDir, new Set()), ['agumon', 'impmon', 'veemon']);
+});
+
+test('listRotationPacks 는 제외 노드의 팩을 돌려주지 않는다', (t) => {
+  const { packsDir, sharedDir } = makeRoot(t);
+  writePack(packsDir, 'legacy-full', FULL);
+  writePack(packsDir, 'legacy-other', FULL);
+  writeSharedEgg(sharedDir);
+  assert.deepStrictEqual(listRotationPacks(packsDir, sharedDir, new Set(['legacy-full'])), ['legacy-other']);
+
+  const real = listRotationPacks(defaultPacksDir(), undefined, new Set(['gaomon']));
+  assert.ok(!real.includes('gaomon'), `gaomon 이 제외됐는데 남았다: ${real}`);
+  assert.ok(real.includes('falcomon'), `falcomon 이 빠졌다: ${real}`);
+});
+
+// --- C3: per-day token history and the relative superultimate floor -----
+//
+// token-history.json keeps one dailyOutputTokens (Claude + Codex) per KST
+// day. topTierThreshold reads it, leaves today out, and returns the
+// nearest-rank P90 of the 14 most recent recorded days, never below 2M.
+// Every test here writes only under a temp CLAUDEMON_DIR (makeRoot).
+
+const TODAY_KST = '2026-07-29'; // dateAt(0)
+
+// Distinct January 2026 dates for fixtures, oldest first.
+function dayKey(i) {
+  return new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10);
+}
+
+function daysOf(count, outputTokens) {
+  const entries = [];
+  for (let i = 0; i < count; i++) entries.push({ date: dayKey(i), outputTokens });
+  return entries;
+}
+
+function writeTokenHistory(claudemonDir, entries) {
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), JSON.stringify({ version: 1, entries }));
+}
+
+test('topTierThreshold is the 2M floor with no history', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(TOP_TIER_FLOOR, 2000000);
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold stays at the floor with fewer than 14 past days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeTokenHistory(claudemonDir, daysOf(13, 9000000));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold is the nearest-rank P90 of 14 past days when that exceeds the floor', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const entries = [];
+  for (let i = 0; i < 14; i++) entries.push({ date: dayKey(i), outputTokens: (i + 1) * 1000000 });
+  // Newest first on disk: the date order, not the file order, decides the window.
+  writeTokenHistory(claudemonDir, entries.reverse());
+  // Sorted 1M..14M: ceil(0.9 * 14) = 13th value.
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 13000000);
+});
+
+test('topTierThreshold returns the floor when the 14-day P90 is at or below 2M', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeTokenHistory(claudemonDir, daysOf(14, 1500000));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+  writeTokenHistory(claudemonDir, daysOf(14, 2000000));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold leaves today out of the P90', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeTokenHistory(claudemonDir, [...daysOf(13, 3000000), { date: TODAY_KST, outputTokens: 9000000 }]);
+  // Counting today would give 14 days with P90 3M. Left out, only 13 remain.
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('topTierThreshold uses only the 14 most recent recorded days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  const entries = [];
+  for (let i = 0; i < 6; i++) entries.push({ date: dayKey(i), outputTokens: 1000000 });
+  for (let i = 6; i < 20; i++) entries.push({ date: dayKey(i), outputTokens: (i - 2) * 1000000 });
+  writeTokenHistory(claudemonDir, entries);
+  // Recent 14 are 4M..17M: index 12 is 16M. All 20 would give 10M.
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 16000000);
+});
+
+test('topTierThreshold reads a missing, corrupt, or wrong-version history as the floor', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(topTierThreshold(path.join(claudemonDir, 'absent'), TODAY_KST), 2000000);
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), '{not json');
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), JSON.stringify({ version: 2, entries: daysOf(14, 9000000) }));
+  assert.strictEqual(topTierThreshold(claudemonDir, TODAY_KST), 2000000);
+});
+
+test('readTokenHistory drops entries with a bad date or outputTokens', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(tokenHistoryFilePath(claudemonDir), JSON.stringify({
+    version: 1,
+    entries: [
+      { date: '2026-07-01', outputTokens: 5 },
+      { date: 7, outputTokens: 5 },
+      { date: '2026-07-02', outputTokens: -1 },
+      { date: '2026-07-03', outputTokens: '9' },
+      { date: '2026-07-04', outputTokens: null },
+      null,
+      { date: '2026-07-05', outputTokens: 0 }
+    ]
+  }));
+  assert.deepStrictEqual(readTokenHistory(claudemonDir).entries, [
+    { date: '2026-07-01', outputTokens: 5 },
+    { date: '2026-07-05', outputTokens: 0 }
+  ]);
+});
+
+test('nearestRank picks the value at ceil(p * n) from a sorted list', () => {
+  const fourteen = Array.from({ length: 14 }, (_, i) => i + 1);
+  assert.strictEqual(nearestRank(fourteen, 0.9), 13);
+  assert.strictEqual(nearestRank([7], 0.9), 7);
+  assert.strictEqual(nearestRank([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.9), 9);
+});
+
+test('recordTokenHistory appends a new date', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordTokenHistory(claudemonDir, '2026-11-10', 100);
+  recordTokenHistory(claudemonDir, '2026-11-11', 200);
+  assert.deepStrictEqual(readTokenHistory(claudemonDir).entries, [
+    { date: '2026-11-10', outputTokens: 100 },
+    { date: '2026-11-11', outputTokens: 200 }
+  ]);
+  assert.strictEqual(JSON.parse(fs.readFileSync(tokenHistoryFilePath(claudemonDir), 'utf8')).version, 1);
+});
+
+test('recordTokenHistory overwrites the same day with the latest value', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordTokenHistory(claudemonDir, '2026-11-11', 100);
+  recordTokenHistory(claudemonDir, '2026-11-11', 250);
+  assert.deepStrictEqual(readTokenHistory(claudemonDir).entries, [{ date: '2026-11-11', outputTokens: 250 }]);
+});
+
+test('recordTokenHistory does not rewrite the file when date and value both repeat', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordTokenHistory(claudemonDir, '2026-11-11', 100);
+  const file = tokenHistoryFilePath(claudemonDir);
+  fs.utimesSync(file, new Date(0), new Date(0));
+  recordTokenHistory(claudemonDir, '2026-11-11', 100);
+  assert.strictEqual(fs.statSync(file).mtimeMs, 0, 'file was rewritten despite an unchanged (date, value) pair');
+});
+
+test('recordTokenHistory keeps only the newest TOKEN_HISTORY_MAX days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(TOKEN_HISTORY_MAX, 30);
+  for (let i = 0; i <= TOKEN_HISTORY_MAX; i++) recordTokenHistory(claudemonDir, dayKey(i), i + 1);
+  const { entries } = readTokenHistory(claudemonDir);
+  assert.strictEqual(entries.length, TOKEN_HISTORY_MAX);
+  assert.strictEqual(entries[0].date, dayKey(1));
+  assert.strictEqual(entries[entries.length - 1].outputTokens, TOKEN_HISTORY_MAX + 1);
+});
+
+test('computeDailyTokens keeps one token-history row per day across polls', (t) => {
+  const dirs = setupDaily(t);
+  const file = writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_p', 300000)]);
+  computeDailyTokens(dateAt(0), dirs);
+  computeDailyTokens(dateAt(0), dirs);
+  fs.appendFileSync(file, `${assistantLine('msg_q', 200000)}\n`);
+  computeDailyTokens(dateAt(0), dirs);
+
+  assert.deepStrictEqual(readTokenHistory(dirs.claudemonDir).entries, [
+    { date: dateKSTString(dateAt(0)), outputTokens: 500000 }
+  ]);
+});
+
+test('a failing token-history write does not stop daily.json from being written', (t) => {
+  const dirs = setupDaily(t);
+  // A directory sitting where the history file goes makes its write throw.
+  fs.mkdirSync(tokenHistoryFilePath(dirs.claudemonDir), { recursive: true });
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_w', 500000)]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 500000);
+  assert.strictEqual(JSON.parse(fs.readFileSync(dailyFilePath(dirs.claudemonDir), 'utf8')).outputTokens, 500000);
+});
+
+test('a 14-day history with 3M+ days keeps today at 2.1M below superultimate', (t) => {
+  const dirs = setupDaily(t);
+  const entries = daysOf(14, 1000000);
+  entries[5].outputTokens = 3200000;
+  entries[9].outputTokens = 3500000;
+  writeTokenHistory(dirs.claudemonDir, entries);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_big', 2100000)]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 2100000);
+  // Sorted: twelve 1M, 3.2M, 3.5M, so the P90 bar is 3.2M and 2.1M falls short.
+  assert.notStrictEqual(result.stageId, topStageId(),
+    'today 2.1M must not reach superultimate while the 14-day P90 is 3.2M');
+});
+
+test('the same 2.1M reaches superultimate with no history (2M bar)', (t) => {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('msg_nohist', 2100000)]);
+
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.outputTokens, 2100000);
+  // As in the test above, a route that ends early clamps stageId to its
+  // terminal stage; assert whichever of the two the line actually reports.
+  if (result.terminalFrom) {
+    assert.strictEqual(result.stageId, result.terminalFrom);
+  } else {
+    assert.strictEqual(result.stageId, topStageId());
+  }
+});
+
+// --- dex (도감) -----------------------------------------------------------
+
+// A hand-built graph in the readGraph shape (byId, childrenOf with `when`),
+// plus a nodesDir where every node has a dot so linksWithDots keeps them all.
+// `specs` items: { id, name?, from?: [{ from, when }] }.
+function miniGraph(t, specs) {
+  const nodesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claudemon-dex-nodes-'));
+  t.after(() => fs.rmSync(nodesDir, { recursive: true, force: true }));
+  const nodes = specs.map((s) => ({
+    id: s.id,
+    name: s.name || s.id,
+    stage: 'child',
+    sprite: s.id,
+    evolvesFrom: s.from || []
+  }));
+  for (const n of nodes) fs.writeFileSync(path.join(nodesDir, `${n.sprite}-0.png`), 'png');
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const childrenOf = new Map();
+  for (const n of nodes) {
+    for (const e of n.evolvesFrom) {
+      if (!childrenOf.has(e.from)) childrenOf.set(e.from, []);
+      childrenOf.get(e.from).push({ node: n, when: e.when });
+    }
+  }
+  return { nodes, byId, childrenOf, nodesDir };
+}
+
+function emptyDexObject() {
+  return { version: DEX_VERSION, nodes: {}, days: {} };
+}
+
+test('readDex returns an empty dex for a missing, broken, or wrong-version file', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(dexFilePath(claudemonDir), 'not json');
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+
+  fs.writeFileSync(dexFilePath(claudemonDir), JSON.stringify({ version: 2, nodes: {}, days: {} }));
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+
+  fs.writeFileSync(dexFilePath(claudemonDir), JSON.stringify({ version: 1, nodes: [], days: {} }));
+  assert.deepStrictEqual(readDex(claudemonDir), emptyDexObject());
+});
+
+test('readDex drops nodes whose first-seen date is not a date string and days whose value is not a string array', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  fs.mkdirSync(claudemonDir, { recursive: true });
+  fs.writeFileSync(dexFilePath(claudemonDir), JSON.stringify({
+    version: 1,
+    nodes: { a: '2026-01-01', b: 5, c: 'bad' },
+    days: { '2026-01-01': ['a'], '2026-01-02': 'str' }
+  }));
+  const dex = readDex(claudemonDir);
+  assert.deepStrictEqual(dex.nodes, { a: '2026-01-01' });
+  assert.deepStrictEqual(dex.days, { '2026-01-01': ['a'] });
+});
+
+test('recordDex keeps a node first-seen date once set', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordDex(claudemonDir, '2026-01-01', ['n1', 'n2']);
+  const later = recordDex(claudemonDir, '2026-01-05', ['n1', 'n3']);
+  assert.strictEqual(later.nodes.n1, '2026-01-01');
+  assert.strictEqual(later.nodes.n2, '2026-01-01');
+  assert.strictEqual(later.nodes.n3, '2026-01-05');
+});
+
+test('recordDex overwrites the same day with the latest route (one entry per day)', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordDex(claudemonDir, '2026-01-01', ['a']);
+  recordDex(claudemonDir, '2026-01-01', ['a', 'b']);
+  const dex = readDex(claudemonDir);
+  assert.deepStrictEqual(Object.keys(dex.days), ['2026-01-01']);
+  assert.deepStrictEqual(dex.days['2026-01-01'], ['a', 'b']);
+});
+
+test('recordDex does no file I/O when nothing changed', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  recordDex(claudemonDir, '2026-01-01', ['a']);
+  const file = dexFilePath(claudemonDir);
+  const past = new Date('2020-01-01T00:00:00Z');
+  fs.utimesSync(file, past, past);
+  recordDex(claudemonDir, '2026-01-01', ['a']);
+  assert.strictEqual(fs.statSync(file).mtimeMs, past.getTime());
+});
+
+test('routeNodeIdsOf keeps stage order and drops repeats from terminal fill', () => {
+  const route = {
+    digitama: { id: 'd' },
+    baby: { id: 'b' },
+    child: { id: 'c' },
+    adult: { id: 'c' },
+    perfect: { id: 'c' }
+  };
+  assert.deepStrictEqual(routeNodeIdsOf(route), ['d', 'b', 'c']);
+});
+
+test('dex history keeps 60 mon rows while the dex keeps all 61 days', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  for (let i = 0; i <= MON_HISTORY_MAX; i++) {
+    const day = `2025-01-${String(i + 1).padStart(2, '0')}`;
+    recordMonHistory(claudemonDir, day, `mon${i}`);
+    recordDex(claudemonDir, day, [`n${i}`]);
+  }
+  assert.strictEqual(readMonHistory(claudemonDir).entries.length, MON_HISTORY_MAX);
+  const dex = readDex(claudemonDir);
+  assert.strictEqual(Object.keys(dex.days).length, MON_HISTORY_MAX + 1);
+  assert.strictEqual(Object.keys(dex.nodes).length, MON_HISTORY_MAX + 1);
+});
+
+test('reachableNodes: deck rookies and descendants, minus the denylist and what hangs below a denied node', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'c1', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: null }] },
+    { id: 'a2', from: [{ from: 'a1', when: null }] },
+    { id: 'x', from: [{ from: 'a1', when: null }] },
+    { id: 'y', from: [{ from: 'x', when: null }] },
+    { id: 'z' }
+  ]);
+  const reachable = reachableNodes(graph, dirs.packsDir, dirs.sharedDir, new Set(['x']));
+  assert.deepStrictEqual([...reachable].sort(), ['a1', 'a2', 'c1']);
+});
+
+test('dexFieldFor: total is the reachable set, found counts only discovered reachable nodes', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'c1', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: null }] },
+    { id: 'a2', from: [{ from: 'a1', when: null }] },
+    { id: 'x', from: [{ from: 'a1', when: null }] },
+    { id: 'z' }
+  ]);
+  // x (denied) and z (unreachable) are in dex.nodes but must not count.
+  const dex = {
+    version: DEX_VERSION,
+    nodes: { c1: '2026-01-01', x: '2026-01-02', z: '2026-01-03', a2: '2026-01-03' },
+    days: {}
+  };
+  const field = dexFieldFor({
+    dex,
+    graph,
+    dateKST: '2026-01-03',
+    routeIds: ['c1', 'a1', 'a2'],
+    packsDir: dirs.packsDir,
+    sharedDir: dirs.sharedDir,
+    denylist: new Set(['x'])
+  });
+  assert.strictEqual(field.found, 2);
+  assert.strictEqual(field.total, 3);
+  assert.deepStrictEqual(field.newToday, ['a2']);
+  assert.strictEqual(field.hint, 'a1 ← c1: 조건 없음(운)');
+});
+
+test('describeCondition: null is luck, leaves read as Korean bounds, all/any join, unknown types do not throw', () => {
+  assert.strictEqual(describeCondition(null), '조건 없음(운)');
+  assert.strictEqual(describeCondition(undefined), '조건 없음(운)');
+  assert.strictEqual(describeCondition({ type: 'sessionCount', gte: 5 }), '세션 수 5 이상');
+  assert.strictEqual(describeCondition({ type: 'topSharePct', gte: 10, lte: 50 }), '최다 세션 비중(%) 10 이상 50 이하');
+  assert.strictEqual(
+    describeCondition({ all: [{ type: 'sessionCount', gte: 5 }, { type: 'failureRatioPct', lte: 20 }] }),
+    '세션 수 5 이상 그리고 실패율(%) 20 이하'
+  );
+  assert.strictEqual(
+    describeCondition({ any: [{ type: 'sessionCount', gte: 5 }, { type: 'dailyUserTurns', gte: 80 }] }),
+    '세션 수 5 이상 또는 사용자 턴 80 이상'
+  );
+  assert.strictEqual(describeCondition({ type: 'mystery', gte: 3 }), 'mystery 3 이상');
+  assert.doesNotThrow(() => describeCondition({ type: 'milestone', key: 'x', gte: 1 }));
+});
+
+test('describeCondition: relative dailyOutputTokens reads as a lower bound', () => {
+  const text = describeCondition({ type: 'dailyOutputTokens', gte: 2000000, relative: true });
+  assert.ok(text.includes('2000000 이상'));
+  assert.ok(text.includes('하한'));
+});
+
+test('hintFor describes a conditional edge from a discovered parent, deterministically', (t) => {
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: { type: 'sessionCount', gte: 3 } }] }
+  ]);
+  const reachable = new Set(['c1', 'a1']);
+  const dex = { version: DEX_VERSION, nodes: { c1: '2026-01-01' }, days: {} };
+  const hint = hintFor('2026-01-02', graph, reachable, dex, ['c1']);
+  assert.strictEqual(hint, 'a1 ← c1: 세션 수 3 이상');
+  assert.strictEqual(hintFor('2026-01-02', graph, reachable, dex, ['c1']), hint);
+});
+
+test('hintFor on an empty dex still gives a sentence and never throws', (t) => {
+  const graph = miniGraph(t, [
+    { id: 'c1' },
+    { id: 'a1', from: [{ from: 'c1', when: null }] }
+  ]);
+  const hint = hintFor('2026-01-02', graph, new Set(['c1', 'a1']), emptyDexObject(), ['c1']);
+  assert.strictEqual(typeof hint, 'string');
+  assert.ok(hint.length > 0);
+});
+
+test('hintFor is omitted when every reachable node is already discovered', (t) => {
+  const graph = miniGraph(t, [{ id: 'c1' }]);
+  const dex = { version: DEX_VERSION, nodes: { c1: '2026-01-01' }, days: {} };
+  assert.strictEqual(hintFor('2026-01-02', graph, new Set(['c1']), dex, ['c1']), undefined);
+});
+
+// Writes enough output tokens (>= 30000, the child-stage bar) that the route
+// actually reaches child, so dex integration tests are not vacuous.
+function dexSetup(t) {
+  const dirs = setupDaily(t);
+  writeTranscript(dirs.projectsDir, `-Users-me-repo/${SESSION}.jsonl`, [assistantLine('m1', 40000)]);
+  return dirs;
+}
+
+test('computeDailyTokens adds a dex field with invariants and records the route into dex.json', (t) => {
+  const dirs = dexSetup(t);
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(result.route && result.route.child, 'route should reach child');
+  assert.ok(result.dex, 'dex field present when graph and route exist');
+  assert.ok(result.dex.total > 0);
+  assert.ok(result.dex.found >= 1 && result.dex.found <= result.dex.total);
+  assert.ok(Array.isArray(result.dex.newToday));
+  assert.ok(result.route.child.id in readDex(dirs.claudemonDir).nodes);
+  // Existing fields keep their shape.
+  for (const key of ['dateKST', 'outputTokens', 'stageId', 'mon', 'route', 'traits']) {
+    assert.ok(key in result, `missing ${key}`);
+  }
+});
+
+test('computeDailyTokens without a graph node for the pack leaves no dex field and writes no dex.json', (t) => {
+  const dirs = makeRoot(t);
+  writePack(dirs.packsDir, 'zzz-legacy', FULL);
+  writeSharedEgg(dirs.sharedDir);
+  fs.mkdirSync(dirs.projectsDir, { recursive: true });
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.strictEqual(result.route, null);
+  assert.strictEqual('dex' in result, false);
+  assert.strictEqual(fs.existsSync(dexFilePath(dirs.claudemonDir)), false);
+});
+
+test('computeDailyTokens still writes daily.json when dex.json is garbage', (t) => {
+  const dirs = dexSetup(t);
+  fs.mkdirSync(dirs.claudemonDir, { recursive: true });
+  fs.writeFileSync(dexFilePath(dirs.claudemonDir), '{{{ broken');
+  const result = computeDailyTokens(dateAt(0), dirs);
+  const written = JSON.parse(fs.readFileSync(dailyFilePath(dirs.claudemonDir), 'utf8'));
+  assert.strictEqual(written.dateKST, result.dateKST);
+  assert.ok(result.dex && result.dex.total > 0);
+});
+
+test('computeDailyTokens still writes daily.json when dex.json cannot be written (a directory)', (t) => {
+  const dirs = dexSetup(t);
+  fs.mkdirSync(path.join(dirs.claudemonDir, 'dex.json'), { recursive: true });
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(fs.existsSync(dailyFilePath(dirs.claudemonDir)));
+  // The in-memory fallback still yields counts for the menu.
+  assert.ok(result.dex && result.dex.found >= 1);
+});
+
+// --- C4: 도감 가중치 (미발견 배수 / 최근 7일 출현 감점) -------------------
+//
+// 작은 픽스처: dx-kid 는 무조건 자식 셋(dx-a 발견, dx-b 미발견, dx-c 발견).
+// dx-cond 는 조건부 자식 dx-g(sessionCount>=5) 와 무조건 dx-h, dx-miss 는 두
+// 조건 모두 안 맞는 자식만 가진 노드(균등 가중 폴백 회귀용).
+const DX_TREE = {
+  digitama: [{ id: 'dx-digitama', name: '알', sprite: 'digitama', evolutions: [{ to: 'dx-baby', when: null }] }],
+  baby: [{ id: 'dx-baby', name: '유년', sprite: 'baby', evolutions: [
+    { to: 'dx-kid', when: null }, { to: 'dx-cond', when: null }, { to: 'dx-miss', when: null }
+  ] }],
+  child: [
+    { id: 'dx-kid', name: '성장', sprite: 'child', evolutions: [
+      { to: 'dx-a', when: null }, { to: 'dx-b', when: null }, { to: 'dx-c', when: null }
+    ] },
+    { id: 'dx-cond', name: '조건성장', sprite: 'child-cond', evolutions: [
+      { to: 'dx-g', when: { type: 'sessionCount', gte: 5 } }, { to: 'dx-h', when: null }
+    ] },
+    { id: 'dx-miss', name: '미충족성장', sprite: 'child-miss', evolutions: [
+      { to: 'dx-m1', when: { type: 'sessionCount', gte: 5 } },
+      { to: 'dx-m2', when: { type: 'outputPerTurn', gte: 15000 } }
+    ] }
+  ],
+  adult: [
+    { id: 'dx-a', name: 'A', sprite: 'adult-a', evolutions: [] },
+    { id: 'dx-b', name: 'B', sprite: 'adult-b', evolutions: [] },
+    { id: 'dx-c', name: 'C', sprite: 'adult-c', evolutions: [] },
+    { id: 'dx-g', name: 'G', sprite: 'adult-g', evolutions: [] },
+    { id: 'dx-h', name: 'H', sprite: 'adult-h', evolutions: [] },
+    { id: 'dx-m1', name: 'M1', sprite: 'adult-m1', evolutions: [] },
+    { id: 'dx-m2', name: 'M2', sprite: 'adult-m2', evolutions: [] }
+  ]
+};
+
+const DX_DATE = '2026-11-11';
+
+function dexFixture(nodes, days) {
+  return { version: 1, nodes, days };
+}
+
+function dxWeights(graph, rookieId, ctx) {
+  return new Map(candidatesFor(graph.byId.get(rookieId), ctx, graph.childrenOf).map((c) => [c.node.id, c.weight]));
+}
+
+function withEnvValue(name, value, fn) {
+  const prev = process.env[name];
+  process.env[name] = value;
+  try {
+    return fn();
+  } finally {
+    if (prev === undefined) delete process.env[name];
+    else process.env[name] = prev;
+  }
+}
+
+test('[C4] 배수 상수는 정수 척도로 환산되어 가중치가 정수다', () => {
+  assert.ok(Number.isInteger(DEX_WEIGHT_SCALE * DEX_UNDISCOVERED_MULT));
+  assert.ok(Number.isInteger(DEX_WEIGHT_SCALE * DEX_RECENT_MULT));
+  assert.ok(DEX_WEIGHT_SCALE * DEX_RECENT_MULT >= 1);
+});
+
+test('[C4] 미발견 노드는 미발견 배수, 발견된 노드는 척도만 곱해 뽑힌다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': '2026-10-01', 'dx-c': '2026-10-01' }, { '2026-10-01': ['dx-a', 'dx-c'] });
+  const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-a'), DEX_WEIGHT_SCALE);
+  assert.strictEqual(w.get('dx-c'), DEX_WEIGHT_SCALE);
+  assert.strictEqual(w.get('dx-b'), DEX_WEIGHT_SCALE * DEX_UNDISCOVERED_MULT);
+});
+
+test('[C4] 직전 7일 안에 나온 노드는 감점 배수, 8일 전은 감점이 풀린다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture(
+    { 'dx-a': '2026-11-10', 'dx-b': '2026-11-04', 'dx-c': '2026-11-03' },
+    { '2026-11-10': ['dx-a'], '2026-11-04': ['dx-b'], '2026-11-03': ['dx-c'] }
+  );
+  const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-a'), DEX_WEIGHT_SCALE * DEX_RECENT_MULT, '어제 나온 노드');
+  assert.strictEqual(w.get('dx-b'), DEX_WEIGHT_SCALE * DEX_RECENT_MULT, '7일 전 경계는 포함');
+  assert.strictEqual(w.get('dx-c'), DEX_WEIGHT_SCALE, '8일 전은 제외');
+});
+
+test('[C4] 오늘 기록된 노드는 최근 창에서 빠진다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': DX_DATE, 'dx-b': DX_DATE }, { [DX_DATE]: ['dx-a', 'dx-b'] });
+  const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-a'), DEX_WEIGHT_SCALE);
+  assert.strictEqual(w.get('dx-b'), DEX_WEIGHT_SCALE);
+});
+
+test('[C4] dex 가 null 이거나 비어 있으면 배수도 척도도 없어 가중치가 기존과 같다', () => {
+  const graph = treeToGraph(DX_TREE);
+  assert.strictEqual(buildDexWeighting(dexFixture({}, {}), DX_DATE), null);
+  assert.strictEqual(buildDexWeighting(null, DX_DATE), null);
+  const w = dxWeights(graph, 'dx-kid', { dex: null });
+  assert.deepStrictEqual([...w.values()], [1, 1, 1]);
+  const plain = selectRoute(DX_DATE, 'dx-kid', graph, {});
+  const empty = selectRoute(DX_DATE, 'dx-kid', graph, { dex: buildDexWeighting(dexFixture({}, {}), DX_DATE) });
+  assert.deepStrictEqual(empty.route, plain.route);
+});
+
+test('[C4] 조건 가중치 8 은 상수 그대로 두고 도감 배수만 곱해진다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-h': '2026-10-01' }, { '2026-10-01': ['dx-h'] });
+  const w = dxWeights(graph, 'dx-cond', { sessionCount: 5, dex: buildDexWeighting(dex, DX_DATE) });
+  assert.strictEqual(w.get('dx-g'), 8 * DEX_WEIGHT_SCALE * DEX_UNDISCOVERED_MULT);
+  assert.strictEqual(w.get('dx-h'), 1 * DEX_WEIGHT_SCALE);
+});
+
+test('[C4] 조건이 안 맞는 후보는 도감 배수로 되살아나지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-h': '2026-10-01' }, { '2026-10-01': ['dx-h'] });
+  const names = candidatesFor(graph.byId.get('dx-cond'), { sessionCount: 0, dex: buildDexWeighting(dex, DX_DATE) }, graph.childrenOf)
+    .map((c) => c.node.id);
+  assert.deepStrictEqual(names, ['dx-h']);
+});
+
+test('[C4] 조건이 하나도 안 맞으면 균등 가중 1 폴백에 배수가 붙지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-x': '2026-10-01' }, { '2026-10-01': ['dx-x'] });
+  const w = dxWeights(graph, 'dx-miss', { sessionCount: 0, outputPerTurn: 0, dex: buildDexWeighting(dex, DX_DATE) });
+  assert.deepStrictEqual([...w.values()], [1, 1]);
+});
+
+test('[C4] CLAUDEMON_DEX_WEIGHTING=0 이면 dex 가 있어도 배수를 적용하지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': '2026-10-01' }, { '2026-10-01': ['dx-a'] });
+  withEnvValue('CLAUDEMON_DEX_WEIGHTING', '0', () => {
+    const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+    assert.deepStrictEqual([...w.values()], [1, 1, 1]);
+  });
+});
+
+test('[C4] CLAUDEMON_GATE_WEIGHTING=0 (legacyTiedPool) 에서는 도감 배수를 적용하지 않는다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-a': '2026-10-01' }, { '2026-10-01': ['dx-a'] });
+  withEnvValue('CLAUDEMON_GATE_WEIGHTING', '0', () => {
+    const w = dxWeights(graph, 'dx-kid', { dex: buildDexWeighting(dex, DX_DATE) });
+    for (const weight of w.values()) assert.strictEqual(weight, 1);
+  });
+});
+
+test('[C4] 라우트 사유의 candidates weight 는 기존 8/1 을 유지하고 probability 는 실효 가중 비율이다', () => {
+  const graph = treeToGraph(DX_TREE);
+  const dex = dexFixture({ 'dx-h': '2026-10-01' }, { '2026-10-01': ['dx-h'] });
+  const ctx = { sessionCount: 5, dex: buildDexWeighting(dex, DX_DATE) };
+  const { route, routeReasons } = selectRoute(DX_DATE, 'dx-cond', graph, ctx);
+  const reason = routeReasons.adult;
+  assert.ok(reason, 'adult 사유가 있어야 한다');
+  const baseWeights = reason.candidates.map((c) => c.weight).sort((a, b) => a - b);
+  assert.deepStrictEqual(baseWeights, [1, 8], 'swift 의 weight==8 라벨 판정이 깨지면 안 된다');
+  const effective = dxWeights(graph, 'dx-cond', ctx);
+  const total = [...effective.values()].reduce((a, b) => a + b, 0);
+  assert.strictEqual(reason.probability, effective.get(route.adult.id) / total);
+  assert.strictEqual(reason.fallback, false);
+});
+
+test('[C4] 손상된 dex.json 이 있어도 하루 계산은 던지지 않고 현행 가중치로 돈다', (t) => {
+  const dirs = setupDaily(t);
+  fs.mkdirSync(dirs.claudemonDir, { recursive: true });
+  fs.writeFileSync(path.join(dirs.claudemonDir, 'dex.json'), '{not json');
+  const result = computeDailyTokens(dateAt(0), dirs);
+  assert.ok(result.mon);
+});
+
+// --- quality axes (C6): toolCallsPerTurn / dailyCommitCount -----------
+//
+// Two weight-only axes (D-3, D-9..D-13). Every test writes under makeRoot's
+// temp dirs; commit fixtures are throwaway git repos under the same temp root.
+
+const QUALITY_TODAY = '2026-11-11';
+
+function addDaysKST(dateKST, days) {
+  return new Date(Date.parse(`${dateKST}T00:00:00Z`) + days * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+}
+
+// Unix seconds for a KST wall-clock time on a given KST date.
+function kstSec(dateKST, hhmm) {
+  return Date.parse(`${dateKST}T${hhmm}:00+09:00`) / 1000;
+}
+
+function writeToolCounts(claudemonDir, sessionId, ok, bad) {
+  fs.mkdirSync(path.join(claudemonDir, 'sessions'), { recursive: true });
+  fs.writeFileSync(path.join(claudemonDir, 'sessions', `${sessionId}.json`),
+    JSON.stringify({ toolSuccessCount: ok, toolFailureCount: bad }));
+}
+
+function gitIn(cwd, args, env = {}) {
+  return execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+    cwd,
+    env: { ...process.env, ...env },
+    stdio: 'pipe'
+  }).toString();
+}
+
+// One commit per entry of `commits` ({ at: unix seconds, email? }). Commits
+// with no email are authored by the repo's own user.email.
+function makeRepo(dir, email, commits) {
+  fs.mkdirSync(dir, { recursive: true });
+  gitIn(dir, ['init', '-q']);
+  gitIn(dir, ['config', 'user.email', email]);
+  gitIn(dir, ['config', 'user.name', 'tester']);
+  commits.forEach((c, i) => {
+    fs.writeFileSync(path.join(dir, `f${i}.txt`), String(i));
+    gitIn(dir, ['add', '.']);
+    const when = `${c.at} +0000`;
+    const who = c.email || email;
+    gitIn(dir, ['commit', '-q', '-m', `c${i}`], {
+      GIT_AUTHOR_DATE: when,
+      GIT_COMMITTER_DATE: when,
+      GIT_AUTHOR_EMAIL: who,
+      GIT_COMMITTER_EMAIL: who
+    });
+  });
+}
+
+test('daySignals reports toolCallsPerTurn and the given dailyCommitCount', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeToolCounts(claudemonDir, 's1', 30, 2);
+  writeToolCounts(claudemonDir, 's2', 10, 0);
+  const sig = daySignals(claudemonDir, { s1: 100, s2: 50 }, 16, 150, 3);
+  assert.strictEqual(sig.toolCallsPerTurn, 42 / 16);
+  assert.strictEqual(sig.dailyCommitCount, 3);
+});
+
+test('daySignals gives toolCallsPerTurn null when there are no user turns', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  writeToolCounts(claudemonDir, 's1', 5, 0);
+  const sig = daySignals(claudemonDir, { s1: 10 }, 0, 10, 0);
+  assert.strictEqual(sig.toolCallsPerTurn, null);
+});
+
+test('countCommitsByDay counts only the repo author and buckets by KST day', (t) => {
+  const { root } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  const repoA = path.join(commons, 'a');
+  makeRepo(repoA, 'me@example.com', [
+    { at: kstSec('2026-11-10', '10:00') },
+    { at: kstSec('2026-11-10', '23:30') },
+    { at: kstSec('2026-11-11', '00:30') },
+    { at: kstSec('2026-11-10', '12:00'), email: 'other@example.com' }
+  ]);
+  const counts = countCommitsByDay(commons, kstSec('2026-11-10', '00:00') * 1000,
+    kstSec('2026-11-12', '00:00') * 1000);
+  assert.deepStrictEqual(counts, { '2026-11-10': 2, '2026-11-11': 1 });
+});
+
+test('countCommitsByDay counts a commit once when a worktree shares the repo', (t) => {
+  const { root } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  const repoA = path.join(commons, 'a');
+  makeRepo(repoA, 'me@example.com', [{ at: kstSec('2026-11-10', '10:00') }]);
+  gitIn(repoA, ['worktree', 'add', '-q', '-b', 'wt', path.join(commons, 'wt-a')]);
+  const counts = countCommitsByDay(commons, kstSec('2026-11-10', '00:00') * 1000,
+    kstSec('2026-11-11', '00:00') * 1000);
+  assert.deepStrictEqual(counts, { '2026-11-10': 1 });
+});
+
+test('countCommitsByDay reads a missing root, a non-repo, and a repo without user.email as zero', (t) => {
+  const { root } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  fs.mkdirSync(path.join(commons, 'plain'), { recursive: true });
+  fs.writeFileSync(path.join(commons, 'plain', 'x.txt'), 'x');
+  const since = kstSec('2026-11-10', '00:00') * 1000;
+  const until = kstSec('2026-11-12', '00:00') * 1000;
+  assert.deepStrictEqual(countCommitsByDay(commons, since, until), {});
+  assert.deepStrictEqual(countCommitsByDay(path.join(root, 'nope'), since, until), {});
+  const noEmail = path.join(commons, 'noemail');
+  fs.mkdirSync(noEmail, { recursive: true });
+  gitIn(noEmail, ['init', '-q']);
+  assert.deepStrictEqual(countCommitsByDay(commons, since, until), {});
+});
+
+test('first refresh backfills the 14 past days of commit counts only', (t) => {
+  const { root, claudemonDir } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  makeRepo(path.join(commons, 'a'), 'me@example.com', [
+    { at: kstSec('2026-11-03', '10:00') },
+    { at: kstSec(QUALITY_TODAY, '09:00') }
+  ]);
+  const now = kstSec(QUALITY_TODAY, '12:00') * 1000;
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now, commons), 1);
+
+  const history = readQualityHistory(claudemonDir);
+  const past = history.entries.filter((e) => e.date !== QUALITY_TODAY);
+  assert.strictEqual(past.length, 14);
+  assert.strictEqual(past[0].date, '2026-10-28');
+  assert.strictEqual(past[past.length - 1].date, '2026-11-10');
+  assert.strictEqual(past.find((e) => e.date === '2026-11-03').dailyCommitCount, 1);
+  for (const e of past) assert.strictEqual(e.toolCallsPerTurn, null, 'toolCallsPerTurn is never backfilled');
+});
+
+test('refresh reuses today count inside the 10 minute TTL, rescans after it', (t) => {
+  const { root, claudemonDir } = makeRoot(t);
+  const commons = path.join(root, 'Dev');
+  const repo = path.join(commons, 'a');
+  makeRepo(repo, 'me@example.com', [{ at: kstSec(QUALITY_TODAY, '09:00') }]);
+  const now = kstSec(QUALITY_TODAY, '12:00') * 1000;
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now, commons), 1);
+  gitIn(repo, ['commit', '-q', '--allow-empty', '-m', 'late'], {
+    GIT_AUTHOR_DATE: `${kstSec(QUALITY_TODAY, '12:01')} +0000`,
+    GIT_COMMITTER_DATE: `${kstSec(QUALITY_TODAY, '12:01')} +0000`
+  });
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now + 5 * 60 * 1000, commons), 1);
+  assert.strictEqual(refreshDailyCommitCount(claudemonDir, QUALITY_TODAY, now + 11 * 60 * 1000, commons), 2);
+});
+
+test('recordQualityHistory upserts today and keeps the newest QUALITY_HISTORY_MAX rows', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  assert.strictEqual(QUALITY_HISTORY_MAX, 60);
+  recordQualityHistory(claudemonDir, QUALITY_TODAY, { toolCallsPerTurn: 3 });
+  recordQualityHistory(claudemonDir, QUALITY_TODAY, { toolCallsPerTurn: 4, dailyCommitCount: 2 });
+  let history = readQualityHistory(claudemonDir);
+  assert.strictEqual(history.entries.length, 1);
+  assert.deepStrictEqual(
+    { t: history.entries[0].toolCallsPerTurn, c: history.entries[0].dailyCommitCount },
+    { t: 4, c: 2 }
+  );
+  assert.ok(fs.existsSync(qualityHistoryFilePath(claudemonDir)));
+
+  const ring = makeRoot(t).claudemonDir;
+  for (let i = 0; i < QUALITY_HISTORY_MAX + 5; i++) {
+    recordQualityHistory(ring, addDaysKST('2026-01-01', i), { toolCallsPerTurn: i });
+  }
+  history = readQualityHistory(ring);
+  assert.strictEqual(history.entries.length, QUALITY_HISTORY_MAX);
+  assert.strictEqual(history.entries[0].date, addDaysKST('2026-01-01', 5));
+  assert.strictEqual(history.entries[history.entries.length - 1].date, addDaysKST('2026-01-01', QUALITY_HISTORY_MAX + 4));
+});
+
+test('qualityP50 is null below 14 past days and nearest-rank P50 of the newest 14 at 14', (t) => {
+  const { claudemonDir } = makeRoot(t);
+  for (let i = 0; i < 13; i++) {
+    recordQualityHistory(claudemonDir, addDaysKST('2026-01-01', i), { toolCallsPerTurn: i + 1 });
+  }
+  assert.strictEqual(qualityP50(claudemonDir, '2026-01-14').toolCallsPerTurn, null);
+
+  recordQualityHistory(claudemonDir, addDaysKST('2026-01-01', 13), { toolCallsPerTurn: 14 });
+  recordQualityHistory(claudemonDir, '2026-01-15', { toolCallsPerTurn: 999 });
+  assert.strictEqual(qualityP50(claudemonDir, '2026-01-15').toolCallsPerTurn, 7);
+
+  recordQualityHistory(claudemonDir, addDaysKST('2026-01-01', 14), { toolCallsPerTurn: 15 });
+  assert.strictEqual(qualityP50(claudemonDir, '2026-01-16').toolCallsPerTurn, 8);
+});
+
+// --- weightedCandidates: quality edges ---------------------------------
+
+// One child of the 'parent' fixture node, carrying the given condition.
+function qualityChild(id, when) {
+  return { id, name: id, stage: 'child', sprite: id, evolvesFrom: [{ from: 'parent', when }] };
+}
+
+// A parent with three children: an unconditional one, a toolCallsPerTurn
+// p50 edge, and a sessionCount edge. Returned as a readGraph graph.
+function qualityFixtureGraph(t, extraChildren = []) {
+  const { root } = makeRoot(t);
+  const graphPath = path.join(root, 'graph.json');
+  const nodes = [
+    { id: 'parent', name: 'parent', stage: 'baby', sprite: 'parent', evolvesFrom: [] },
+    qualityChild('plain', null),
+    qualityChild('quality', { type: 'toolCallsPerTurn', gte: 'p50' }),
+    qualityChild('session', { type: 'sessionCount', gte: 5 }),
+    ...extraChildren
+  ];
+  fs.writeFileSync(graphPath, JSON.stringify({ version: '1.0.0', nodes }));
+  return readGraph(graphPath);
+}
+
+function weightsOf(candidates) {
+  return candidates.map((c) => [c.node.id, c.weight]);
+}
+
+test('quality edge without p50 history is an unconditional edge of weight 1', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const ctx = { sessionCount: 0, toolCallsPerTurn: 2, qualityP50: { toolCallsPerTurn: null, dailyCommitCount: null } };
+  const got = candidatesFor(graph.byId.get('parent'), ctx, graph.childrenOf);
+  assert.deepStrictEqual(weightsOf(got).sort(), [['plain', 1], ['quality', 1]]);
+});
+
+test('quality edge met against p50 weighs CONDITION_EDGE_WEIGHT, unmet is excluded', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const met = { sessionCount: 5, toolCallsPerTurn: 2, qualityP50: { toolCallsPerTurn: 2, dailyCommitCount: null } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), met, graph.childrenOf)).sort(),
+    [['plain', 1], ['quality', 8], ['session', 8]]
+  );
+  const unmet = { sessionCount: 0, toolCallsPerTurn: 1, qualityP50: { toolCallsPerTurn: 2, dailyCommitCount: null } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), unmet, graph.childrenOf)).sort(),
+    [['plain', 1]]
+  );
+});
+
+test('a zero or missing quality value never satisfies a p50 edge', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const zero = { sessionCount: 0, toolCallsPerTurn: 0, qualityP50: { toolCallsPerTurn: 0, dailyCommitCount: null } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), zero, graph.childrenOf)).sort(),
+    [['plain', 1]]
+  );
+});
+
+test('all-unmet conditional fan-out falls back to uniform weight 1', (t) => {
+  const { root } = makeRoot(t);
+  const graphPath = path.join(root, 'graph.json');
+  fs.writeFileSync(graphPath, JSON.stringify({ version: '1.0.0', nodes: [
+    { id: 'parent', name: 'parent', stage: 'baby', sprite: 'parent', evolvesFrom: [] },
+    qualityChild('a', { type: 'toolCallsPerTurn', gte: 'p50' }),
+    qualityChild('b', { type: 'dailyCommitCount', gte: 'p50' })
+  ] }));
+  const graph = readGraph(graphPath);
+  const ctx = { toolCallsPerTurn: 0, dailyCommitCount: 0, qualityP50: { toolCallsPerTurn: 3, dailyCommitCount: 3 } };
+  assert.deepStrictEqual(
+    weightsOf(candidatesFor(graph.byId.get('parent'), ctx, graph.childrenOf)).sort(),
+    [['a', 1], ['b', 1]]
+  );
+});
+
+test('CLAUDEMON_GATE_WEIGHTING=0 routes the same with or without quality conditions', (t) => {
+  const { root } = makeRoot(t);
+  const raw = JSON.parse(fs.readFileSync(graphFilePath(), 'utf8'));
+  const quality = new Set(['toolCallsPerTurn', 'dailyCommitCount']);
+  let qualityEdges = 0;
+  for (const node of raw.nodes) {
+    for (const e of node.evolvesFrom || []) {
+      if (e.when && quality.has(e.when.type)) {
+        qualityEdges++;
+        e.when = null;
+      }
+    }
+  }
+  assert.ok(qualityEdges > 0, 'real graph carries quality edges');
+  const withQuality = readGraph(graphFilePath());
+  const plainPath = path.join(root, 'plain-graph.json');
+  fs.writeFileSync(plainPath, JSON.stringify(raw));
+  const withoutQuality = readGraph(plainPath);
+
+  const prev = process.env.CLAUDEMON_GATE_WEIGHTING;
+  process.env.CLAUDEMON_GATE_WEIGHTING = '0';
+  t.after(() => {
+    if (prev === undefined) delete process.env.CLAUDEMON_GATE_WEIGHTING;
+    else process.env.CLAUDEMON_GATE_WEIGHTING = prev;
+  });
+  const ctx = {
+    dailyOutputTokens: 5000000,
+    dailyOutputTokensFloor: 2000000,
+    dailyUserTurns: 50,
+    outputPerTurn: 1000,
+    sessionCount: 3,
+    topSharePct: 50,
+    failureRatioPct: 1,
+    global: {},
+    toolCallsPerTurn: 1,
+    dailyCommitCount: 2,
+    qualityP50: { toolCallsPerTurn: 1, dailyCommitCount: 1 }
+  };
+  const lock = {
+    route: null,
+    routeReasons: null,
+    throughStage: EVOLVE_TREE.stages[EVOLVE_TREE.stages.length - 1].id,
+    random: false
+  };
+  const rookies = raw.nodes.filter((n) => n.stage === 'child').map((n) => n.id).slice(0, 40);
+  assert.ok(rookies.length > 0);
+  for (const rookie of rookies) {
+    const a = selectRoute('2026-11-11', rookie, withQuality, ctx, lock).route;
+    const b = selectRoute('2026-11-11', rookie, withoutQuality, ctx, lock).route;
+    assert.deepStrictEqual(a, b, `route for ${rookie}`);
+  }
+});
+
+test('gate weighting constants still give 8 for a met condition and 1 for an unconditional edge', (t) => {
+  const graph = qualityFixtureGraph(t);
+  const ctx = { sessionCount: 5, toolCallsPerTurn: 0, qualityP50: { toolCallsPerTurn: null, dailyCommitCount: null } };
+  const weights = Object.fromEntries(weightsOf(candidatesFor(graph.byId.get('parent'), ctx, graph.childrenOf)));
+  assert.strictEqual(weights.session, 8);
+  assert.strictEqual(weights.plain, 1);
+});
+
+test('real graph: quality edges are capped, one per parent, on parents with fan-out >= 4, alternating axes', () => {
+  const graph = JSON.parse(fs.readFileSync(graphFilePath(), 'utf8'));
+  const audit = auditQualityEdges(graph);
+  assert.strictEqual(QUALITY_EDGE_CAP, 111);
+  assert.deepStrictEqual(audit.violations, []);
+  assert.ok(audit.count > 0 && audit.count <= 111);
+  assert.ok(audit.perAxis.toolCallsPerTurn > 0 && audit.perAxis.dailyCommitCount > 0);
+});
+
+test('validateGraph flags a quality axis nested in all/any or with a gte that is neither p50 nor a number', (t) => {
+  const { root } = makeRoot(t);
+  const graphPath = path.join(root, 'graph.json');
+  fs.writeFileSync(graphPath, JSON.stringify({ version: '1.0.0', nodes: [
+    { id: 'parent', name: 'parent', stage: 'baby', sprite: 'parent', evolvesFrom: [] },
+    qualityChild('nested', { all: [{ type: 'toolCallsPerTurn', gte: 'p50' }] }),
+    qualityChild('badgte', { type: 'dailyCommitCount', gte: 'high' }),
+    qualityChild('fine', { type: 'dailyCommitCount', gte: 'p50' })
+  ] }));
+  const flagged = validateGraph(readGraph(graphPath))
+    .filter((v) => v.rule === 'quality-condition-shape')
+    .map((v) => v.node)
+    .sort();
+  assert.deepStrictEqual(flagged, ['badgte', 'nested']);
+});

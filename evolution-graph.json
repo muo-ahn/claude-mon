@@ -137,7 +137,10 @@
       "evolvesFrom": [
         {
           "from": "koromon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -877,7 +880,10 @@
         },
         {
           "from": "infermon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -983,6 +989,10 @@
         },
         {
           "from": "darkdramon",
+          "when": null
+        },
+        {
+          "from": "mugendramon",
           "when": null
         }
       ]
@@ -1093,6 +1103,18 @@
         {
           "from": "diablomon",
           "when": null
+        },
+        {
+          "from": "metalseadramon",
+          "when": null
+        },
+        {
+          "from": "mugendramon",
+          "when": null
+        },
+        {
+          "from": "piemon",
+          "when": null
         }
       ]
     },
@@ -1144,23 +1166,38 @@
       "evolvesFrom": [
         {
           "from": "airdramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "aquilamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "birdramon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "seadramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "tyranomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1176,11 +1213,17 @@
         },
         {
           "from": "tokomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "wanyamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1192,39 +1235,66 @@
       "evolvesFrom": [
         {
           "from": "agumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "betamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "falcomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "gottsumon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "guilmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "impmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "patamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "piyomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "tentomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "agumon_2006animeversion",
@@ -1252,7 +1322,10 @@
         },
         {
           "from": "tanemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1264,7 +1337,10 @@
       "evolvesFrom": [
         {
           "from": "weregarurumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1276,7 +1352,10 @@
       "evolvesFrom": [
         {
           "from": "metalgreymon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1288,7 +1367,10 @@
       "evolvesFrom": [
         {
           "from": "lilamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1300,7 +1382,10 @@
       "evolvesFrom": [
         {
           "from": "marindevimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1316,7 +1401,10 @@
         },
         {
           "from": "mermaimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1328,7 +1416,10 @@
       "evolvesFrom": [
         {
           "from": "mummymon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1340,7 +1431,10 @@
       "evolvesFrom": [
         {
           "from": "jyureimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1356,7 +1450,10 @@
         },
         {
           "from": "insekimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "superstarmon",
@@ -1392,19 +1489,31 @@
         },
         {
           "from": "armadimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "gabumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "gaomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "hawkmon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "impmon",
@@ -1416,7 +1525,10 @@
         },
         {
           "from": "picodevimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "piyomon",
@@ -1424,11 +1536,17 @@
         },
         {
           "from": "plotmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "terriermon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "pawnchessmon_white",
@@ -1436,11 +1554,17 @@
         },
         {
           "from": "floramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "palmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1532,7 +1656,10 @@
         },
         {
           "from": "grappuleomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1548,11 +1675,17 @@
         },
         {
           "from": "bearmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "dorumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "falcomon",
@@ -1572,7 +1705,10 @@
         },
         {
           "from": "lalamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "patamon",
@@ -1584,7 +1720,10 @@
         },
         {
           "from": "toyagumon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "palmon",
@@ -1604,7 +1743,10 @@
         },
         {
           "from": "gummymon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "tokomon",
@@ -1612,7 +1754,10 @@
         },
         {
           "from": "caprimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1648,7 +1793,10 @@
       "evolvesFrom": [
         {
           "from": "bakumon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "falcomon",
@@ -1656,11 +1804,17 @@
         },
         {
           "from": "goburimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "hagurumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "impmon",
@@ -1668,11 +1822,17 @@
         },
         {
           "from": "kamemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "keramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "lalamon",
@@ -1692,7 +1852,10 @@
         },
         {
           "from": "yukiagumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1720,7 +1883,10 @@
       "evolvesFrom": [
         {
           "from": "chimairamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "grappuleomon",
@@ -1728,7 +1894,10 @@
         },
         {
           "from": "machgaogamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "pandamon",
@@ -1736,7 +1905,10 @@
         },
         {
           "from": "taomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "weregarurumon",
@@ -1752,7 +1924,10 @@
       "evolvesFrom": [
         {
           "from": "blossomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "matadrmon",
@@ -1760,7 +1935,10 @@
         },
         {
           "from": "megalogrowlmon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "shawujinmon",
@@ -1776,11 +1954,17 @@
         },
         {
           "from": "myotismon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "yatagaramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1844,23 +2028,38 @@
       "evolvesFrom": [
         {
           "from": "guardromon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "icemon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "starmon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "thunderballmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "wizarmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1916,27 +2115,45 @@
       "evolvesFrom": [
         {
           "from": "bakemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "gawappamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "kiwimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "peckmon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "redvegimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "reppamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "snimon",
@@ -1948,11 +2165,17 @@
         },
         {
           "from": "togemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "vegimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "zassoumon",
@@ -1968,7 +2191,10 @@
       "evolvesFrom": [
         {
           "from": "hangyomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "metalgreymon",
@@ -1980,7 +2206,10 @@
         },
         {
           "from": "zudomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -1996,7 +2225,10 @@
         },
         {
           "from": "gekomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "tortamon",
@@ -2080,7 +2312,10 @@
       "evolvesFrom": [
         {
           "from": "angemon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "aquilamon",
@@ -2096,19 +2331,31 @@
         },
         {
           "from": "darktyranomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "devimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "garurumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "greymon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "guardromon",
@@ -2116,19 +2363,31 @@
         },
         {
           "from": "kabuterimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "kuwagamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "orgemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "rukamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "scumon",
@@ -2192,11 +2451,17 @@
       "evolvesFrom": [
         {
           "from": "gaogamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "icedevimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -2228,7 +2493,10 @@
         },
         {
           "from": "flarelizamon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "guardromon",
@@ -2244,7 +2512,10 @@
         },
         {
           "from": "saberdramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -2308,7 +2579,10 @@
         },
         {
           "from": "gizamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "guilmon",
@@ -2336,7 +2610,10 @@
         },
         {
           "from": "dorugamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "flarelizamon",
@@ -2348,7 +2625,10 @@
         },
         {
           "from": "gryzmon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "kiwimon",
@@ -2356,7 +2636,10 @@
         },
         {
           "from": "leomon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "peckmon",
@@ -2384,7 +2667,10 @@
       "evolvesFrom": [
         {
           "from": "dagomon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "fantomon",
@@ -2392,11 +2678,17 @@
         },
         {
           "from": "garudamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "gerbemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "infermon",
@@ -2416,7 +2708,10 @@
         },
         {
           "from": "megaseadramon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "megalogrowlmon",
@@ -2428,7 +2723,10 @@
         },
         {
           "from": "rizegreymon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "myotismon",
@@ -2436,7 +2734,10 @@
         },
         {
           "from": "waruseadramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "weregarurumon",
@@ -2532,7 +2833,10 @@
         },
         {
           "from": "koemon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "dotagumon",
@@ -2624,7 +2928,10 @@
         },
         {
           "from": "gigimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "wanyamon",
@@ -2712,7 +3019,10 @@
       "evolvesFrom": [
         {
           "from": "gigadramon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "grappuleomon",
@@ -2868,7 +3178,10 @@
         },
         {
           "from": "renamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "toyagumon",
@@ -2960,7 +3273,10 @@
         },
         {
           "from": "ikkakumon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "saberdramon",
@@ -3040,7 +3356,10 @@
         },
         {
           "from": "geogreymon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "guardromon",
@@ -3145,7 +3464,10 @@
         },
         {
           "from": "growlmon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "guardromon",
@@ -3161,7 +3483,10 @@
         },
         {
           "from": "kyubimon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "seadramon",
@@ -3453,7 +3778,10 @@
         },
         {
           "from": "delumon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "garudamon",
@@ -3733,7 +4061,10 @@
       "evolvesFrom": [
         {
           "from": "gomamon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "gottsumon",
@@ -4093,7 +4424,10 @@
       "evolvesFrom": [
         {
           "from": "alraumon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "bearmon",
@@ -4329,7 +4663,10 @@
         },
         {
           "from": "ganimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         },
         {
           "from": "gaomon",
@@ -4457,7 +4794,10 @@
         },
         {
           "from": "tailmon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "vegimon",
@@ -4537,7 +4877,10 @@
         },
         {
           "from": "lilimon",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },
@@ -4749,7 +5092,10 @@
         },
         {
           "from": "karatukinumemon",
-          "when": null
+          "when": {
+            "type": "toolCallsPerTurn",
+            "gte": "p50"
+          }
         },
         {
           "from": "peckmon",
@@ -7311,6 +7657,10 @@
         {
           "from": "moonmillenniumon",
           "when": null
+        },
+        {
+          "from": "mugendramon",
+          "when": null
         }
       ]
     },
@@ -7526,7 +7876,10 @@
       "evolvesFrom": [
         {
           "from": "digitama",
-          "when": null
+          "when": {
+            "type": "dailyCommitCount",
+            "gte": "p50"
+          }
         }
       ]
     },

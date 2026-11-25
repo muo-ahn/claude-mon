@@ -2,7 +2,7 @@
 // Usage: node daily-tokens.js
 //
 // Aggregates today's (KST, midnight-reset) output token usage across all
-// Claude Code transcripts under ~/.claude/projects (or $CLAUDEMON_PROJECTS_DIR),
+// Claude Code transcripts and Codex rollout logs (see README for paths),
 // maps the total to an evolution-tree.json stage, and writes the result to
 // $CLAUDEMON_DIR/daily.json:
 //   { "dateKST": "YYYY-MM-DD", "outputTokens": <int>, "stageId": "<stage>",

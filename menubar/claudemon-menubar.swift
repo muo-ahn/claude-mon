@@ -464,6 +464,11 @@ let orphanSessionThreshold: TimeInterval = 10 * 60
 // the global state; .idle is the correct "nothing to see here" bucket.
 let abandonedWaitThreshold: TimeInterval = 60 * 60
 
+// Codex questions are asynchronous and send no banner, and people often answer
+// them hours later, so they stay "waiting for input" longer than Claude's.
+// 24h matches the point where a Codex session drops off the list.
+let codexAbandonedWaitThreshold: TimeInterval = 24 * 60 * 60
+
 // How long a `.dead` session keeps a row in the dropdown/--dump-state list
 // after its file stopped being touched, so "it just ended" is visible for
 // a moment instead of the row disappearing the instant the pid exits.
@@ -498,12 +503,27 @@ func pidIsAlive(_ pid: Int?) -> Bool {
 //      before working), unless it has been sitting for longer than
 //      abandonedWaitThreshold, in which case the user is presumed to have
 //      left and it demotes to idle instead
+//      Codex sessions (no pid) use the same field for async user questions;
+//      one left unanswered past codexAbandonedWaitThreshold (24h) falls through to 4-6 below
+//      since Codex may keep working while the question sits.
 //   4. working == true but stale (mtime older than orphanSessionThreshold)
 //      -> stalled (reported working from a session that stopped updating)
 //   5. working == true and fresh -> working
 //   6. otherwise -> idle
 func projectState(_ entry: SessionEntry, now: Date = Date()) -> SessionState {
     if let ended = entry.json["endedAt"] as? String, !ended.isEmpty { return .dead }
+    if entry.json["provider"] as? String == "codex" {
+        guard let updated = entry.json["updatedAt"] as? String,
+              let timestamp = parseISO8601(updated),
+              now.timeIntervalSince(timestamp) < 24 * 3600 else { return .dead }
+        if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty,
+           let awaitingSince = parseISO8601(awaiting),
+           now.timeIntervalSince(awaitingSince) <= codexAbandonedWaitThreshold { return .waitingUser }
+        if workingFieldPresent(entry.json) == true {
+            return now.timeIntervalSince(timestamp) > orphanSessionThreshold ? .stalled : .working
+        }
+        return .idle
+    }
     guard let pid = entry.json["pid"] as? Int, pidIsAlive(pid) else { return .dead }
     if let awaiting = entry.json["awaitingUserSince"] as? String, !awaiting.isEmpty {
         if let awaitingSince = parseISO8601(awaiting), now.timeIntervalSince(awaitingSince) > abandonedWaitThreshold {
@@ -696,6 +716,33 @@ func readDailyState() -> (stageId: String, outputTokens: Int, dateKST: String?, 
     return (stageId, tokens, dateKST, mon, sessionTokens, route, terminalFrom, routeReasons)
 }
 
+// MARK: - Dex (도감)
+
+// The optional "dex" block lib/daily.js writes into daily.json: found/total
+// (N/M), today's first finds, and an optional hint sentence. Read on its own
+// so readDailyState's tuple and its three call sites stay unchanged.
+struct DexStatus {
+    let found: Int
+    let total: Int
+    let newToday: [String]
+    let hint: String?
+}
+
+// Returns nil (display nothing) when the block is missing or malformed.
+// intValue gives 0 for a missing key, so total == 0 also means "no dex".
+func readDexState() -> DexStatus? {
+    guard let data = FileManager.default.contents(atPath: dailyStateFile),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let dex = json["dex"] as? [String: Any]
+    else { return nil }
+    let total = intValue(dex["total"])
+    guard total > 0 else { return nil }
+    return DexStatus(found: intValue(dex["found"]),
+                     total: total,
+                     newToday: dex["newToday"] as? [String] ?? [],
+                     hint: dex["hint"] as? String)
+}
+
 // Resolves which pack directory should actually be used for a requested
 // mon: the requested pack if it has at least a first idle frame on disk,
 // otherwise the guilmon pack. Pure filesystem check (no NSImage decoding),
@@ -750,7 +797,9 @@ func scanSessions(dir: String) -> [SessionEntry] {
         guard let data = FileManager.default.contents(atPath: path),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { continue }
-        let mtime = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        let fileMtime = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        let mtime = (json["provider"] as? String == "codex")
+            ? (json["updatedAt"] as? String).flatMap { parseISO8601($0) } : fileMtime
         result.append(SessionEntry(path: path, json: json, mtime: mtime))
     }
     return result
@@ -880,12 +929,21 @@ func dumpState() {
         }
     }
 
+    // Dex (도감): printed only when the daily.json block is present.
+    if let dex = readDexState() {
+        print("dex: \(dex.found)/\(dex.total)")
+        if !dex.newToday.isEmpty { print("dexNew: \(dex.newToday.joined(separator: ", "))") }
+        if let hint = dex.hint { print("dexHint: \(hint)") }
+    }
+
     for (entry, sessState) in orderedSessionStates(sessions: sessions) {
         let json = entry.json
         let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
         let fullSid = json["sessionId"] as? String ?? ""
-        let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
-        print("session \(sid) \(sessState.rawValue) \(project)")
+        let displaySid = fullSid.hasPrefix("codex-") ? String(fullSid.dropFirst(6)) : fullSid
+        let sid = displaySid.isEmpty ? "--------" : String(displaySid.prefix(8))
+        let provider = json["provider"] as? String ?? "claude"
+        print("session \(sid) \(sessState.rawValue) \(project) \(provider)")
     }
 }
 
@@ -1593,6 +1651,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Route reasons explaining why each stage was chosen (from lib/daily.js).
     // nil means the field is absent (pre-route-reasons daily.json).
     var currentRouteReasons: [String: [String: Any]]? = nil
+    // Dex status for the menu (도감 N/M, new finds, hint). nil shows nothing.
+    var currentDex: DexStatus? = nil
     var currentRoute: [String: [String: String]] = [:]
     var workingSessionCount = 0
     var currentLimitLevel: String? = nil
@@ -1634,6 +1694,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentTerminalFrom = daily.terminalFrom
         dailyOutputTokens = daily.outputTokens
         currentRouteReasons = daily.routeReasons
+        currentDex = readDexState()
         currentRoute = daily.route
         _ = applyRoute(daily.route, mon: daily.mon)
         switchMonIfNeeded(daily.mon)
@@ -2042,6 +2103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         dailyOutputTokens = daily.outputTokens
         sessionTokens = daily.sessionTokens
         currentRouteReasons = daily.routeReasons
+        currentDex = readDexState()
         currentRoute = daily.route
         switchMonIfNeeded(daily.mon, routeChanged: applyRoute(daily.route, mon: daily.mon))
 
@@ -2386,12 +2448,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func focusedSessionLabel() -> String {
         if let sessionId = focusedSessionState["sessionId"] as? String, !sessionId.isEmpty {
+            let displayId = sessionId.hasPrefix("codex-") ? String(sessionId.dropFirst(6)) : sessionId
             // Project name makes the row human-verifiable at a glance; the
             // raw id alone is meaningless to the person reading the menu.
             if let cwd = focusedSessionState["cwd"] as? String, !cwd.isEmpty {
-                return "세션 \(sessionId.prefix(8)) · \((cwd as NSString).lastPathComponent)"
+                return "세션 \(displayId.prefix(8)) · \((cwd as NSString).lastPathComponent)"
             }
-            return "세션 \(sessionId.prefix(8))"
+            return "세션 \(displayId.prefix(8))"
         }
         if let cwd = focusedSessionState["cwd"] as? String, !cwd.isEmpty {
             return "세션 \((cwd as NSString).lastPathComponent)"
@@ -2407,6 +2470,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func focusedSessionLine() -> String {
         if focusedUnregistered {
             return "새 세션 — 미등록"
+        }
+        if focusedSessionState["provider"] as? String == "codex" {
+            return "Codex · \(focusedSessionLabel()) — 기록 기반"
         }
         let ok = focusedSessionState["toolSuccessCount"] as? Int ?? 0
         let fail = focusedSessionState["toolFailureCount"] as? Int ?? 0
@@ -2424,11 +2490,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let json = entry.json
             let project = ((json["cwd"] as? String).flatMap { $0.isEmpty ? nil : ($0 as NSString).lastPathComponent }) ?? "?"
             let fullSid = json["sessionId"] as? String ?? ""
-            let sid = fullSid.isEmpty ? "--------" : String(fullSid.prefix(8))
+            let displaySid = fullSid.hasPrefix("codex-") ? String(fullSid.dropFirst(6)) : fullSid
+            let sid = displaySid.isEmpty ? "--------" : String(displaySid.prefix(8))
+            let provider = json["provider"] as? String ?? "claude"
             let focused = !focusedLastResolvedPath.isEmpty && entry.path == focusedLastResolvedPath
             let status = sessionStatusLabel(state, json: json)
             let tokens = sessionTokens[fullSid] ?? 0
-            lines.append("\(focused ? "▶" : "  ") \(project) · \(status) · \(formatTokenCount(tokens)) tok · \(sid)")
+            lines.append("\(focused ? "▶" : "  ") \(project) · \(provider) · \(status) · \(formatTokenCount(tokens)) tok · \(sid)")
         }
         return lines
     }
@@ -2509,6 +2577,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let reasonLine = formatRouteReason(stageId: stageId, reason: reasons[stageId], route: currentRoute) {
                     menu.addItem(withTitle: reasonLine, action: nil, keyEquivalent: "")
                 }
+            }
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // Dex (도감): N/M, today's first finds (3 names, then "외 N"), and a hint.
+        // Menu rows only; no macOS notification for new finds.
+        if let dex = currentDex {
+            menu.addItem(withTitle: "도감 \(dex.found)/\(dex.total)", action: nil, keyEquivalent: "")
+            if !dex.newToday.isEmpty {
+                let shown = dex.newToday.prefix(3).joined(separator: ", ")
+                let rest = dex.newToday.count - min(3, dex.newToday.count)
+                let more = rest > 0 ? " 외 \(rest)" : ""
+                menu.addItem(withTitle: "오늘 신규: \(shown)\(more)", action: nil, keyEquivalent: "")
+            }
+            if let hint = dex.hint, !hint.isEmpty {
+                menu.addItem(withTitle: "힌트: \(hint)", action: nil, keyEquivalent: "")
             }
             menu.addItem(NSMenuItem.separator())
         }

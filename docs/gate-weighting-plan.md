@@ -137,3 +137,9 @@ node --test        # 골든 갱신 필요 (위험 #1)
 - 완전체 종점 4건 → `terminal-gaps-plan.md`
 - 조건 축 확대 (§3 에서 기각)
 - 새 조건부 엣지 데이터 추가 (별개 작업)
+  <!-- 개정 (2026-11-11, D-3/D-10/D-14, C6): 위 두 줄의 기각 범위를 좁힌다.
+       기각 대상은 "갈래 결정용 조건 축 증설"이다. 확률 기울임용 질 지표 축은 기각 범위 밖이다.
+       질 지표 축 2개(toolCallsPerTurn, dailyCommitCount)를 추가하되 가중치(8 대 1)에만 쓰고,
+       갈래 결정에는 쓰지 않는다. 적용은 fan-out ≥ 4 부모 중 111개(실측 117개 중 상위 111개)에
+       부모당 when:null 엣지 1개씩이다. 두 축 이외에는 추가하지 않는다.
+       scripts/add-quality-conditions.js 가 결정적으로 배정하고 scripts/audit-canon-edges.js --quality 가 검사한다. -->

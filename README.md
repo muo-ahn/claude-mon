@@ -2,7 +2,7 @@
 
 > **도트 이미지가 레포에 포함된다.** 클론 직후 `node scripts/materialize-sprites.js --write` 한 번이면 팩이 채워진다 — 아래 [스프라이트 팩](#스프라이트-팩-spritespacks) 참고. 도트의 출처와 저작권은 [에셋 출처](#에셋-출처)를 읽어라.
 
-그날 사용한 토큰량에 따라 성장·진화하는 Claude Code 마스코트. statusline과 macOS 메뉴바 앱 두 곳에서 렌더링된다. 스프라이트는 팩(pack) 단위로 교체·확장할 수 있다.
+그날 사용한 토큰량에 따라 성장·진화하는 Claude Code와 Codex 마스코트. statusline과 macOS 메뉴바 앱 두 곳에서 렌더링된다. 스프라이트는 팩(pack) 단위로 교체·확장할 수 있다.
 
 ## 설치
 
@@ -188,10 +188,12 @@ Node 내장 러너만 쓴다 (의존성 없음, `package.json`도 없다). 현�
 | child → adult | 오늘 output 토큰 ≥ 100,000 |
 | adult → perfect | 오늘 output 토큰 ≥ 300,000 |
 | perfect → ultimate | 오늘 output 토큰 ≥ 1,000,000 |
-| ultimate → superultimate | 오늘 output 토큰 ≥ 2,000,000 |
+| ultimate → superultimate | 오늘 output 토큰 ≥ max(2,000,000, 최근 14일 P90) |
 
 - 매일 KST 자정에 합계가 0으로 리셋된다(고정 오프셋 UTC+9, DST 없음).
-- `superultimate`(초궁극체, 2M) 임계값은 실측으로 정했다. 집계를 고친 뒤 16일치를 재계산했을 때 1M+는 4일, 2M+는 1일(최고 2.75M)이었다 — 1M이 4일에 한 번꼴이 되면서 궁극체의 희소성이 사라진 자리를 메우는 단계다.
+- `superultimate`(초궁극체) 기준은 고정값이 아니라 상대값이다. 하한은 2,000,000이고, 오늘을 뺀 최근 14일 일별 output 토큰 합계(Claude + Codex)의 nearest-rank P90이 그보다 크면 그 값이 기준이 된다. 기록이 14일 미만이면 2,000,000이다. 토큰 총량이 늘어도 기준이 같이 올라가서, 최상위가 매일 쉽게 열리지 않게 하려는 장치다.
+- 일별 합계 기록은 `~/.claude/claudemon/token-history.json`(`{version, entries:[{date, outputTokens}]}`)에 남는다. 최대 30일 링버퍼이고, 같은 날 여러 번 폴링되면 마지막 값으로 덮어쓴다. 과거 transcript에서 소급 계산하지 않으므로, 기록은 앱(메뉴바 또는 훅)이 폴링하며 돌아간 날에만 쌓인다. 앱이 꺼진 날은 기록되지 않아 14일 수에서 빠진다.
+- 상대 기준은 조건에 `"relative": true`를 붙여 쓴다(`{ "type": "dailyOutputTokens", "gte": 2000000, "relative": true }`). `gte`는 하한으로 남고, 실제 기준은 `max(gte, 오늘의 P90 기준)`이다. `relative`가 없는 `dailyOutputTokens` 조건은 기존처럼 `gte`만 본다. 커스텀 팩에서도 같은 방식으로 쓸 수 있다.
 - **최상위 단계에 도달하지 못하는 팩은 로테이션 후보에서 빠진다 — 단, 계보가 그보다 아래에서 끝나는 종점 라인은 예외다(D7).** 전역 그래프(`evolution-graph.json`)에서 종점은 "다음 칸의 노드 중 나를 부모(`evolvesFrom`)로 지목한 것이 없음"으로 파생된다. 종점에 닿은 라인은 그 스테이지에서 머무는 것 자체가 "도달"이라 로테이션에서 빠지지 않는다.
 - `errorRatePct`/`consecutiveDaysActive`/`milestone`/`toolSuccessCount`/`globalToolSuccessCount` 조건 타입은 커스텀 팩 호환을 위해 `lib/evolve.js`에 남아있지만 기본 `evolution-tree.json`에서는 `dailyOutputTokens`만 사용한다.
 - `evolution-tree.json`의 `regression` 블록은 제거되었다 — 일일 리셋 자체가 퇴화 역할을 대신한다.
@@ -321,11 +323,22 @@ node daily-tokens.js
 - **관찰용이다.** `selectMon`의 `avoidMon` 가드는 이 파일이 아니라 여전히 `daily.json`의 `prevMon`만 본다 — 셔플 덱으로 바꾼 뒤 실제 등장 빈도가 고르게 나오는지 사후 확인하려는 용도로만 쓴다.
 - 쓰기 최소화: 30초 폴링마다 호출되지만, 마지막 항목의 날짜·팩이 이번 것과 둘 다 같으면 파일 I/O 자체를 하지 않는다. 날짜는 같은데 팩만 다르면(수동으로 `daily.json`의 `mon`을 바꿔치기한 경우) 새 행을 추가하는 대신 마지막 항목을 제자리에서 갱신한다. 파일이 없거나 손상됐거나 `version`이 다르면 조용히 빈 이력으로 취급한다(`daily.json`/캐시와 동일한 degrade 정책). 이력 쓰기가 실패해도 `daily.json` 갱신이나 30초 폴링 루프에는 영향이 없다.
 
+### `dex.json` (도감)
+
+- 위치: `$CLAUDEMON_DIR/dex.json`(기본 `~/.claude/claudemon/dex.json`). 오늘의 경로가 확정된 뒤 `computeDailyTokens`가 기록한다.
+- 형식: `{ "version": 1, "nodes": { "<노드 id>": "2026-11-11" }, "days": { "2026-11-11": ["<노드 id>", ...] } }`. `nodes`는 노드별 첫 발견일이고 한 번 적으면 바뀌지 않는다. `days`는 날짜별 하루 경로이고 같은 날짜 항목은 덮어써서 날짜당 하나만 남는다.
+- 상한 없이 영구 누적한다. `mon-history.json`의 60개 링버퍼와는 별개다.
+- 메뉴바에 `도감 N/M`(N: 발견한 노드 수, M: 덱에서 도달 가능한 노드 수, 제외 목록 노드는 뺌), `오늘 신규` 줄, `힌트: <노드> ← <부모>: <조건>` 줄로 보인다. `daily.json`의 선택 필드 `dex`(`found`, `total`, `newToday`, `hint`)로 전달된다. 새 발견을 알림으로 보내지는 않는다.
+- 한계: 실제 추첨은 단계에 도달한 순간의 상태로 하므로 M은 "모든 조건이 열릴 수 있다"고 본 도달 집합이고, N은 실제 경로에 확정된 노드만 센다. 그래서 N이 M보다 늦게 차오를 수 있다.
+- 쓰기 실패는 `daily.json` 갱신과 30초 폴링에 영향을 주지 않는다. `dex.json`이 없거나 손상됐으면 빈 도감으로 시작한다.
+
 ## 스프라이트 팩 (`sprites/packs/`)
 
-**도트 이미지가 레포에 들어있다.** 커밋되는 것은 정본뿐이다 — 전역 그래프 노드 도트 `sprites/nodes/`(750장), 공용 알 `sprites/shared/`, 그리고 `sprites/nodes/`로 재생성할 수 없는 팩 전용 도트(`pack.json`의 레거시 `tree`가 쓰는 스테이지 프레임, `idle-*`/`limit80-*`/`limit95-*` 오버라이드, `portrait-*` 컷인).
+**도트 이미지가 레포에 들어있다.** 커밋되는 것은 정본뿐이다 — 전역 그래프 노드 도트 `sprites/nodes/`(1024장: 노드 프레임 711장과 `portrait-*` 313장), 공용 알 `sprites/shared/`, 그리고 `sprites/nodes/`로 재생성할 수 없는 팩 전용 도트(`pack.json`의 레거시 `tree`가 쓰는 스테이지 프레임, `idle-*`/`limit80-*`/`limit95-*` 오버라이드, `portrait-*` 컷인).
 
 `sprites/packs/` 안의 나머지 `<노드 id>-N.png`는 `scripts/materialize-sprites.js`가 `sprites/nodes/`에서 복사한 산출물이라 커밋하지 않는다(`.gitignore`가 `*.png`/`*.gif`를 차단하고 `sprites/nodes/`·`sprites/shared/`만 예외로 뺀다). 노드 id와 팩 역할 이름이 접두를 공유하기 때문에(예: 노드 id `ultimate-chaosdukemon`) glob으로는 둘을 가를 수 없다 — 그래서 **팩 전용 도트를 새로 추가할 때는 `git add -f`가 필요하다.** 이미 추적 중인 파일은 영향을 받지 않는다.
+
+성장기 덱에 child 를 추가할 때는 `node scripts/audit-deck-candidates.js`로 후보(도트, 최상위 도달, 제외 목록, baby 부모)와 신규 목록을 보고, `node scripts/add-deck-packs.js --write`로 신규 팩(`idle-0/1.png`, `pack.json`)을 만든 뒤 `node scripts/materialize-sprites.js --write`를 실행한다. 만든 `idle-*.png`는 `git add -f`가 필요하다.
 
 ROM 립 원본 시트(`sprites/sheets/`)도 커밋하지 않는다. 자작 픽셀아트나 별도 라이선스 에셋으로 팩을 갈아끼우고 싶다면 아래 규격만 맞추면 된다.
 
@@ -358,6 +371,7 @@ ROM 립 원본 시트(`sprites/sheets/`)도 커밋하지 않는다. 자작 픽�
 - **알(digitama)은 종족 무관이라 팩마다 따로 그릴 필요가 없다.** `sprites/shared/digitama-0.png`가 있으면 메뉴바 앱과 `lib/daily.js`의 로테이션 후보 판정 둘 다 그 공용 스프라이트를 우선 사용하고, 팩 자체의 `digitama-0.png`는 공용 파일이 없을 때만 쓰이는 폴백이다 (`scripts/make_shared_digitama.py` 참고).
 - `idle-0.png`가 있어야 메뉴바 앱이 실제로 그 팩으로 **전환**한다 (없으면 전환을 건너뛰고 이전 팩을 유지). **로테이션 후보 등록**도 같은 조건을 요구한다 — `idle-0.png`가 없는 디렉터리를 후보로 뽑아봐야 화면은 어제 몬 그대로이므로, `lib/daily.js`의 `listValidPacks`는 `idle-0.png` + digitama(공용 또는 팩 자체)를 둘 다 확인한다.
 - `.`으로 시작하는 디렉터리는 후보에서 제외된다. `sprites/packs/`는 평범한 디렉터리라 무관한 도구가 상태 파일을 남길 수 있는데(`.omc/state`), 그런 디렉터리가 후보에 끼면 이름순 정렬에서 뒤 팩들의 인덱스를 통째로 밀어 로테이션이 어긋난다.
+- **제외 목록**(`sprites/nodes-denylist.json`)에 든 노드 id는 팩 후보(`listValidPacks`, `listRotationPacks`)에서도 추첨 후보(`linksWithDots`)에서도 빠진다. 도트 파일은 지우지 않는다. 형식은 `{"version": 1, "nodes": {"<노드 id>": "<사유>"}}`이고, 사유가 빈 문자열이거나 문자열이 아니면 그 항목은 무시한다. 파일이 없거나 깨지면 빈 목록으로 보고 경고 없이 진행한다. 편집할 때는 `nodes`에 항목을 넣거나 빼고 사유를 적는다. 후보는 `node scripts/audit-node-dots.js --suspects`로 stdout에만 나온다. 자동으로 목록에 넣지 않으며, "다른 종처럼 보임" 같은 판정은 사람이 한다. 목록이 바뀌면 덱 입력이 달라져 날짜별 오늘의 몬이 바뀔 수 있다.
 - 진화 단계 프레임이 비어 있으면 **바로 아래 단계의 프레임**을 물려받는다(예: `superultimate` 도트를 아직 안 넣었으면 `ultimate` 도트로 표시). 아래로 내려가도 아무 것도 없으면 마지막 폴백이 `idle`이다. 알(`digitama`)은 종족 무관 공용 스프라이트라 위 단계의 폴백원이 되지 않는다 — 예전에는 모든 미보유 단계가 곧바로 `idle`로 폴백했는데, 그러면 새 단계를 트리에 먼저 추가한 순간 진화하자마자 성장기로 *퇴화한 것처럼* 보였다. `limit80`/`limit95`가 없으면 사용량이 높아도 현재 단계 프레임을 그대로 쓴다.
 
 ### 로테이션 후보 요건
@@ -379,7 +393,7 @@ ROM 립 원본 시트(`sprites/sheets/`)도 커밋하지 않는다. 자작 픽�
 
 디지몬은 같은 종족이라도 성장 배경에 따라 다른 형태로 진화한다. claudemon도 하루 단위로 **루트**를 뽑는다 — 오늘의 마스코트는 (팩, 루트) 쌍이다.
 
-**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(314개, 2026-08-20 Wikimon `Digimon Story` 오버월드 립 235종 편입 이후)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
+**전역 진화 그래프는 `evolution-graph.json`에 있다.** 전체 노드(325개, 2026-08-20 Wikimon `Digimon Story` 오버월드 립 235종 편입 이후)가 단일 배열에 있고, 각 노드는 `{ id, name, stage, sprite, evolvesFrom: [{from, when}] }`다. **관계를 자식이 소유한다** — 부모가 `evolutions`로 내보내지 않고, 자식이 `evolvesFrom`으로 부모 목록을 받는다. `sprite`가 그대로 파일 prefix라서(노드 `id`가 prefix다) 프레임은 `sprites/nodes/<id>-0.png` 또는 `scripts/materialize-sprites.js`가 팩 디렉터리로 복사한 `<pack>/<id>-0.png`에서 읽는다.
 
 **`evolvesFrom`은 부모별로 조건을 갖는다.**
 
@@ -787,3 +801,11 @@ rm ~/.claude/claudemon/daily.json ~/.claude/claudemon/token-scan-cache.json
 - 프로토타입 단계다. 메뉴바 앱(`menubar/`)은 macOS 전용이며 직접 빌드해야 한다.
 - 진화는 output 토큰 총량 기준이라, 실제 코드 산출량이 아니라 대화가 길어져도 단계가 오른다.
 - `limit80`/`limit95` 오버라이드는 statusline HUD의 사용량 캐시에 의존하므로, 해당 데이터가 없으면 동작하지 않는다.
+
+### Codex 집계
+
+`daily-tokens.js`는 같은 30초 폴링에서 Codex rollout도 읽는다. 기본 경로는 `$CODEX_HOME/sessions`와 `$CODEX_HOME/archived_sessions`이며 `CODEX_HOME`이 없으면 `~/.codex`를 쓴다. 각각 `CLAUDEMON_CODEX_SESSIONS_DIR`, `CLAUDEMON_CODEX_ARCHIVED_DIR`로 바꿀 수 있고 없는 디렉터리는 무시한다. 하위 디렉터리도 검색하며 Codex 설정이나 훅을 수정할 필요가 없다.
+
+KST 날짜별 `token_usage_record`의 응답별 `usage.output_tokens`를 응답 ID로 중복 제거한다. `reasoning_output_tokens`는 output에 포함되어 별도로 더하지 않는다. 이전 형식의 `event_msg/token_count`는 누적 output 차이를 사용하며 첫 스냅샷은 `last_token_usage`가 있을 때만 그 값을 센다. 두 형식이 섞이면 thread 누적값의 구간을 대조해 겹치는 토큰을 한 번만 센다. 응답 기록에 누적값이 없으면 중복 방지를 위해 해당 응답 합계와 남은 이전 형식 합계 중 큰 값만 세므로 서로 다른 사용량이 일부 누락될 수 있다. 서브에이전트의 이전 형식 기록에 상속 경계가 없으면 중복 방지를 위해 해당 기록을 제외한다. 복사본과 상속된 응답은 한 번만 센다. 불완전한 마지막 줄은 완성될 때까지 보류하고, 날짜가 바뀌면 이전 기록을 다시 읽어 누적값 기준을 복원한다. `$CLAUDEMON_DIR/codex-scan-cache.json`에 증분 오프셋과 집계 메타데이터를 저장하며 대화 내용은 저장하지 않는다. 세션 키는 Claude와 충돌하지 않도록 `codex-` 접두어를 쓴다.
+
+Codex 세션 목록은 기록된 작업 시작·완료 이벤트와 cwd를 표시한다. PID와 터미널 포커스는 추정하지 않는다. Codex가 사용자에게 던진 질문(`request_user_input_async`)은 "입력 대기"로 표시하고 사용자 메시지가 기록되면 해제하며, 24시간 넘게 답이 없으면 기존 작업 중/오래됨/대기 판정으로 돌아간다. 권한 승인 요청은 rollout에 기록되지 않아 표시할 수 없고, Codex 쪽은 배너 알림을 보내지 않는다. 폴링이 30초 간격이라 그만큼 늦게 반영될 수 있다. 작업 중 기록이 10분 이상 갱신되지 않으면 오래된 상태로 표시한다. 종료 여부는 알 수 없고 마지막 기록 후 24시간이 지나면 목록에서 빠진다. 폴링 간격과 rollout 기록 지연 때문에 실시간 상태와 차이가 날 수 있다. 메인 세션의 기록된 작업 시작을 턴 수로 집계하며 서브에이전트의 턴은 제외한다. Codex 도구 성공·실패는 추정하지 않는다.
